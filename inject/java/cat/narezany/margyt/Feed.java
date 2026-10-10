@@ -28,9 +28,11 @@ public final class Feed {
 
     private Feed() {}
 
+    static void reloadSettings(){cached=null;}
     public static final String KEY = "hide_ads";
     public static final String KEY_LIVE = "hide_live";
     public static final String KEY_PHOTOS = "hide_photos";
+    public static final String KEY_STORIES="hide_stories",KEY_SUGGESTIONS="hide_suggestions";
 
     private static volatile Boolean cached;
 
@@ -38,10 +40,12 @@ public final class Feed {
         Boolean known = cached;
         if (known != null) return known;
         SharedPreferences prefs = prefs();
-        if (prefs == null) return false;  // too early to know; do not cache it
-        boolean on = false;
+        if (prefs == null) return true;  // too early to know; do not cache it
+        boolean on = true;
         try {
-            on = prefs.getBoolean(KEY, false);
+            if(!prefs.getBoolean("ads_enabled_v024",false))
+                prefs.edit().putBoolean(KEY,true).putBoolean("ads_enabled_v024",true).apply();
+            on = prefs.getBoolean(KEY, true);
         } catch (Throwable ignored) {
         }
         cached = on;
@@ -105,24 +109,45 @@ public final class Feed {
     }
 
     /** Whether this post is one the person asked not to see. */
-    private static boolean unwanted(Object item) {
+    private static boolean unwanted(Object item, boolean ads, boolean live, boolean photos) {
         if (!(item instanceof Aweme)) return false;
         Aweme post = (Aweme) item;
         if (mine(post)) return false;
-        // a patch gets the first word: an ad TikTok started marking some other
-        // way is exactly the sort of thing that should not need a new apk
-        Object mended = Patch.ask("feed", post);
-        if (mended instanceof Boolean) return ((Boolean) mended).booleanValue();
         try {
-            if (isEnabled() && post.isAd()) return true;
-            if (hides(KEY_LIVE) && isLive(post)) return true;
+            if (ads && advert(post)) return true;
+            if (live && isLive(post)) return true;
             if (isLive(post)) return false;   // a room is neither a photo nor a video
-            if (hides(KEY_PHOTOS) && isPhotos(post)) return true;
+            if (photos && isPhotos(post)) return true;
             if (Tags.blocks(post)) return true;
         } catch (Throwable ignored) {
         }
         return false;
     }
+
+    /** isAd() in 47.2.41 also requires awemeRawAd != null. The server's explicit
+     * _isAd flag must still exclude an ad while its payload is missing/loading.
+     * A raw-ad payload alone is deliberately insufficient for organic posts. */
+    static boolean advert(Object post){
+        if(!(post instanceof Aweme))return false;
+        return ((Aweme)post).isAd() || Boolean.TRUE.equals(NativeRead.field(post,"_isAd"));
+    }
+    /** Native getter/ingress hook: does not run plugins or other feed preferences twice. */
+    public static List withoutAds(List items){
+        if(items==null || !isEnabled())return items;
+        ArrayList kept=null;
+        for(int i=0;i<items.size();i++){
+            Object item=items.get(i);
+            Object post=item instanceof Aweme?item:NativeRead.get(item,"getAweme");
+            boolean card=!(item instanceof Aweme) && (NativeRead.get(item,"getPreciseAd")!=null || NativeRead.get(item,"getAiAdCard")!=null);
+            if(advert(post) || card){if(kept==null){kept=new ArrayList(items.size());kept.addAll(items.subList(0,i));}}
+            else if(kept!=null)kept.add(item);
+        }
+        return kept==null?items:kept;
+    }
+    public static List searchItems(com.ss.android.ugc.aweme.search.pages.result.topsearch.core.model.SearchMixFeedList page){
+        return page==null?null:withoutAds(page.mItems);
+    }
+    public static List rawItems(FeedItemList page){return page==null?null:withoutAds(page.items);}
 
     private static SharedPreferences prefs() {
         try {
@@ -134,8 +159,17 @@ public final class Feed {
         }
     }
 
+    /** A social repost card is not a suggested-account card. Preserve its native data. */
+    static boolean socialRepost(Object post){return NativeRead.get(post,"getUpvoteReason")!=null || NativeRead.get(post,"getUpvoteInfo")!=null || NativeRead.get(post,"getUpvotePreload")!=null;}
+    static boolean suggestion(Object post){
+        if(NativeRead.number(NativeRead.get(post,"getRecommendCardType"))<=0)return false;
+        if(socialRepost(post))return false;
+        return true;
+    }
+
     /** How many have been dropped since the process started, for the diary. */
     private static int dropped;
+    private static long reportedAt;
 
     // ------------------------------------------------ where the call lands
 
@@ -149,30 +183,44 @@ public final class Feed {
      */
     public static List getItems(FeedItemList page) {
         if (page == null) return null;
-        return without(page.getItems());
+        long probe = Probe.start();
+        List out = without(page.getItems());
+        Probe.stop(Probe.FEED, probe);
+        return out;
     }
 
     /** A page of posts without the ones nobody asked to see. */
     private static List without(List items) {
         if (items == null) return items;
-        if (!isEnabled() && !hides(KEY_LIVE) && !hides(KEY_PHOTOS)
-                && Tags.all().isEmpty() && Patch.running().length() == 0) {
+        boolean ads=isEnabled();SharedPreferences options=prefs();
+        boolean live=options!=null && options.getBoolean(KEY_LIVE,false);
+        boolean photos=options!=null && options.getBoolean(KEY_PHOTOS,false);
+        boolean stories=options!=null && options.getBoolean(KEY_STORIES,false);
+        boolean suggestions=options!=null && options.getBoolean(KEY_SUGGESTIONS,false);
+        boolean authors=!FeedBlacklist.items().isEmpty() || !FeedBlacklist.cards().isEmpty();
+        // a hashtag somebody blocked is a reason to look at the page too
+        boolean others=!Tags.all().isEmpty();
+        if (!ads && !live && !photos && !stories && !suggestions && !authors && !others) {
             return Plugins.feed(items);
         }
         try {
-            int out = 0;
-            for (Object item : items) {
-                if (unwanted(item)) out++;
+            int out=0,index=0;
+            List kept=null;
+            for(Object item:items) {
+                boolean extra=item instanceof Aweme && ((stories && !socialRepost(item) && Boolean.TRUE.equals(NativeRead.get(item,"getIsTikTokStory")))
+                        || (suggestions && suggestion(item))
+                        || (authors && FeedBlacklist.hides(item)));
+                if(extra || unwanted(item,ads,live,photos)) {
+                    if(kept==null){kept=new ArrayList(items.size());kept.addAll(items.subList(0,index));}
+                    out++;
+                } else if(kept!=null)kept.add(item);
+                index++;
             }
-            if (out == 0) return Plugins.feed(items);
-
-            List kept = new ArrayList(items.size() - out);
-            for (Object item : items) {
-                if (unwanted(item)) continue;
-                kept.add(item);
+            if(kept==null)return Plugins.feed(items);
+            synchronized(Feed.class) {
+                dropped+=out;long now=System.currentTimeMillis();
+                if(now-reportedAt>=1000L){reportedAt=now;Diary.note("feed: " + out + " left out, " + dropped + " so far");}
             }
-            dropped += out;
-            Diary.note("feed: " + out + " left out, " + dropped + " so far");
             return Plugins.feed(kept);
         } catch (Throwable error) {
             Diary.note("feed: leaving the page alone, " + error);

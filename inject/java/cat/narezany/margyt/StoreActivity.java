@@ -39,11 +39,15 @@ public class StoreActivity extends Activity {
     private LinearLayout column;
     private List<Plugin> offered = new ArrayList<Plugin>();
     private String trouble = "";
+    private String endpoint="";
+    private int generation;
+    private boolean loading;
+    private final java.util.concurrent.ThreadPoolExecutor icons=new java.util.concurrent.ThreadPoolExecutor(2,2,15,java.util.concurrent.TimeUnit.SECONDS,new java.util.concurrent.ArrayBlockingQueue<Runnable>(64),r->{Thread t=new Thread(r,"margyt-store-icon");t.setDaemon(true);return t;},new java.util.concurrent.ThreadPoolExecutor.DiscardPolicy());
 
     /** One plugin, as the store describes it. */
     private static final class Plugin {
         String id = "", name = "", version = "", author = "", about = "", tiktok = "";
-        String url = "", icon = "";
+        String url = "", icon = "", sha256="";
         long size;
     }
 
@@ -79,30 +83,42 @@ public class StoreActivity extends Activity {
     // ------------------------------------------------------------ the list
 
     private void fetch() {
+        endpoint=PluginCatalog.endpoint(this);
+        final int token=++generation;
+        icons.getQueue().clear();
+        final String catalog=endpoint;
+        if(catalog.isEmpty()){offered.clear();trouble="Каталог ещё не подключён";loading=false;rebuild();return;}
+        loading=true;
         Net.away("store", new Runnable() {
             @Override
             public void run() {
                 final List<Plugin> found = new ArrayList<Plugin>();
                 String trouble = "";
                 try {
-                    byte[] raw = Net.bytes(Badges.SERVER + "/plugins");
+                    byte[] raw = Net.bytes(catalog);
                     if (raw == null) {
                         trouble = Text.STORE_OFFLINE;
                     } else {
                         JSONArray list = new JSONObject(new String(raw, "UTF-8"))
                                 .optJSONArray("plugins");
-                        for (int i = 0; list != null && i < list.length(); i++) {
+                        for (int i = 0; list != null && i < Math.min(100,list.length()); i++) {
                             JSONObject one = list.optJSONObject(i);
                             if (one == null) continue;
                             Plugin plugin = new Plugin();
                             plugin.id = one.optString("id", "");
-                            plugin.name = one.optString("name", plugin.id);
-                            plugin.version = one.optString("version", "");
-                            plugin.author = one.optString("author", "");
-                            plugin.about = one.optString("about", "");
+                            plugin.name = shortText(one.optString("name", plugin.id),80);
+                            plugin.version = shortText(one.optString("version", ""),32);
+                            plugin.author = shortText(one.optString("author", ""),80);
+                            plugin.about = shortText(one.optString("about", ""),240);
                             plugin.tiktok = one.optString("tiktok", "");
-                            plugin.url = one.optString("url", "");
-                            plugin.icon = one.optString("icon", "");
+                            plugin.sha256=one.optString("sha256","");
+                            // a hash is checked when the catalog gives one; ours gave none before 2.0
+                            if(!PluginCatalog.id(plugin.id)||(plugin.sha256.length()>0&&!PluginCatalog.digest(plugin.sha256)))continue;
+                            try {
+                                plugin.url=PluginCatalog.resolve(catalog,one.optString("url",""));
+                                String icon=one.optString("icon","");
+                                plugin.icon=icon.isEmpty()?"":PluginCatalog.resolve(catalog,icon);
+                            }catch(Exception invalid){continue;}
                             plugin.size = one.optLong("size", 0);
                             found.add(plugin);
                         }
@@ -115,6 +131,8 @@ public class StoreActivity extends Activity {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
+                        if(isFinishing()||token!=generation)return;
+                        loading=false;
                         offered = found;
                         StoreActivity.this.trouble = said;
                         rebuild();
@@ -128,10 +146,12 @@ public class StoreActivity extends Activity {
         column.removeAllViews();
         column.addView(back());
         column.addView(title(Text.STORE));
+        TextView connect=new TextView(this);connect.setText(endpoint.isEmpty()?"Подключить каталог":"Каталог · изменить адрес");connect.setTextColor(Accent.colour());connect.setTextSize(14);connect.setPadding(skin.margin,dp(8),skin.margin,dp(16));Fonts.apply(connect);Motion.press(connect);connect.setOnClickListener(v->configureCatalog());column.addView(connect);
+        if(!endpoint.isEmpty()){TextView refresh=new TextView(this);refresh.setText(loading?"Обновление…":"Обновить");refresh.setTextColor(skin.text);refresh.setPadding(skin.margin,dp(8),skin.margin,dp(12));Fonts.apply(refresh);refresh.setOnClickListener(v->{if(!loading){fetch();rebuild();}});column.addView(refresh);}
 
         LinearLayout card = card();
         if (offered.isEmpty()) {
-            card.addView(quiet(trouble.length() > 0 ? trouble : Text.STORE_WAIT));
+            card.addView(quiet(trouble.length() > 0 ? trouble : loading?Text.STORE_WAIT:"В каталоге нет совместимых записей с SHA-256"));
         } else {
             for (int i = 0; i < offered.size(); i++) {
                 if (i > 0) card.addView(line());
@@ -139,7 +159,7 @@ public class StoreActivity extends Activity {
             }
         }
         column.addView(wrap(card));
-        column.addView(quiet(Text.STORE_NOTE));
+        column.addView(quiet("Скачанные плагины проверяются и остаются выключенными. Проверка не гарантирует безопасность."));
     }
 
     private View row(final Plugin plugin) {
@@ -198,6 +218,8 @@ public class StoreActivity extends Activity {
             pill.setStroke(dp(1), skin.muted());
         }
         get.setBackground(pill);
+        get.setEnabled(fits);
+        Fonts.apply(name);Fonts.apply(under);Fonts.apply(get);Motion.press(get);
         get.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -213,18 +235,24 @@ public class StoreActivity extends Activity {
             view.setImageBitmap(Badges.note());
             return;
         }
-        Net.away("store picture", new Runnable() {
+        final int token=generation;
+        icons.execute(new Runnable() {
             @Override
             public void run() {
-                final byte[] raw = Net.bytes(Badges.SERVER + path);
+                if(token!=generation||isFinishing())return;
+                final byte[] raw = Net.bytes(path);
                 if (raw == null) return;
-                final Bitmap bitmap = android.graphics.BitmapFactory
-                        .decodeByteArray(raw, 0, raw.length);
+                android.graphics.BitmapFactory.Options options=new android.graphics.BitmapFactory.Options();options.inJustDecodeBounds=true;
+                android.graphics.BitmapFactory.decodeByteArray(raw,0,raw.length,options);
+                if(options.outWidth<=0||options.outHeight<=0||options.outWidth>2048||options.outHeight>2048)return;
+                options.inJustDecodeBounds=false;options.inSampleSize=1;
+                while(Math.max(options.outWidth,options.outHeight)/options.inSampleSize>128)options.inSampleSize*=2;
+                final Bitmap bitmap=android.graphics.BitmapFactory.decodeByteArray(raw,0,raw.length,options);
                 if (bitmap == null) return;
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        view.setImageBitmap(bitmap);
+                        if(token==generation&&!isFinishing()&&view.isAttachedToWindow())view.setImageBitmap(bitmap);
                     }
                 });
             }
@@ -234,40 +262,60 @@ public class StoreActivity extends Activity {
     // --------------------------------------------------------- taking one
 
     private void install(final Plugin plugin) {
-        Screen.progress(Text.STORE_GETTING, 0);
+        final android.content.Context app=getApplicationContext();
+        installTask(app,plugin);
+    }
+    private static void installTask(final android.content.Context app,final Plugin plugin){
+        final String job="plugin:"+plugin.id;
+        synchronized(activeDownloads){if(!activeDownloads.add(plugin.id))return;}
+        final DownloadTasks.Control control=DownloadTasks.begin(job,plugin.name.isEmpty()?plugin.id:plugin.name,"Магазин плагинов",()->installTask(app,plugin));
+        control.limit=18L*1024*1024;
+        Screen.progress(job,Text.STORE_GETTING, 0);
         Net.away("store: " + plugin.id, new Runnable() {
             @Override
             public void run() {
-                final File into = new File(getCacheDir(), plugin.id + ".mtp");
-                boolean got = Net.download(Badges.SERVER + plugin.url, into,
+                final File into = new File(app.getCacheDir(), plugin.id + ".mtp");
+                boolean installed=false;
+                try {
+                boolean got = Net.download(plugin.url, into,
                         new Net.Along() {
                             @Override
                             public void at(int percent, long some, long all) {
-                                Screen.progress(Text.STORE_GETTING, percent);
+                                DownloadTasks.progress(job,percent);Screen.progress(job,Text.STORE_GETTING, percent);
                             }
-                        });
-                Screen.progressGone();
-                final boolean ok = got && put(into);
-                into.delete();
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        Screen.say(ok ? Text.STORE_GOT : Text.STORE_FAILED);
-                    }
-                });
+                        },control);
+                final boolean ok = got && put(app,into,plugin);
+                installed=ok;
+                if(!control.cancelled())Screen.say(ok ? Text.STORE_GOT : Text.STORE_FAILED);
+                } finally {DownloadTasks.finish(job,installed);into.delete();if(installed)Screen.progressDone(job);else Screen.progressGone(job);
+                    synchronized(activeDownloads){activeDownloads.remove(plugin.id);}}
             }
         });
     }
 
-    private boolean put(File file) {
+    private static final java.util.Set<String> activeDownloads=new java.util.HashSet<String>();
+    private static boolean put(android.content.Context app,File file,Plugin expected) {
         try {
-            Plugins.install(this, android.net.Uri.fromFile(file));
+            if(expected.sha256.length()>0&&!PluginAudit.sha256(PluginAudit.read(file,18*1024*1024)).equalsIgnoreCase(expected.sha256))throw new Exception("SHA-256 файла не совпадает с каталогом");
+            PluginAudit.Report report=Plugins.inspect(app,android.net.Uri.fromFile(file));
+            if(!expected.id.equals(report.pluginId))throw new Exception("ID плагина отличается от каталога");
+            if(report.blocked)throw new Exception(report.summary());
+            Plugins.install(app, android.net.Uri.fromFile(file),report.digest);
             return true;
         } catch (Throwable error) {
-            Diary.note("store: " + error);
+            Diary.note("store: " + error);Screen.say(String.valueOf(error.getMessage()));
             return false;
         }
     }
+
+    private void configureCatalog(){
+        android.widget.EditText field=new android.widget.EditText(this);field.setText(PluginCatalog.endpoint(this));field.setHint("https://…/catalog.json");field.setTextColor(skin.text);field.setSingleLine(true);Fonts.apply(field);
+        Panel.with(this,skin,"Каталог плагинов").text("Каталог MargyT подключён по умолчанию. Можно указать другой HTTPS JSON-каталог; пустой адрес отключает магазин.").view(field).primary("Сохранить",()->{
+            try{PluginCatalog.endpoint(this,field.getText().toString());fetch();rebuild();}catch(Exception invalid){Screen.say(invalid.getMessage());}
+        }).quiet("Назад",null).show();
+    }
+    private static String shortText(String value,int max){return value.length()>max?value.substring(0,max):value;}
+    @Override protected void onDestroy(){generation++;icons.shutdownNow();super.onDestroy();}
 
     // ------------------------------------------------------------- the look
 
@@ -283,6 +331,7 @@ public class StoreActivity extends Activity {
                 finish();
             }
         });
+        if(view instanceof TextView)Fonts.apply((TextView)view);
         return view;
     }
 
@@ -293,6 +342,7 @@ public class StoreActivity extends Activity {
         view.setTextSize(TypedValue.COMPLEX_UNIT_SP, 30);
         view.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
         view.setPadding(skin.margin, dp(8), skin.margin, dp(20));
+        if(view instanceof TextView)Fonts.apply((TextView)view);
         return view;
     }
 
@@ -320,6 +370,7 @@ public class StoreActivity extends Activity {
         view.setBackgroundColor(skin.muted() & 0x33FFFFFF);
         view.setLayoutParams(new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, Math.max(1, dp(1) / 2)));
+        if(view instanceof TextView)Fonts.apply((TextView)view);
         return view;
     }
 
@@ -329,6 +380,7 @@ public class StoreActivity extends Activity {
         view.setTextColor(skin.muted());
         view.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         view.setPadding(skin.margin + dp(4), dp(12), skin.margin + dp(4), dp(12));
+        if(view instanceof TextView)Fonts.apply((TextView)view);
         return view;
     }
 

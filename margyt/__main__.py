@@ -42,6 +42,16 @@ def main(argv=None) -> int:
                              "faintly on screen, and the mod's settings closed to "
                              "anyone without the supporter badge")
     parser.add_argument("--keystore", help="sign with this keystore instead of a debug key")
+    parser.add_argument("--keystore-alias", default="androiddebugkey",
+                        help="key alias (default: androiddebugkey)")
+    parser.add_argument("--keystore-password",
+                        default=os.environ.get("MARGYT_KEYSTORE_PASSWORD", "android"),
+                        help="store password (default is Android's debug-key password; "
+                             "or set MARGYT_KEYSTORE_PASSWORD)")
+    parser.add_argument("--key-password",
+                        default=os.environ.get("MARGYT_KEY_PASSWORD", "android"),
+                        help="key password (default is Android's debug-key password; "
+                             "or set MARGYT_KEY_PASSWORD)")
     parser.add_argument("--accent", metavar="RRGGBB",
                         help="bake this colour in where TikTok's pink is a picture rather "
                              "than code: vector icons, colour resources, selectors")
@@ -70,6 +80,7 @@ def main(argv=None) -> int:
 
     tools = Toolchain(args.tools)
     build = Build(args.apk, args.out, ROOT, tools, args.work, args.keystore, accent,
+                  args.keystore_alias, args.keystore_password, args.key_password,
                   test=args.test)
     try:
         build.run()

@@ -19,6 +19,7 @@ public final class PluginContext {
     private final String id;
     private final File folder;
     private final Diarist diarist;
+    private final java.util.Set<String> downloads=new java.util.HashSet<>();
 
     /** How the loader writes into the mod's diary without exporting it. */
     public interface Diarist {
@@ -51,6 +52,47 @@ public final class PluginContext {
     public SharedPreferences prefs() {
         return context.getSharedPreferences("margyt_plugin_" + id, Context.MODE_PRIVATE);
     }
+    /** Separate plugin settings for every account, including signed-out mode. */
+    public SharedPreferences accountPrefs() {
+        String uid=cat.narezany.margyt.Account.liveId();
+        return context.getSharedPreferences("margyt_plugin_"+id+"_"+(uid==null?"guest":uid),Context.MODE_PRIVATE);
+    }
+    /** Metadata of the currently bound visible post, without session access. */
+    public String currentVideoId(){return cat.narezany.margyt.VideoActions.currentId();}
+    public long currentVideoPublishedTime(){return cat.narezany.margyt.VideoActions.currentPublishedTime();}
+    public String getString(String key,String fallback){return prefs().getString(key,fallback);}
+    public void putString(String key,String value){if(key==null||key.length()>80||value==null||value.length()>8192)throw new IllegalArgumentException("setting size");prefs().edit().putString(key,value).apply();}
+    public interface Selected {void selected(int index);}
+    /** Native mod choice window, always dispatched to the UI thread. */
+    public void choose(String title,String[] options,Selected callback){
+        if(options==null||options.length==0||options.length>32)throw new IllegalArgumentException("options");
+        final String[] copy=options.clone();for(String item:copy)if(item==null||item.length()>160)throw new IllegalArgumentException("option length");
+        onUiThread(()->{android.app.Activity a=activity();if(a==null||a.isFinishing())return;cat.narezany.margyt.Plugins.choose(a,title,copy,callback);});
+    }
+    public String accountId(){return cat.narezany.margyt.Account.liveId();}
+    public int accentColour(){return cat.narezany.margyt.Accent.colour();}
+    public android.app.Activity activity(){return cat.narezany.margyt.Screen.now();}
+    public void onUiThread(Runnable action){new android.os.Handler(android.os.Looper.getMainLooper()).post(action);}
+    public void copyText(final String text){onUiThread(()->{
+        android.content.ClipboardManager clipboard=(android.content.ClipboardManager)context.getSystemService(Context.CLIPBOARD_SERVICE);
+        if(clipboard!=null)clipboard.setPrimaryClip(android.content.ClipData.newPlainText(id,text==null?"":text));
+    });}
+    public interface Downloaded {void finished(File file,boolean success);}
+    public void download(final String url,final String name,final Downloaded callback) {
+        if(name==null || !name.matches("[A-Za-z0-9._-]{1,80}") || name.equals(".") || name.equals(".."))throw new IllegalArgumentException("file name");
+        final File file=new File(context.getFilesDir(),"margyt/plugin-downloads/"+id+"/"+name);
+        final String job="plugin-api:"+id+":"+name;
+        synchronized(downloads){if(!downloads.add(job))throw new IllegalStateException("download already running");}
+        final cat.narezany.margyt.DownloadTasks.Control control=cat.narezany.margyt.DownloadTasks.begin(job,name,id,()->download(url,name,callback));
+        cat.narezany.margyt.Screen.progress(job,name,0);
+        cat.narezany.margyt.Net.away(job,()->{
+            boolean ok=false;
+            try{ok=cat.narezany.margyt.Net.download(url,file,(percent,got,total)->{cat.narezany.margyt.DownloadTasks.progress(job,percent);cat.narezany.margyt.Screen.progress(job,name,percent);},control);}
+            catch(Throwable error){log("download: "+error);}
+            finally{cat.narezany.margyt.DownloadTasks.finish(job,ok);if(ok)cat.narezany.margyt.Screen.progressDone(job);else cat.narezany.margyt.Screen.progressGone(job);synchronized(downloads){downloads.remove(job);}}
+            final boolean done=ok;onUiThread(()->{if(callback!=null)callback.finished(file,done);});
+        });
+    }
 
     /**
      * A line in the mod's diary, which the person can read and copy out of the
@@ -78,9 +120,46 @@ public final class PluginContext {
         cat.narezany.margyt.Plugins.addRow(id, title, detail, action);
     }
 
+    // --------------------------------------------- settings of the plugin's own
+    //
+    // These show up in the mod's settings under the plugin's name, only while
+    // the plugin is switched on. Switches, choices and sliders are stored in
+    // `prefs()` under the key given, so the plugin reads them back with
+    // `getBoolean`, `getInt` or `prefs()` directly. Added in API 3.
+
+    /** A small heading inside the plugin's block of settings. */
+    public void addSettingsSection(String title) {
+        cat.narezany.margyt.Plugins.addSection(id, title);
+    }
+
+    /** A switch. Read it back with getBoolean(key, def). */
+    public void addSettingsToggle(String title, String detail, String key, boolean def) {
+        cat.narezany.margyt.Plugins.addToggle(id, title, detail, key, def);
+    }
+
+    /** A list of options; the chosen index is stored. Read it with getInt(key, def). */
+    public void addSettingsChoice(String title, String detail, String key,
+                                  String[] options, int def) {
+        cat.narezany.margyt.Plugins.addChoice(id, title, detail, key, options, def);
+    }
+
+    /** A slider from min to max inclusive. Read it with getInt(key, def). */
+    public void addSettingsSlider(String title, String detail, String key,
+                                  int min, int max, int def) {
+        cat.narezany.margyt.Plugins.addSlider(id, title, detail, key, min, max, def);
+    }
+
+    public boolean getBoolean(String key, boolean def) {
+        return prefs().getBoolean(key, def);
+    }
+
+    public int getInt(String key, int def) {
+        return prefs().getInt(key, def);
+    }
+
     /** The mod's own window: the same card TikTok's own dialogs are drawn as. */
     public void showWindow(String title, String message) {
-        cat.narezany.margyt.Popup.show(context, title, message);
+        onUiThread(()->{android.app.Activity activity=activity();if(activity!=null && !activity.isFinishing())cat.narezany.margyt.Popup.show(activity,title,message);});
     }
 
     /** A button over whatever is on screen, for as long as that screen is. */
@@ -95,11 +174,16 @@ public final class PluginContext {
 
     /** A line along the top of the screen, for something that takes a while. */
     public void progress(String what, int percent) {
-        cat.narezany.margyt.Screen.progress(what, percent);
+        cat.narezany.margyt.Screen.progress("plugin-api:"+id,what,percent);
+    }
+
+    /** Finish with the same flower-and-check ending the mod's own downloads get. */
+    public void progressDone() {
+        cat.narezany.margyt.Screen.progressDone("plugin-api:"+id);
     }
 
     public void progressGone() {
-        cat.narezany.margyt.Screen.progressGone();
+        cat.narezany.margyt.Screen.progressGone("plugin-api:"+id);
     }
 
     /** Whatever screen is up, or null between screens. */

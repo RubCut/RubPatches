@@ -107,6 +107,7 @@ public final class Margy {
             Object app = thread.getMethod("currentApplication").invoke(null);
             if (app instanceof Application) {
                 sContext = (Context) app;
+                warmLikes();
             }
         } catch (Throwable ignored) {
             // too early in startup, or a stripped-down runtime: fall back to
@@ -115,9 +116,21 @@ public final class Margy {
         return sContext;
     }
 
+    private static volatile boolean likesWarmed;
+
+    /** Recolour the like animations once at start, off the UI thread. */
+    private static void warmLikes() {
+        if (likesWarmed) return;
+        likesWarmed = true;
+        try { Accent.prewarmLikeAnimations(null); } catch (Throwable ignored) { }
+    }
+
     /** Set from the settings screen, where a context is never in doubt. */
     public static void attach(Context context) {
-        if (context != null) sContext = context.getApplicationContext();
+        if (context != null) {
+            sContext = context.getApplicationContext();
+            warmLikes();
+        }
     }
 
     private static SharedPreferences prefs() {

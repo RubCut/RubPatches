@@ -10,9 +10,11 @@ alias -- and nothing else.
 """
 
 import os
+import json
 import shutil
 import struct
 import tempfile
+import re
 import unittest
 
 import sys
@@ -22,6 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from margyt import (accent as accent_module, artwork, dexpatch, icon as icon_module,
                     manifest as manifest_module, palette, png, vector)
 from margyt.apkzip import Apk, STORED
+from margyt.build import emoji_asset_entries
 from margyt.arsc import Arsc, ArscError
 from margyt.axml import Axml, TYPE_REFERENCE, TYPE_STRING
 
@@ -32,6 +35,46 @@ FIXTURE = os.path.join(HERE, "data", "fixture.apk")
 
 def fixture() -> Apk:
     return Apk(FIXTURE)
+
+
+class ReleaseVersionTest(unittest.TestCase):
+    def test_install_code_stays_numeric(self):
+        apk = fixture()
+        manifest = Axml.parse(apk.read("AndroidManifest.xml"))
+        current = manifest_module.version_code(manifest)
+        manifest_module.set_version_code(manifest, current + 1001)
+        written = Axml.parse(manifest.build())
+        self.assertEqual(manifest_module.version_code(written), current + 1001)
+        apk.close()
+
+
+class EmojiAssetManifestTest(unittest.TestCase):
+    def setUp(self):
+        self.root = tempfile.mkdtemp(prefix="emoji-assets-")
+        os.makedirs(os.path.join(self.root, "emoji"))
+        os.makedirs(os.path.join(self.root, "emoji", "more"))
+        with open(os.path.join(self.root, "emoji", "more", "pack.otf"), "wb") as out:
+            out.write(b"font")
+        self.manifest = os.path.join(self.root, "emoji", "packs.json")
+
+    def tearDown(self):
+        shutil.rmtree(self.root)
+
+    def write_manifest(self, asset):
+        with open(self.manifest, "w", encoding="utf-8") as out:
+            json.dump({"version": 1, "packs": [{"id": "test-pack", "name": "Test",
+                      "version": "1", "asset": asset}]}, out)
+
+    def test_manifest_maps_nested_font_to_ttcuz_asset(self):
+        self.write_manifest("emoji/more/pack.otf")
+        entries = emoji_asset_entries(self.root)
+        self.assertEqual(entries[0][0], "assets/margyt/emoji/more/pack.otf")
+        self.assertEqual(entries[1][0], "assets/margyt/emoji/packs.json")
+
+    def test_manifest_rejects_traversal(self):
+        self.write_manifest("../outside.ttf")
+        with self.assertRaises(ValueError):
+            emoji_asset_entries(self.root)
 
 
 class AxmlTest(unittest.TestCase):
@@ -335,6 +378,257 @@ class PngTest(unittest.TestCase):
         self.assertEqual(png.size_of(data), (64, 64))
 
 
+class SwitchSourceTest(unittest.TestCase):
+    """The settings rebuild must not erase the switch that was just tapped."""
+
+    def test_switch_keeps_its_interpolated_position_when_tapped_again(self):
+        source = os.path.join(ROOT, "inject", "java", "cat", "narezany", "margyt",
+                              "M3Switch.java")
+        with open(source, encoding="utf-8") as handle:
+            java = handle.read()
+        self.assertIn("ANIMATION_DURATION_MS = 300L", java)
+        self.assertIn("interruptingAnimation = true", java)
+        self.assertIn("!interruptingAnimation && animation == animator", java)
+
+    def test_settings_wait_for_a_switch_transition_before_rebuilding(self):
+        source = os.path.join(ROOT, "inject", "java", "cat", "narezany", "margyt",
+                              "SettingsActivity.java")
+        with open(source, encoding="utf-8") as handle:
+            java = handle.read()
+        start = java.index("private void markChanged()")
+        end = java.index("// ----------------------------------------------------------- the rows", start)
+        changed = java[start:end]
+        self.assertIn("showRestartBar();", changed)
+        self.assertNotIn("pending = true;\n        rebuild();", changed)
+        self.assertIn("column.postDelayed(delayedRebuild, M3Switch.ANIMATION_DURATION_MS)", changed)
+
+
+class AccentSourceTest(unittest.TestCase):
+    """A chosen accent has to reach both ordinary views and the Lottie heart."""
+
+    def test_changing_the_accent_invalidates_the_last_colour_translation(self):
+        source = os.path.join(ROOT, "inject", "java", "cat", "narezany", "margyt",
+                              "Accent.java")
+        with open(source, encoding="utf-8") as handle:
+            java = handle.read()
+        start = java.index("public static void set(int colour)")
+        end = java.index("public static boolean isDefault()", start)
+        self.assertIn("forget();", java[start:end])
+
+    def test_the_like_animation_accent_is_recoloured_without_touching_packs(self):
+        source = os.path.join(ROOT, "inject", "java", "cat", "narezany", "margyt",
+                              "Accent.java")
+        with open(source, encoding="utf-8") as handle:
+            java = handle.read()
+        self.assertIn("Pattern.compile(\"(?i)#(?:[0-9a-f]{2})?fe2c55\")", java)
+        self.assertIn("return recolourResource(resources, id, resources.openRawResource(id));", java)
+        self.assertIn("return recolourLottie(source, like, doubleTap);", java)
+        self.assertIn("return recolourLottie(source, like,", java)
+        self.assertIn('lower.contains("double_tap")', java)
+        self.assertIn("private static InputStream recolourLikePng", java)
+        self.assertIn("LikeColors.colour()", java)
+
+    def test_feed_like_assets_are_recoloured_at_the_asset_manager_hook(self):
+        source = os.path.join(ROOT, "inject", "java", "cat", "narezany", "margyt",
+                              "Accent.java")
+        with open(source, encoding="utf-8") as handle:
+            java = handle.read()
+        self.assertIn("public static java.io.InputStream open(android.content.res.AssetManager", java)
+        self.assertIn("String name, int accessMode", java)
+        self.assertIn("openRawResource(Resources resources, int id,", java)
+        self.assertIn("recolourLottie(source, like,", java)
+        self.assertIn("lower.endsWith(\".png\")", java)
+
+    def test_feed_lottie_animation_names_are_recoloured_before_loading(self):
+        source = os.path.join(ROOT, "inject", "java", "cat", "narezany", "margyt",
+                              "Accent.java")
+        with open(source, encoding="utf-8") as handle:
+            java = handle.read()
+        self.assertIn("public static void setAnimation(Object animation, String name)", java)
+        self.assertIn("setAnimationFromJson", java)
+        self.assertIn("recolourLottie(source, like,", java)
+        with open(os.path.join(ROOT, "margyt", "dexpatch.py"), encoding="utf-8") as handle:
+            patcher = handle.read()
+        self.assertIn("tt_feed_like_tap_tux_lottie.json", patcher)
+        self.assertIn("tt_feed_like_tap_quick_tux_lottie.json", patcher)
+
+    def test_profile_capture_uses_real_account_model_and_is_throttled(self):
+        source = os.path.join(ROOT, "inject", "java", "cat", "narezany", "margyt",
+                              "Account.java")
+        with open(source, encoding="utf-8") as handle:
+            java = handle.read()
+        self.assertIn("service.getCurUser()", java)
+        self.assertIn("Avatars.rememberCurrent(user)", java)
+        self.assertIn("now - currentUserCapturedAt >= 120000L", java)
+
+    def test_full_accent_picker_covers_the_marked_tiktok_controls(self):
+        root = os.path.join(ROOT, "inject", "java", "cat", "narezany", "margyt")
+        with open(os.path.join(root, "SettingsActivity.java"), encoding="utf-8") as handle:
+            settings = handle.read()
+        with open(os.path.join(root, "AppearanceColors.java"), encoding="utf-8") as handle:
+            colors = handle.read()
+        self.assertIn("private static final class AccentColourPicker extends View", settings)
+        self.assertIn("Color.colorToHSV(initial, hsv)", settings)
+        self.assertIn("Color.HSVToColor(hsv)", settings)
+        for term in ('"follow"', '"unread"', '"error"', '"friend"', '"inbox"'):
+            self.assertIn(term, colors)
+        self.assertIn("Accent.tintTextCursor((TextView) view)", colors)
+        self.assertIn("if (interactiveAccentName(name)) return false", colors)
+        self.assertIn('"follow_add"', colors)
+        self.assertIn('"unread_badge"', colors)
+
+    def test_settings_rebuild_restores_scroll_and_keeps_icon_columns_aligned(self):
+        source = os.path.join(ROOT, "inject", "java", "cat", "narezany", "margyt",
+                              "SettingsActivity.java")
+        with open(source, encoding="utf-8") as handle:
+            java = handle.read()
+        self.assertIn("final int previousScroll = page == null ? 0 : page.getScrollY()", java)
+        self.assertIn("addOnPreDrawListener(scrollRestoreListener)", java)
+        self.assertIn("page.scrollTo(0, requestedScrollY)", java)
+        self.assertIn("row.setGravity(Gravity.CENTER_VERTICAL)", java)
+        self.assertIn("new LinearLayout.LayoutParams(dp(32), dp(32))", java)
+
+    def test_theme_role_list_is_collapsed_and_sections_use_grouped_surfaces(self):
+        source = os.path.join(ROOT, "inject", "java", "cat", "narezany", "margyt",
+                              "SettingsActivity.java")
+        with open(source, encoding="utf-8") as handle:
+            java = handle.read()
+        self.assertIn("if (themeColoursOpen)", java)
+        self.assertIn("private View themeColoursHead()", java)
+        card = java[java.index("private LinearLayout card()"):java.index("private View wrap(")]
+        self.assertIn("new Expressive.Group(this, skin.card", card)
+        self.assertNotIn("setStroke(", card)
+        with open(os.path.join(ROOT, "inject", "java", "cat", "narezany", "margyt",
+                               "Expressive.java"), encoding="utf-8") as handle:
+            self.assertNotIn("setStroke(", handle.read())
+
+    def test_feed_and_comment_likes_repaint_after_accent_change(self):
+        root = os.path.join(ROOT, "inject", "java", "cat", "narezany", "margyt")
+        with open(os.path.join(root, "Accent.java"), encoding="utf-8") as handle:
+            accent = handle.read()
+        with open(os.path.join(root, "LikeColors.java"), encoding="utf-8") as handle:
+            likes = handle.read()
+        self.assertIn("refreshLikeViews();", accent)
+        self.assertIn("likeAnimations", accent)
+        self.assertIn("likeResourceSources", accent)
+        self.assertIn('if (name.contains("dislike")) return false;', accent)
+        self.assertIn("Accent.refreshLikeViews();", likes)
+        self.assertIn("view.isSelected() || view.isActivated()", likes)
+
+    def test_burn_in_fade_walks_mixed_video_and_chrome_subtrees(self):
+        source = os.path.join(ROOT, "inject", "java", "cat", "narezany", "margyt",
+                              "Dim.java")
+        with open(source, encoding="utf-8") as handle:
+            java = handle.read()
+        mixed = java[java.index("private static void fadeChrome("):java.index("private static void fade(")]
+        self.assertIn("if (!hasMedia(view, 0, new int[] {10000})", mixed)
+        self.assertIn("!mediaSizedContainer(view) && !hasFadedDescendant(view, 0)", mixed)
+        self.assertIn("fadeChrome(group.getChildAt(i), alpha, depth + 1)", mixed)
+
+    def test_theme_reset_and_accent_role_share_the_actual_accent_preference(self):
+        root = os.path.join(ROOT, "inject", "java", "cat", "narezany", "margyt")
+        with open(os.path.join(root, "AppearanceColors.java"), encoding="utf-8") as handle:
+            colors = handle.read()
+        with open(os.path.join(root, "Themes.java"), encoding="utf-8") as handle:
+            themes = handle.read()
+        self.assertIn("if (ACCENT.equals(role)) Accent.set(normalized)", colors)
+        reset = themes[themes.index("public static void reset()"):themes.index(
+            "public static void preset(")]
+        self.assertIn("AppearanceColors.reset()", reset)
+
+    def test_settings_entry_uses_the_default_mod_icon(self):
+        source = os.path.join(ROOT, "inject", "java", "cat", "narezany", "margyt",
+                              "SettingsRow.java")
+        with open(source, encoding="utf-8") as handle:
+            java = handle.read()
+        self.assertIn("Launcher.preview(Launcher.DEFAULT)", java)
+        self.assertNotIn('glyph.setText("♪")', java)
+
+
+class ProfileAnimationSourceTest(unittest.TestCase):
+    """The optional nickname gradient moves without rebuilding settings."""
+
+
+class DimSourceTest(unittest.TestCase):
+    """The anti-burn pass may dim controls, never corrupt their own alpha."""
+
+    def test_only_a_player_under_the_screen_centre_is_dimmed(self):
+        source = os.path.join(ROOT, "inject", "java", "cat", "narezany", "margyt",
+                              "Dim.java")
+        with open(source, encoding="utf-8") as handle:
+            java = handle.read()
+        self.assertIn("root.getLocationOnScreen(rootOnScreen);", java)
+        self.assertIn("if (where.contains(middleX, middleY)) return one;", java)
+        self.assertIn("return null;", java[java.index("private static View surface"):])
+
+    def test_a_recreated_top_bar_is_searched_for_again(self):
+        source = os.path.join(ROOT, "inject", "java", "cat", "narezany", "margyt",
+                              "Dim.java")
+        with open(source, encoding="utf-8") as handle:
+            java = handle.read()
+        self.assertIn("private static final long SEARCH_AGAIN = 800;", java)
+        self.assertIn("if (known==null && remembered==null && now - lastLook < SEARCH_AGAIN) return;", java)
+        self.assertNotIn("private static volatile boolean searched;", java)
+
+    def test_both_navigation_rails_are_dimmed_but_player_subtrees_are_not(self):
+        source = os.path.join(ROOT, "inject", "java", "cat", "narezany", "margyt",
+                              "Dim.java")
+        with open(source, encoding="utf-8") as handle:
+            java = handle.read()
+        self.assertIn("topBar(root, alpha);", java)
+        self.assertIn("bottomBar(root, alpha);", java)
+        self.assertIn("!hasPlayer(child, 0)", java)
+
+    def test_pixel_shift_is_removed_including_saved_preferences(self):
+        with open(os.path.join(ROOT, "inject/java/cat/narezany/margyt/Dim.java"), encoding="utf-8") as source:
+            java = source.read()
+        self.assertIn("isShiftEnabled() { return false; }", java)
+        self.assertNotIn("setTranslationX", java)
+        self.assertNotIn("setTranslationY", java)
+
+
+class BackupSourceTest(unittest.TestCase):
+    def test_backup_is_allowlisted_and_never_exports_account_tokens(self):
+        source = os.path.join(ROOT, "inject", "java", "cat", "narezany", "margyt",
+                              "Backup.java")
+        with open(source, encoding="utf-8") as handle:
+            java = handle.read()
+        self.assertIn("private static final String[] SAFE", java)
+        self.assertNotIn("Account.KEY_ID", java)
+        self.assertNotIn("badge_token", java)
+        self.assertIn("MOST_BYTES = 512 * 1024", java)
+
+    def test_import_requires_a_review_before_preferences_are_applied(self):
+        source = os.path.join(ROOT, "inject", "java", "cat", "narezany", "margyt",
+                              "SettingsActivity.java")
+        with open(source, encoding="utf-8") as handle:
+            java = handle.read()
+        self.assertIn("final Backup.Review review = Backup.review(this, source);", java)
+        self.assertIn("Backup.apply(this, review)", java)
+
+    def test_reset_uses_explicit_groups_not_a_preferences_clear(self):
+        source = os.path.join(ROOT, "inject", "java", "cat", "narezany", "margyt",
+                              "Backup.java")
+        with open(source, encoding="utf-8") as handle:
+            java = handle.read()
+        reset = java[java.index("public static void reset"):]
+        self.assertIn("if (group == 1)", reset)
+        self.assertIn("else if (group == 2)", reset)
+        self.assertNotIn("edit.clear()", reset)
+
+
+class SettingsSearchSourceTest(unittest.TestCase):
+    def test_search_filters_to_known_settings_shortcuts(self):
+        source = os.path.join(ROOT, "inject", "java", "cat", "narezany", "margyt",
+                              "SettingsActivity.java")
+        with open(source, encoding="utf-8") as handle:
+            java = handle.read()
+        self.assertIn("if (searchQuery.length() > 0)", java)
+        self.assertIn("searchResults();", java)
+        self.assertIn("matchesSearch(title + \" \" + words)", java)
+        self.assertIn("EditorInfo.IME_ACTION_SEARCH", java)
+
+
 class VectorTest(unittest.TestCase):
     def test_a_generated_vector_parses_as_one(self):
         data = vector.build(artwork.VIEWPORT, artwork.COMBINED)
@@ -531,6 +825,68 @@ class DexPatchTest(unittest.TestCase):
         finally:
             shutil.rmtree(room, ignore_errors=True)
 
+    def test_feed_lottie_call_is_rewritten_without_telephony_reference(self):
+        import tempfile as tf
+        room = tf.mkdtemp()
+        try:
+            path = os.path.join(room, "FeedLike.smali")
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write(
+                    ".class public LX/0dQv;\n"
+                    ".method public onTouch()V\n"
+                    "    .locals 1\n"
+                    "    invoke-virtual {v0}, LX/1HkT;->setAnimation(Ljava/lang/String;)V\n"
+                    "    return-void\n"
+                    ".end method\n")
+            counts = dexpatch.rewrite_accent(room)
+            self.assertEqual(counts.get("feed Lottie setAnimation"), 1)
+            with open(path, encoding="utf-8") as handle:
+                out = handle.read()
+            self.assertIn(
+                "invoke-static {v0}, Lcat/narezany/margyt/Accent;"
+                "->setAnimation(Ljava/lang/Object;Ljava/lang/String;)V", out)
+        finally:
+            shutil.rmtree(room, ignore_errors=True)
+
+
+class FeedSpeedLockSourceTest(unittest.TestCase):
+    def test_the_mod_no_longer_locks_the_speed_itself(self):
+        path = os.path.join(ROOT, "inject", "java", "cat", "narezany", "margyt",
+                            "SpeedGesture.java")
+        with open(path, encoding="utf-8") as handle:
+            source = handle.read()
+        # it still learns when TikTok starts speeding, for the rate people set
+        self.assertIn('call(ability, "R62")', source)
+        self.assertIn("PlayerTools.applyHoldRate()", source)
+        # and takes no touch away, stops nothing, and draws nothing
+        self.assertNotIn("return true", source)
+        self.assertNotIn('"Hj"', source)
+        self.assertNotIn("requestDisallowInterceptTouchEvent", source)
+        self.assertNotIn("addView", source)
+
+    def test_tiktoks_own_speed_lock_is_answered_by_the_mod(self):
+        asks = (".class public final LX/09nD;\n.super LX/0D4z;\n\n"
+                ".method public final invoke()Ljava/lang/Object;\n"
+                "    .registers 6\n\n"
+                '    const-string v3, "long_press_speed_up_lock"\n\n'
+                "    invoke-virtual {v4, v1, v0, v3, v2}, LX/09tK;->LJIIJJI(IILjava/lang/String;Z)I\n\n"
+                "    move-result v0\n.end method\n")
+        other = asks.replace("long_press_speed_up_lock", "some_other_flag")
+        with tempfile.TemporaryDirectory() as room:
+            for name, text in (("09nD.smali", asks), ("Other.smali", other)):
+                with open(os.path.join(room, name), "w", encoding="utf-8") as handle:
+                    handle.write(text)
+            self.assertEqual(dexpatch.rewrite_native_flags(room), {"native speed lock": 1})
+            with open(os.path.join(room, "09nD.smali"), encoding="utf-8") as handle:
+                patched = handle.read()
+            self.assertIn("invoke-static {v4, v1, v0, v3, v2}, Lcat/narezany/margyt/Flags;"
+                          "->nativeInt(Ljava/lang/Object;IILjava/lang/String;Z)I", patched)
+            with open(os.path.join(room, "Other.smali"), encoding="utf-8") as handle:
+                self.assertEqual(handle.read(), other)
+            # a dex that never spells the key is not searched for the class
+            self.assertEqual(dexpatch.rewrite_native_flags(room, b"nothing"), {})
+        self.assertTrue(dexpatch.interesting(b"..long_press_speed_up_lock.."))
+
     def test_a_dex_holding_a_renamed_authority_is_taken_apart(self):
         self.assertFalse(dexpatch.interesting(b"nothing", {"com.example.p": "x"}))
         self.assertTrue(dexpatch.interesting(b"...com.example.p...", {"com.example.p": "x"}))
@@ -676,7 +1032,68 @@ class DexPatchTest(unittest.TestCase):
 
     def test_a_dex_without_the_marker_is_left_alone(self):
         self.assertTrue(dexpatch.carries_an_anchor(b"...[tiktok_logo]..."))
+        self.assertTrue(dexpatch.carries_an_anchor(
+            b"Lcom/ss/android/ugc/aweme/commentv2/commentlist/powercell/BaseCommentCell;"))
+        self.assertTrue(dexpatch.carries_an_anchor(
+            b"LY/ATListenerS452S0100000_16;"))
         self.assertFalse(dexpatch.carries_an_anchor(b"nothing of the sort"))
+
+    def test_feed_speed_hook_is_inserted_only_at_the_single_pointer_touch_entry(self):
+        source = (".class public final LY/ATListenerS452S0100000_16;\n"
+                  + dexpatch.SPEED_TOUCH_METHOD + "\n"
+                  "    .registers 13\n"
+                  "    if-lt v0, v3, :cond_27\n"
+                  "    :cond_27\n"
+                  "    invoke-static {}, Lexample/Original;->keepGoing()V\n"
+                  ".end method\n")
+        with tempfile.TemporaryDirectory() as room:
+            path = os.path.join(room, "Touch.smali")
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write(source)
+            self.assertEqual(dexpatch.rewrite_speed_touch(room),
+                             {"hold speed, feed touch": 1})
+            with open(path, encoding="utf-8") as handle:
+                patched = handle.read()
+            self.assertIn(dexpatch.SPEED_TOUCH_TARGET, patched)
+            self.assertIn(":margyt_speed_touch_continue", patched)
+            self.assertEqual(dexpatch.rewrite_speed_touch(room),
+                             {"hold speed, feed touch": 1})
+            self.assertEqual(patched.count(dexpatch.SPEED_TOUCH_TARGET), 1)
+        self.assertIn(dexpatch.SPEED_TOUCH_TARGET, dexpatch.rewrite_targets())
+
+    def test_swipe_down_does_not_rewrite_a_different_listener(self):
+        with tempfile.TemporaryDirectory() as room:
+            path = os.path.join(room, "Other.smali")
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write(".class public final LX/Other;\n" + dexpatch.SPEED_TOUCH_METHOD)
+            self.assertEqual(dexpatch.rewrite_speed_touch(room), {})
+
+    def test_comment_long_press_is_wrapped_only_in_its_anchored_cell(self):
+        call = ("    invoke-virtual {v2, v1}, Landroid/view/View;"
+                "->setOnLongClickListener(Landroid/view/View$OnLongClickListener;)V\n")
+        marked = (".class Lcom/ss/android/ugc/aweme/commentv2/commentlist/powercell/"
+                  "BaseCommentCell;\n" + call)
+        other = call
+        for anchor, _label, pattern, target in dexpatch.anchored_rules():
+            if anchor in marked:
+                marked = pattern.sub(target, marked)
+            if anchor in other:
+                other = pattern.sub(target, other)
+        self.assertIn("Lcat/narezany/margyt/Comments;->setOnLongClickListener("
+                      "Landroid/view/View;Landroid/view/View$OnLongClickListener;)V", marked)
+        self.assertEqual(other, call)
+
+    def test_a_synthetic_reference_to_the_comment_cell_is_not_an_anchor(self):
+        call = ("    invoke-virtual {v2, v1}, Landroid/view/View;"
+                "->setOnLongClickListener(Landroid/view/View$OnLongClickListener;)V\n")
+        base = "Lcom/ss/android/ugc/aweme/commentv2/commentlist/powercell/BaseCommentCell;"
+        with tempfile.TemporaryDirectory() as room:
+            path = os.path.join(room, "Synthetic.smali")
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write(".class LX/Synthetic;\nconst-class v0, " + base + "\n" + call)
+            dexpatch.rewrite_anchored(room)
+            with open(path, encoding="utf-8") as handle:
+                self.assertIn(call, handle.read())
 
     def test_a_colour_asked_of_the_framework_is_redirected(self):
         text = ("    invoke-virtual {v0, v1}, Landroid/content/res/Resources;->getColor(I)I\n"
@@ -736,6 +1153,13 @@ class PaletteTest(unittest.TestCase):
             self.assertNotEqual(palette.map_colour(neighbour, self.PINK, self.MINT),
                                 neighbour)
 
+    def test_hot_and_pastel_pink_are_mapped_without_losing_alpha(self):
+        for colour in (0xFFFF00FF,0xFFF343C9,0xFFFFE5F4,0x80FFE5F4,0xFFF8BBDD):
+            self.assertTrue(palette.captures(colour,self.PINK))
+            changed=palette.map_colour(colour,self.PINK,self.MINT)
+            self.assertNotEqual(changed,colour)
+            self.assertEqual(changed>>24,colour>>24)
+
     def test_what_is_not_the_family_is_not_touched(self):
         for other in (self.CYAN, 0xFF000000, 0xFFFFFFFF, 0xFF808080,
                       0xFF4C8DFF, 0xFF35C759, 0xFF1C2C24):
@@ -782,7 +1206,103 @@ class TheIconsKeepTheirPlaces(unittest.TestCase):
         from margyt.build import Build
         keys = [key for key, _label in Build.ICONS]
         self.assertEqual(keys[:len(self.SHIPPED)], self.SHIPPED)
+class DeveloperModeSourceTest(unittest.TestCase):
+    def _read(self, name):
+        path = os.path.join(ROOT, "inject", "java", "cat", "narezany", "margyt", name)
+        with open(path, encoding="utf-8") as handle:
+            return handle.read()
+
+    def test_five_taps_on_the_heading_switch_it_on(self):
+        self.assertIn("NEEDED = 5", self._read("DevMode.java"))
+        settings = self._read("SettingsActivity.java")
+        self.assertIn("developerTap();", settings)
+        self.assertIn("DevMode.set(true)", settings)
+
+    def test_the_full_report_never_carries_the_account(self):
+        report = self._read("Diagnostics.java")
+        body = report[report.index("static String fullReport()"):report.index("static String report()")]
+        self.assertNotIn("Account.", body)
+        self.assertNotIn("getAll()", body)
+        self.assertIn("Diary.lines()", body)
+
+    def test_an_ordinary_diary_keeps_its_size(self):
+        diary = self._read("Diary.java")
+        self.assertIn("KEEP = 40;", diary)
+        self.assertIn("DevMode.isOn() ? KEEP_DEV : KEEP", diary)
+
+
+class ProfileVerificationSourceTest(unittest.TestCase):
+    def _read(self, name):
+        path = os.path.join(ROOT, "inject", "java", "cat", "narezany", "margyt", name)
+        with open(path, encoding="utf-8") as handle:
+            return handle.read()
+
+    def test_switches_follow_the_card_so_on_is_never_white_on_white(self):
+        switch = self._read("M3Switch.java")
+        self.assertIn("luma > 0.55f", switch)
+        self.assertIn("trackOn = 0xFF111111", switch)
+        self.assertNotIn("TRACK_ON", switch)
 
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PrerecolouredLikeAnimationTest(unittest.TestCase):
+    def test_like_animations_are_cached_and_prewarmed_off_the_ui_thread(self):
+        java = open(os.path.join(ROOT, "inject/java/cat/narezany/margyt/Accent.java"), encoding="utf-8").read()
+        self.assertIn("likeAnimationJson(", java)
+        self.assertIn("prewarmLikeAnimations", java)
+        self.assertIn("margyt-like-prewarm", java)
+        margy = open(os.path.join(ROOT, "inject/java/cat/narezany/margyt/Margy.java"), encoding="utf-8").read()
+        self.assertIn("Accent.prewarmLikeAnimations(null)", margy)
+
+
+class PrerecolouredAtBuildTest(unittest.TestCase):
+    def test_palette_matches_the_app(self):
+        from margyt import prerecolour
+        accent = open(os.path.join(ROOT, "inject/java/cat/narezany/margyt/Accent.java"),
+                      encoding="utf-8").read()
+        found = re.search(r"PALETTE=\{([^}]*)\}", accent).group(1)
+        values = [int(x, 16) for x in re.findall(r"0x([0-9A-Fa-f]{8})", found)]
+        self.assertEqual(values, prerecolour.PALETTE)
+
+    def test_heart_is_recoloured_for_every_colour(self):
+        import json
+        from margyt import png, prerecolour
+        pink = png.Image(2, 1, bytearray([0xFE, 0x2C, 0x55, 255, 0, 0, 0, 0]))
+        frames = {"img/f0.png": png.encode(pink)}
+        lottie = json.dumps({
+            "assets": [{"id": "i", "u": "img/", "p": "f0.png"}],
+            "layers": [{"ks": {"k": [0.99607843, 0.17254902, 0.33333333, 1]},
+                        "c": "#FE2C55"}]})
+        names = prerecolour.candidates(["assets/like_heart.json", "assets/margyt/x.json",
+                                        "assets/dislike.json", "assets/other.json"])
+        self.assertEqual(names, [("assets/like_heart.json", "like_heart.json")])
+        read = lambda path: frames.get(path)
+        for colour in prerecolour.COLOURS:
+            done = prerecolour.make("like_heart.json", lottie.encode(), colour, read)
+            body = json.loads(done)
+            self.assertTrue(body["assets"][0]["p"].startswith("data:image/png;base64,"))
+            self.assertEqual(body["assets"][0]["u"], "")
+            if colour != prerecolour.TIKTOK:
+                self.assertNotIn("FE2C55", done.decode().upper())
+                self.assertNotEqual(body["layers"][0]["ks"]["k"][:3],
+                                    [0.99607843, 0.17254902, 0.33333333])
+        java = open(os.path.join(ROOT, "inject/java/cat/narezany/margyt/Accent.java"),
+                    encoding="utf-8").read()
+        self.assertIn('"margyt/rc/"', java)
+        self.assertTrue(prerecolour.shipped_path("Like_Heart.json", 0xFF6750A4)
+                        .startswith("assets/margyt/rc/6750A4/"))
+
+
+class CustomColourReadyTest(unittest.TestCase):
+    def test_custom_colour_hearts_never_build_on_the_ui_thread(self):
+        java = open(os.path.join(ROOT, "inject/java/cat/narezany/margyt/Accent.java"),
+                    encoding="utf-8").read()
+        body = java[java.index("public static void setAnimation"):java.index("// Pre-recoloured like animations.")]
+        self.assertIn("likeAnimationReady(", body)
+        self.assertIn("scheduleLikeBuild(", body)
+        self.assertNotIn("likeAnimationJson(", body)
+        self.assertIn("discoverLikeNames(", java)
+        self.assertIn("HashMap<Integer, Integer> memo", java)

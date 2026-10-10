@@ -24,6 +24,7 @@ public final class Sound {
 
     private Sound() {}
 
+    static void reloadSettings(){cached=null;}
     public static final String KEY = "sound_available";
 
     /**

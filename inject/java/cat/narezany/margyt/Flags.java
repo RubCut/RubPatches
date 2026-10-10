@@ -35,8 +35,12 @@ public final class Flags {
     // the groups, each with a switch on the mod's screen
     public static final int ADS = 0;
     public static final int VOICE = 1;
+    public static final int BANNER = 2;
+    /** Not on the menu: on for everybody, with no switch. */
+    public static final int ALWAYS = 3;
 
     public static final String KEY_VOICE = "flag_voice";
+    public static final String KEY_BANNER = "flag_profile_banner";
 
     private static final class Override {
         final int group;
@@ -63,17 +67,25 @@ public final class Flags {
                 "commerce_enable");
 
         put(VOICE, Integer.valueOf(1), "audio_comment_publish");
+        put(BANNER,Integer.valueOf(1),"profile_bg_in_allow_list","profile_bg_enable_consumption_group");
+        // Holding a video speeds it up for everybody; swiping down while
+        // holding, to keep it sped up with the finger off, TikTok gives to
+        // some accounts and not others. The mod used to draw a lock of its
+        // own over the top. This is TikTok's, for everyone.
+        put(ALWAYS, Integer.valueOf(1), "long_press_speed_up_lock");
     }
 
     // ------------------------------------------------------------ the switches
 
     public static boolean isOn(int group) {
         if (group == ADS) return Feed.isEnabled();
+        if (group == ALWAYS) return true;
         return bool(keyOf(group));
     }
 
     private static String keyOf(int group) {
         switch (group) {
+            case BANNER: return KEY_BANNER;
             default: return KEY_VOICE;
         }
     }
@@ -90,7 +102,7 @@ public final class Flags {
     private static boolean bool(String key) {
         try {
             SharedPreferences prefs = prefs();
-            return prefs != null && prefs.getBoolean(key, false);
+            return prefs != null && prefs.getBoolean(key, key.equals(KEY_VOICE) || key.equals(KEY_BANNER));
         } catch (Throwable ignored) {
             return false;
         }
@@ -109,6 +121,12 @@ public final class Flags {
         return isOn(override.group) ? override.value : null;
     }
 
+    /** Verified 47.2.41 experiment reader; only three literal-key callers are patched. */
+    public static int nativeInt(Object reader,int scope,int fallback,String key,boolean cache){
+        Object override=of(key);if(override instanceof Integer)return ((Integer)override).intValue();
+        if(reader==null)return fallback;
+        try{java.lang.reflect.Method method=reader.getClass().getMethod("LJIIJJI",Integer.TYPE,Integer.TYPE,String.class,Boolean.TYPE);method.setAccessible(true);return ((Number)method.invoke(reader,scope,fallback,key,cache)).intValue();}catch(Throwable error){return fallback;}
+    }
     // ------------------------------------------------- where the reads land
 
     public static boolean flag(String key, boolean fallback) {

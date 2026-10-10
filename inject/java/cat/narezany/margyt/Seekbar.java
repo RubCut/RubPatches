@@ -27,7 +27,9 @@ public final class Seekbar {
 
     private static volatile Boolean cached;
     private static volatile Method original;
+    private static final java.util.Map<Object,Integer> requested = new java.util.WeakHashMap<Object,Integer>();
 
+    static void reloadSettings(){cached=null;setEnabled(isEnabled());}
     public static boolean isEnabled() {
         Boolean known = cached;
         if (known != null) return known;
@@ -46,6 +48,16 @@ public final class Seekbar {
         cached = enabled;
         SharedPreferences prefs = prefs();
         if (prefs != null) prefs.edit().putBoolean(KEY, enabled).apply();
+        java.util.List<java.util.Map.Entry<Object,Integer>> views=new java.util.ArrayList<>();
+        synchronized(requested) {
+            for (java.util.Map.Entry<Object,Integer> entry:requested.entrySet())
+                views.add(new java.util.AbstractMap.SimpleImmutableEntry<Object,Integer>(entry));
+        }
+        for (java.util.Map.Entry<Object,Integer> entry:views) {
+            Runnable update=() -> invoke(entry.getKey(),isEnabled()?ALWAYS:entry.getValue());
+            if (entry.getKey() instanceof android.view.View) ((android.view.View)entry.getKey()).post(update);
+            else new android.os.Handler(android.os.Looper.getMainLooper()).post(update);
+        }
     }
 
     private static SharedPreferences prefs() {
@@ -58,6 +70,11 @@ public final class Seekbar {
 
     public static void setSeekBarShowType(Object view, int type) {
         if (view == null) return;
+        synchronized(requested) { requested.put(view,type); }
+        invoke(view,isEnabled()?ALWAYS:type);
+    }
+
+    private static void invoke(Object view,int type) {
         try {
             Method setter = original;
             if (setter == null || !setter.getDeclaringClass().isInstance(view)) {
@@ -65,7 +82,7 @@ public final class Seekbar {
                 setter.setAccessible(true);
                 original = setter;
             }
-            setter.invoke(view, Integer.valueOf(isEnabled() ? ALWAYS : type));
+            setter.invoke(view, Integer.valueOf(type));
         } catch (Throwable error) {
             // a release that moved the method is a release without this
             // feature, not one where the video fails to open

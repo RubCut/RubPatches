@@ -52,11 +52,13 @@ thrown.
 </details>
 
 <details>
-<summary><b>A theme of your own</b></summary>
+<summary><b>The phone's own colours</b></summary>
 
-Two colours — the text and the page behind it — over the theme TikTok is
-wearing. Or the colours off the phone's wallpaper, on Android 12 and up, where
-the system already works out a palette from it.
+The palette Android works out from the wallpaper, over the theme TikTok is
+wearing, and the accent taken from the same place. On by default on Android 12
+and up; below that a phone has no palette of its own and the switch says so.
+A colour picked by hand is still there for the accent. For the theme it is not:
+there is one theme, and it is the one the rest of the phone is drawn in.
 
 The rule this follows is the one the app already follows: a colour is repainted
 only where TikTok itself would repaint it when the phone switches between light
@@ -466,38 +468,6 @@ official app, and the official app has to go first.
 The one permission the build adds is `REQUEST_INSTALL_PACKAGES`, and only
 because the mod offers its own updates.
 
-## Fixes without a three hundred megabyte download
-
-A release is an apk of about 385 MB, nearly all of it TikTok's own assets, and
-installing one takes a minute of somebody's evening. The mod's own code is
-under a megabyte of that. So a small fix does not have to be a release: it can
-be a **patch**, a signed file the mod fetches in the background and loads the
-next time TikTok starts.
-
-    python3 tools/make_patch.py patches/hello --version 1 --notes "what it fixes"
-
-A patch is a zip of three things: `manifest.json`, `classes.dex`, and a
-`signature` over both. The signing key lives on one machine. Its public half is
-built into the apk, and a build made without the key refuses every patch --
-which is the right way round, because the server answers over plain http and a
-file that becomes running code inside somebody else's TikTok cannot be trusted
-for arriving from the expected address.
-
-What a patch can do is bounded, and the boundary is not a matter of effort. The
-hooks are rewritten call sites *inside the installed apk*; nothing arriving
-afterwards can add one or move one. A patch implements `Mend` and is called
-where the mod asks: at start-up, when a screen comes up, when a name is about
-to be drawn, and at a handful of decision points that pass through
-`Patch.ask`. From there it can reach everything the mod makes public. It cannot
-rewrite a method that is already compiled into the apk, and a class it carries
-under a name the apk already has is never reached -- the apk's own loader
-answers first.
-
-A patch that throws while starting is deleted rather than kept: a marker is
-written before it runs and cleared after, so one that costs an app costs a
-restart and nothing more. Patches can be switched off entirely in the
-settings, and taking one off is a button.
-
 ## Building it yourself
 
 You need a JDK (17 or newer) and Python 3. Nothing else: smali, d8, android.jar
@@ -507,15 +477,23 @@ version. And a **universal** apk of TikTok — on APKMirror the variant of type
 its own to read.
 
 ```bash
-git clone https://github.com/narezany/MargyT
+git clone https://git.narez.xyz/narezany/MargyT
 cd MargyT
 ./build.sh path/to/tiktok.apk
 ```
 
 The apk lands in `build/`. Reaching the colour where it actually lives means
-opening most of the dex files rather than a handful, so this is a quarter of an
-hour on four cores and a few minutes on a desktop — nearly all of it smali
-putting the dex files back together.
+opening most of the dex files rather than a handful, so the first build is
+minutes of taking them apart and putting them back, several at a time and as
+many as the machine has memory for.
+
+The builds after it are shorter, because three things are kept in
+`~/.cache/margyt-dex`: every dex taken apart, every patched dex under a name
+made from what was rewritten in it, and which of those a given set of rules
+led to. Change only the mod's Java and no dex is opened at all; change one
+hook and every dex is rewritten again but only the ones that came out
+different are reassembled. `MARGYT_NO_CACHE=1` ignores all of it,
+`MARGYT_WORKERS` says how many dex files to do at once.
 
 ```
 ==> Opening the apk
@@ -589,8 +567,6 @@ only thing here that wants aapt2.
 | `margyt/png.py` | just enough PNG to resize an icon, so Pillow is not needed |
 | `margyt/vector.py` | vector drawables, compiled without aapt2 |
 | `margyt/plugin.py` | packs a folder into an `.mtp`, with the same pinned toolchain |
-| `tools/make_patch.py` | builds and signs a `.margyupd`: a fix that travels without an apk |
-| `patches/hello/` | the smallest patch there is, and the shape every other one takes |
 | `inject/java/` | the mod itself: its screen, and the methods the rewrites land in |
 | `badges.json` | the badges, read from here by every install |
 | `version.json` | what the latest release is, read from here by every install |

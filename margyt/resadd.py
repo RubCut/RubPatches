@@ -57,6 +57,50 @@ def add_files(data: bytes, package_id: int, type_name: str,
     return bytes(out)
 
 
+def add_adaptive_icons(data: bytes, package_id: int,
+                       names_and_paths: List[tuple]) -> bytes:
+    """Add mipmaps with a PNG default and an adaptive XML value on API 26+.
+
+    Each tuple is (resource name, legacy PNG path, adaptive XML or PNG path).
+    Layer resources can use the same PNG in both configurations.
+    """
+    kind, header, _size = struct.unpack_from("<HHI", data, 0)
+    if kind != RES_TABLE or not names_and_paths:
+        raise ValueError("not a resource table or no icons")
+    package_count = struct.unpack_from("<I", data, 8)[0]
+    paths = [row[1] for row in names_and_paths] + [row[2] for row in names_and_paths]
+    grown, first = _append_strings(data, header, paths)
+    count = len(names_and_paths)
+    package = _package_adaptive(
+        package_id, [row[0] for row in names_and_paths],
+        list(range(first, first + count)),
+        list(range(first + count, first + 2 * count)),
+    )
+    out = bytearray(grown)
+    out.extend(package)
+    struct.pack_into("<I", out, 8, package_count + 1)
+    struct.pack_into("<I", out, 4, len(out))
+    return bytes(out)
+
+
+def _package_adaptive(package_id: int, keys: List[str], legacy: List[int],
+                      adaptive: List[int]) -> bytes:
+    type_pool = _pool(["mipmap"])
+    key_pool = _pool(keys)
+    body = type_pool + key_pool + _spec(len(keys))
+    body += _type(len(keys), legacy) + _type(len(keys), adaptive, sdk=26)
+    header_size = 288
+    head = bytearray(header_size)
+    struct.pack_into("<HHI", head, 0, RES_TABLE_PACKAGE, header_size,
+                     header_size + len(body))
+    struct.pack_into("<I", head, 8, package_id)
+    name = "margyt".encode("utf-16-le")
+    head[12:12 + len(name)] = name
+    struct.pack_into("<4I", head, 268,
+                     header_size, 1, header_size + len(type_pool), len(keys))
+    return bytes(head) + body
+
+
 def _append_strings(data: bytes, pool_at: int, strings: List[str]):
     """Put new strings at the end of the table's own pool.
 
@@ -178,10 +222,11 @@ def _spec(count: int) -> bytes:
     return bytes(out)
 
 
-def _type(count: int, string_indexes: List[int]) -> bytes:
+def _type(count: int, string_indexes: List[int], sdk: int = 0) -> bytes:
     """One configuration -- the default one -- holding every entry."""
     config = bytearray(64)
     struct.pack_into("<I", config, 0, 64)
+    struct.pack_into("<H", config, 24, sdk)
 
     entries = bytearray()
     offsets = bytearray()

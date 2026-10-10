@@ -51,7 +51,7 @@ public final class Popup {
                             String button, final android.graphics.drawable.Drawable picture) {
         try {
             Skin skin = Skin.remembered(context);
-            Dialog dialog = new Dialog(context);
+            Dialog dialog = new SheetDialog(context, true);
             Window window = dialog.getWindow();
             if (window != null) {
                 dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -81,6 +81,7 @@ public final class Popup {
                 params.width = Math.min(dp(context, 320),
                         (int) (context.getResources().getDisplayMetrics().widthPixels * 0.86f));
                 params.gravity = Gravity.CENTER;
+                params.y = 0;
                 window.setAttributes(params);
             }
         } catch (Throwable error) {
@@ -92,7 +93,7 @@ public final class Popup {
                             String button, String[][] pictures, String[] captions) {
         try {
             Skin skin = Skin.remembered(context);
-            Dialog dialog = new Dialog(context);
+            Dialog dialog = new SheetDialog(context, true);
             Window window = dialog.getWindow();
             if (window != null) {
                 dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -120,10 +121,108 @@ public final class Popup {
                 params.width = Math.min(dp(context, 360),
                         (int) (context.getResources().getDisplayMetrics().widthPixels * 0.92f));
                 params.gravity = Gravity.CENTER;
+                params.y = 0;
                 window.setAttributes(params);
             }
         } catch (Throwable error) {
             Diary.note("popup: " + error);
+        }
+    }
+
+    /**
+     * Several rows, each a picture with a title and a line under it.
+     *
+     * Used for the badges an account holds: one tap on a badge opens all of
+     * them, not just the one that was touched. The rows scroll inside a
+     * height cap, so an account with many badges never pushes the button off
+     * the screen.
+     */
+    public static void showList(Context context, String title, String button,
+                                android.graphics.drawable.Drawable[] pictures,
+                                String[] titles, String[] texts) {
+        try {
+            Skin skin = Skin.remembered(context);
+            Dialog dialog = new SheetDialog(context, true);
+            Window window = dialog.getWindow();
+            if (window != null) {
+                dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+                window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+                window.setDimAmount(0.6f);
+            }
+
+            View card = card(context, skin, title, null, button, dialog);
+            if (card instanceof LinearLayout) {
+                LinearLayout rows = new LinearLayout(context);
+                rows.setOrientation(LinearLayout.VERTICAL);
+                for (int i = 0; i < titles.length; i++) {
+                    LinearLayout row = new LinearLayout(context);
+                    row.setOrientation(LinearLayout.HORIZONTAL);
+                    row.setGravity(Gravity.CENTER_VERTICAL);
+                    row.setPadding(0, dp(context, 8), 0, dp(context, 8));
+
+                    android.widget.ImageView image = new android.widget.ImageView(context);
+                    if (pictures != null && i < pictures.length && pictures[i] != null)
+                        image.setImageDrawable(pictures[i]);
+                    image.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
+                    row.addView(image, new LinearLayout.LayoutParams(
+                            dp(context, 40), dp(context, 40)));
+
+                    LinearLayout words = new LinearLayout(context);
+                    words.setOrientation(LinearLayout.VERTICAL);
+                    TextView name = new TextView(context);
+                    name.setText(titles[i]);
+                    name.setTextColor(skin.text);
+                    name.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+                    name.setTypeface(Typeface.DEFAULT_BOLD);
+                    words.addView(name);
+                    if (texts != null && i < texts.length && texts[i] != null
+                            && texts[i].length() > 0) {
+                        TextView line = new TextView(context);
+                        line.setText(texts[i]);
+                        line.setTextColor(skin.muted());
+                        line.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+                        words.addView(line);
+                    }
+                    LinearLayout.LayoutParams beside = new LinearLayout.LayoutParams(
+                            0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+                    beside.leftMargin = dp(context, 12);
+                    row.addView(words, beside);
+                    rows.addView(row);
+                }
+
+                final int cap = (int) (context.getResources().getDisplayMetrics()
+                        .heightPixels * 0.5f);
+                android.widget.ScrollView scroller = new android.widget.ScrollView(context) {
+                    @Override
+                    protected void onMeasure(int widthSpec, int heightSpec) {
+                        super.onMeasure(widthSpec,
+                                View.MeasureSpec.makeMeasureSpec(cap, View.MeasureSpec.AT_MOST));
+                    }
+                };
+                scroller.setVerticalScrollBarEnabled(false);
+                scroller.addView(rows);
+                LinearLayout holder = (LinearLayout) card;
+                LinearLayout.LayoutParams where = new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT);
+                where.topMargin = dp(context, 4);
+                holder.addView(scroller, Math.max(0, holder.getChildCount() - 1), where);
+            }
+
+            dialog.setContentView(card);
+            dialog.setCanceledOnTouchOutside(true);
+            dialog.show();
+
+            if (window != null) {
+                WindowManager.LayoutParams params = window.getAttributes();
+                params.width = Math.min(dp(context, 340),
+                        (int) (context.getResources().getDisplayMetrics().widthPixels * 0.9f));
+                params.gravity = Gravity.CENTER;
+                params.y = 0;
+                window.setAttributes(params);
+            }
+        } catch (Throwable error) {
+            Diary.note("popup list: " + error);
         }
     }
 
@@ -270,7 +369,7 @@ public final class Popup {
                              String button, final Runnable then) {
         try {
             Skin skin = Skin.remembered(context);
-            Dialog dialog = new Dialog(context);
+            Dialog dialog = new SheetDialog(context, true);
 
             Window window = dialog.getWindow();
             if (window != null) {
@@ -297,6 +396,7 @@ public final class Popup {
                 params.width = Math.min(dp(context, 320),
                         (int) (context.getResources().getDisplayMetrics().widthPixels * 0.86f));
                 params.gravity = Gravity.CENTER;
+                params.y = 0;
                 window.setAttributes(params);
             }
         } catch (Throwable error) {
@@ -316,7 +416,7 @@ public final class Popup {
                              String button, final Written onDone) {
         try {
             Skin skin = Skin.remembered(context);
-            final Dialog dialog = new Dialog(context);
+            final Dialog dialog = new SheetDialog(context);
             Window window = dialog.getWindow();
             if (window != null) {
                 dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -326,10 +426,10 @@ public final class Popup {
 
             LinearLayout card = new LinearLayout(context);
             card.setOrientation(LinearLayout.VERTICAL);
-            card.setPadding(dp(context, 24), dp(context, 24), dp(context, 24), dp(context, 16));
+            card.setPadding(dp(context, 16), dp(context, 16), dp(context, 16), dp(context, 12));
             GradientDrawable background = new GradientDrawable();
             background.setColor(skin.card);
-            background.setCornerRadius(Math.max(skin.radius, dp(context, 16)));
+            background.setCornerRadius(Math.max(skin.radius, dp(context, 28)));
             card.setBackground(background);
 
             TextView head = new TextView(context);
@@ -349,7 +449,7 @@ public final class Popup {
             field.setPadding(dp(context, 12), dp(context, 10), dp(context, 12), dp(context, 10));
             GradientDrawable box = new GradientDrawable();
             box.setColor(skin.page);
-            box.setCornerRadius(dp(context, 10));
+            box.setCornerRadius(dp(context, 14));
             box.setStroke(dp(context, 1), Accent.colour());
             field.setBackground(box);
             field.setSelection(field.getText().length());
@@ -364,11 +464,11 @@ public final class Popup {
             go.setPadding(0, dp(context, 12), 0, dp(context, 12));
             GradientDrawable pill = new GradientDrawable();
             pill.setColor(Accent.colour());
-            pill.setCornerRadius(dp(context, 12));
+            pill.setCornerRadius(dp(context, 20));
             go.setBackground(pill);
             LinearLayout.LayoutParams below = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            below.topMargin = dp(context, 16);
+            below.topMargin = dp(context, 12);
             go.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -389,7 +489,8 @@ public final class Popup {
                 WindowManager.LayoutParams params = window.getAttributes();
                 params.width = Math.min(dp(context, 320),
                         (int) (context.getResources().getDisplayMetrics().widthPixels * 0.86f));
-                params.gravity = Gravity.CENTER;
+                params.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+                params.y = dp(context, 12);
                 window.setAttributes(params);
             }
         } catch (Throwable error) {
@@ -635,9 +736,21 @@ public final class Popup {
                            String yes, final Runnable onYes,
                            String no, final Runnable onNo,
                            String tick, final Ticked onTick) {
+        ask(context,title,message,yes,onYes,no,onNo,tick,onTick,false);
+    }
+
+    public static void askUpdate(Context context,String title,String message,
+                                 String yes,Runnable onYes,String no,Runnable onNo,
+                                 String tick,Ticked onTick) {
+        ask(context,title,message,yes,onYes,no,onNo,tick,onTick,true);
+    }
+
+    private static void ask(Context context,String title,String message,
+                            String yes,final Runnable onYes,String no,final Runnable onNo,
+                            String tick,final Ticked onTick,final boolean pinned) {
         try {
             Skin skin = Skin.remembered(context);
-            final Dialog dialog = new Dialog(context);
+            final Dialog dialog = new SheetDialog(context);
             Window window = dialog.getWindow();
             if (window != null) {
                 dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -645,12 +758,19 @@ public final class Popup {
                 window.setDimAmount(0.6f);
             }
 
-            LinearLayout card = new LinearLayout(context);
+            LinearLayout card = pinned ? new LinearLayout(context) {
+                @Override protected void onMeasure(int width,int height) {
+                    int cap=Math.round(getResources().getDisplayMetrics().heightPixels*0.78f);
+                    int available=View.MeasureSpec.getMode(height)==View.MeasureSpec.UNSPECIFIED
+                            ? cap : Math.min(cap,View.MeasureSpec.getSize(height));
+                    super.onMeasure(width,View.MeasureSpec.makeMeasureSpec(available,View.MeasureSpec.AT_MOST));
+                }
+            } : new LinearLayout(context);
             card.setOrientation(LinearLayout.VERTICAL);
-            card.setPadding(dp(context, 24), dp(context, 24), dp(context, 24), dp(context, 16));
+            card.setPadding(dp(context, 16), dp(context, 16), dp(context, 16), dp(context, 12));
             GradientDrawable background = new GradientDrawable();
             background.setColor(skin.card);
-            background.setCornerRadius(Math.max(skin.radius, dp(context, 16)));
+            background.setCornerRadius(Math.max(skin.radius, dp(context, 28)));
             card.setBackground(background);
 
             if (title != null && title.length() > 0) {
@@ -668,8 +788,18 @@ public final class Popup {
             body.setText(message);
             body.setTextColor(skin.text);
             body.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-            body.setGravity(Gravity.CENTER);
-            card.addView(body);
+            body.setGravity(pinned ? Gravity.START : Gravity.CENTER);
+            if (pinned) {
+                android.widget.ScrollView notes=new android.widget.ScrollView(context);
+                notes.setFillViewport(false);
+                notes.setVerticalScrollBarEnabled(true);
+                body.setTextIsSelectable(true);
+                notes.addView(body,new ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT));
+                // Only notes can shrink and scroll; the footer remains a sibling.
+                card.addView(notes,new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT,1f));
+            } else card.addView(body);
 
             if (tick != null) {
                 final M3Switch box = new M3Switch(context);
@@ -700,11 +830,12 @@ public final class Popup {
             buttons.setOrientation(LinearLayout.HORIZONTAL);
             LinearLayout.LayoutParams place = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            place.topMargin = dp(context, 18);
+            place.topMargin = dp(context, 12);
             card.addView(buttons, place);
 
             if (no != null) {
                 TextView refuse = new TextView(context);
+                refuse.setMinHeight(dp(context,48));
                 refuse.setText(no);
                 refuse.setTextColor(skin.muted());
                 refuse.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
@@ -722,6 +853,7 @@ public final class Popup {
             }
 
             TextView accept = new TextView(context);
+            accept.setMinHeight(dp(context,48));
             accept.setText(yes);
             accept.setTextColor(onAccent());
             accept.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
@@ -752,7 +884,8 @@ public final class Popup {
                 WindowManager.LayoutParams params = window.getAttributes();
                 params.width = Math.min(dp(context, 340),
                         (int) (context.getResources().getDisplayMetrics().widthPixels * 0.88f));
-                params.gravity = Gravity.CENTER;
+                params.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+                params.y = dp(context, 12);
                 window.setAttributes(params);
             }
         } catch (Throwable error) {
@@ -776,11 +909,11 @@ public final class Popup {
                              String button, final Dialog dialog) {
         LinearLayout card = new LinearLayout(context);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(context, 24), dp(context, 24), dp(context, 24), dp(context, 16));
+        card.setPadding(dp(context, 16), dp(context, 16), dp(context, 16), dp(context, 12));
 
         GradientDrawable background = new GradientDrawable();
         background.setColor(skin.card);
-        background.setCornerRadius(Math.max(skin.radius, dp(context, 16)));
+        background.setCornerRadius(Math.max(skin.radius, dp(context, 28)));
         card.setBackground(background);
 
         if (title != null && title.length() > 0) {
@@ -794,17 +927,19 @@ public final class Popup {
             card.addView(head);
         }
 
-        TextView body = new TextView(context);
-        body.setText(message);
-        body.setTextColor(skin.text);
-        body.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-        body.setGravity(Gravity.CENTER);
-        // long update notes used to push the button off the bottom of the
-        // screen, where nothing could be done about them
-        body.setMaxHeight((int) (context.getResources()
-                .getDisplayMetrics().heightPixels * 0.5f));
-        body.setMovementMethod(new android.text.method.ScrollingMovementMethod());
-        card.addView(body);
+        if (message != null) {
+            TextView body = new TextView(context);
+            body.setText(message);
+            body.setTextColor(skin.text);
+            body.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+            body.setGravity(Gravity.CENTER);
+            // long update notes used to push the button off the bottom of the
+            // screen, where nothing could be done about them
+            body.setMaxHeight((int) (context.getResources()
+                    .getDisplayMetrics().heightPixels * 0.5f));
+            body.setMovementMethod(new android.text.method.ScrollingMovementMethod());
+            card.addView(body);
+        }
 
         TextView close = new TextView(context);
         close.setText(button == null || button.length() == 0 ? Text.CLOSE : button);
@@ -830,7 +965,7 @@ public final class Popup {
 
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        params.topMargin = dp(context, 20);
+        params.topMargin = dp(context, 12);
         card.addView(close, params);
         return card;
     }

@@ -64,21 +64,23 @@ def admit(user, password):
     row = kept()
     if not row or not user or not password:
         return False
-    if not hmac.compare_digest(user, row[0]):
-        return False
-    return hmac.compare_digest(hashed(password, row[1]), row[2])
+    # the password is worked out whether or not the name is right, so how
+    # long the answer takes says nothing about which of the two was wrong
+    right = hmac.compare_digest(hashed(password, row[1]), row[2])
+    return hmac.compare_digest(user.encode("utf-8"), row[0].encode("utf-8")) and right
 
 
 def set_password(user, password):
     """Write a new password down as a salt and a hash, never as itself."""
     salt = secrets.token_hex(16)
     db = store()
-    row = db.execute("SELECT secret FROM admin WHERE user = ?", (user,)).fetchone()
-    secret = row[0] if row else secrets.token_hex(32)
+    # a new key for the cookies as well: a browser that was signed in with
+    # the old password is not still signed in with the new one
+    secret = secrets.token_hex(32)
     db.execute("INSERT INTO admin (user, salt, hash, secret, changed)"
                " VALUES (?,?,?,?,?) ON CONFLICT(user) DO UPDATE SET"
                " salt = excluded.salt, hash = excluded.hash,"
-               " changed = excluded.changed",
+               " secret = excluded.secret, changed = excluded.changed",
                (user, salt, hashed(password, salt), secret, int(time.time())))
     db.commit()
     db.close()
@@ -102,6 +104,28 @@ def sign(when, secret):
 def ticket():
     when = int(time.time())
     return "%d.%s" % (when, sign(when, secret()))
+
+
+def cookie(value):
+    """The sign-in cookie, or the one that takes it away.
+
+    Never sent over plain http, never readable by a script on the page, and
+    never sent along with a request that began on somebody else's site.
+    """
+    return ("margyt=%s; Path=/; Max-Age=%d; HttpOnly; Secure; SameSite=Strict"
+            % (value, HOURS if value else 0))
+
+
+def seen_cookie(mark):
+    """What a browser keeps to be recognised by the next time it signs in."""
+    return ("margyt_seen=%s; Path=/admin; Max-Age=%d; HttpOnly; Secure; SameSite=Strict"
+            % (mark, 180 * 86400))
+
+
+def span(seconds):
+    if seconds >= 3600:
+        return "%d ч %d мин" % (seconds // 3600, seconds % 3600 // 60)
+    return "%d мин" % max(1, (seconds + 59) // 60)
 
 
 def allowed(cookie):
@@ -151,8 +175,7 @@ button, .button { display:inline-block; padding:10px 16px; border-radius:11px;
 .row > * { flex:1; min-width: 140px; }
 .row > .narrow { flex:0 0 auto; }
 .dim { color: var(--dim); font-size: 13px; }
-.wide { width:140px; height:48px; object-fit:cover; border-radius:10px;
-        vertical-align:middle; background:#1b1b1f }
+pre { white-space: pre-wrap; word-break: break-word; font-size: 12px; margin: 8px 0 0; }
 .bar { display:inline-block; width:96px; height:14px; border-radius:7px;
        vertical-align:middle }
 .dot { width:26px; height:26px; border-radius:7px; vertical-align:middle;
@@ -172,18 +195,6 @@ def page(title, body, said=""):
 
 
 def sign_in_page(trouble=""):
-    mended = []
-    for one in patches:
-        mended.append(
-            "<tr><td><b>%s</b></td><td class=dim>мод %s</td><td class=dim>%s</td>"
-            "<td class=dim>%s</td><td class=dim>%d КБ</td>"
-            "<td><form method=post action='/admin/patch/drop' style='display:inline'>"
-            "<input type=hidden name=file value='%s'>"
-            "<button class=quiet>Снять</button></form></td></tr>"
-            % (html.escape(one["version"]), html.escape(one["mod"]),
-               html.escape(one["tiktok"] or "любая"), html.escape(one["notes"] or ""),
-               one["size"] // 1024, html.escape(one["file"])))
-
     return page("MargyT", """
         <h1>MargyT</h1>
         <p class=dim>Панель</p>
@@ -210,7 +221,7 @@ def when(stamp):
     return "%d дн назад" % (gone // 86400)
 
 
-def main_page(badges, plugins, banners=(), gradients=(), patches=(), said=""):
+def main_page(badges, plugins, gradients=(), said="", crashes=()):
     rows = []
     for badge in badges:
         rows.append(
@@ -233,18 +244,6 @@ def main_page(badges, plugins, banners=(), gradients=(), patches=(), said=""):
                html.escape(one["version"]), html.escape(one["author"]),
                html.escape(one["tiktok"] or "любая"), html.escape(one["id"])))
 
-    shown = []
-    for one in banners:
-        shown.append(
-            "<tr><td><img class=wide src='/banner/%s?v=%s'></td>"
-            "<td class=dim>%s</td><td class=dim>%s</td>"
-            "<td><form method=post action='/admin/banner/drop' style='display:inline'>"
-            "<input type=hidden name=uid value='%s'>"
-            "<button class=quiet>Снять</button></form></td></tr>"
-            % (html.escape(one["uid"]), html.escape(one["version"]),
-               html.escape(one["uid"]), when(one["changed"]),
-               html.escape(one["uid"])))
-
     painted = []
     for one in gradients:
         strip = ", ".join("#" + html.escape(c) for c in one["colours"])
@@ -257,21 +256,17 @@ def main_page(badges, plugins, banners=(), gradients=(), patches=(), said=""):
             "<button class=quiet>Снять</button></form></td></tr>"
             % (html.escape(one["uid"]), strip, strip, html.escape(one["uid"])))
 
-    mended = []
-    for one in patches:
-        mended.append(
-            "<tr><td><b>%s</b></td><td class=dim>мод %s</td><td class=dim>%s</td>"
-            "<td class=dim>%s</td><td class=dim>%d КБ</td>"
-            "<td><form method=post action='/admin/patch/drop' style='display:inline'>"
-            "<input type=hidden name=file value='%s'>"
-            "<button class=quiet>Снять</button></form></td></tr>"
-            % (html.escape(one["version"]), html.escape(one["mod"]),
-               html.escape(one["tiktok"] or "любая"), html.escape(one["notes"] or ""),
-               one["size"] // 1024, html.escape(one["file"])))
+    fallen = []
+    for one in crashes:
+        fallen.append(
+            "<tr><td class=dim>%s</td><td class=dim>%s</td>"
+            "<td><details><summary>%s</summary><pre>%s</pre></details></td></tr>"
+            % (when(one["at"]), html.escape(one["mod"] or "?"),
+               html.escape(one["what"] or "?"), html.escape(one["body"])))
 
     return page("MargyT", """
         <h1>MargyT</h1>
-        <p class=dim>Значки, плагины, баннеры и градиенты</p>
+        <p class=dim>Значки, плагины и градиенты</p>
 
         <h2>Значки</h2>
         <div class=card><table>
@@ -301,34 +296,11 @@ def main_page(badges, plugins, banners=(), gradients=(), patches=(), said=""):
           <p><button>Создать</button></p>
         </form>
 
-        <h2>Баннеры профилей</h2>
-        <div class=card><table>
-          <tr><th></th><th>айди</th><th>когда</th><th></th></tr>
-          %s
-        </table></div>
-
         <h2>Градиенты ников</h2>
         <div class=card><table>
           <tr><th>айди</th><th>цвета</th><th></th></tr>
           %s
         </table></div>
-
-        <h2>Заплатки</h2>
-        <div class=card><table>
-          <tr><th>версия</th><th>для</th><th>TikTok</th><th>что чинит</th>
-              <th>размер</th><th></th></tr>
-          %s
-        </table></div>
-
-        <h2>Загрузить заплатку</h2>
-        <form class=card method=post action="/admin/patch/add"
-              enctype="multipart/form-data">
-          <p class=dim>Файл .margyupd, собранный и подписанный через
-             <code>tools/make_patch.py</code>. Телефон сам проверит подпись,
-             сервер только хранит.</p>
-          <input type=file name=file accept=".margyupd,.zip">
-          <p><button>Загрузить</button></p>
-        </form>
 
         <h2>Плагины</h2>
         <div class=card><table>
@@ -344,6 +316,12 @@ def main_page(badges, plugins, banners=(), gradients=(), patches=(), said=""):
           <p><button>Загрузить</button></p>
         </form>
 
+        <h2>Сбои</h2>
+        <div class=card><table>
+          <tr><th>когда</th><th>версия</th><th>что упало</th></tr>
+          %s
+        </table></div>
+
         <h2>Пароль от панели</h2>
         <form class=card method=post action="/admin/password">
           <p class=dim>Хранится солёным хешем в базе, не текстом.</p>
@@ -357,10 +335,9 @@ def main_page(badges, plugins, banners=(), gradients=(), patches=(), said=""):
 
         <p><a class='button quiet' href="/admin/out">Выйти</a></p>
         """ % ("".join(rows) or "<tr><td class=dim>пока пусто</td></tr>",
-               "".join(shown) or "<tr><td class=dim>пока пусто</td></tr>",
                "".join(painted) or "<tr><td class=dim>пока пусто</td></tr>",
-               "".join(mended) or "<tr><td class=dim>пока пусто</td></tr>",
-               "".join(packs) or "<tr><td class=dim>пока пусто</td></tr>"), said)
+               "".join(packs) or "<tr><td class=dim>пока пусто</td></tr>",
+               "".join(fallen) or "<tr><td class=dim>пока пусто</td></tr>"), said)
 
 
 def badge_page(badge, wearers, said=""):

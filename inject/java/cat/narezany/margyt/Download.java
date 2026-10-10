@@ -35,6 +35,7 @@ public final class Download {
 
     private Download() {}
 
+    static void reloadSettings(){cached=cachedAlways=null;}
     public static final String KEY = "download_no_watermark";
     public static final String KEY_ALWAYS = "download_always";
 
@@ -109,7 +110,7 @@ public final class Download {
         if (!isEnabled()) return stamped;
         try {
             UrlModel clean = video.getDownloadNoWatermarkAddr();
-            if (usable(clean)) return clean;
+            if (usable(clean)) return (UrlModel)DownloadQuality.video(video,clean);
 
             // The server does not always send a clean address, and for a while
             // that was the end of it -- which is why this saved a stamped video
@@ -118,7 +119,7 @@ public final class Download {
             // is drawn for the download and for nothing else, so the thing on
             // screen is already the clean copy.
             UrlModel playing = video.getPlayAddr();
-            if (usable(playing)) return playing;
+            if (usable(playing)) return (UrlModel)DownloadQuality.video(video,playing);
         } catch (Throwable ignored) {
             // a release that moved either address is a release that saves the
             // stamped one, not one that cannot save at all

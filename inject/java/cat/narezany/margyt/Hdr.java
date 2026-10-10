@@ -88,9 +88,6 @@ public final class Hdr {
         try {
             Window window = activity.getWindow();
             if (window == null) return;
-            // a patch may know something about this phone that this build did
-            if (Boolean.TRUE.equals(Patch.ask("hdr", activity))) return;
-
             if (!isEnabled()) {
                 if (touched && Build.VERSION.SDK_INT >= 35) {
                     // zero is "whatever you like", which is where it started

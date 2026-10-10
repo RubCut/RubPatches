@@ -15,7 +15,7 @@ import org.json.JSONObject;
  * bio, so nobody else gets the key.
  *
  * The key that comes back is kept on the phone and used for everything after
- * that: the order of badges, a gradient, a banner. Proving is not something
+ * that: the order of badges, a gradient. Proving is not something
  * to do twice.
  *
  * It replaces handing the key to whoever asked first, which held up until

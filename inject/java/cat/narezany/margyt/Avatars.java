@@ -22,6 +22,7 @@ import java.util.List;
  * of that picture is the last one anybody asked for.
  */
 public final class Avatars {
+    static void reloadSettings(){cached=null;}
 
     private Avatars() {}
 
@@ -72,12 +73,26 @@ public static final String KEY = "save_avatars";
         return remember(user, user == null ? null : user.getAvatarMedium());
     }
 
+    /** Capture the signed-in person's real avatar as soon as TikTok exposes it. */
+    public static void rememberCurrent(User user) {
+        if (user == null) return;
+        try {
+            UrlModel url = user.getAvatarLarger();
+            if (!usable(url)) url = user.getAvatar300();
+            if (!usable(url)) url = user.getAvatarMedium();
+            remember(user, url);
+        } catch (Throwable error) {
+            Diary.note("current profile avatar: " + error);
+        }
+    }
+
     private static UrlModel remember(User user, UrlModel url) {
         if (url == null) return null;
         try {
             if (usable(url)) {
                 latest = url;
                 latestUid = user == null ? null : user.getUid();
+                if (user != null) Account.rememberAvatar(user.getUid(), first(url));
             }
         } catch (Throwable ignored) {
         }

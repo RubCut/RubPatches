@@ -53,6 +53,7 @@ ATTR_IDS = {
     "targetActivity": 0x01010202,
     "taskAffinity": 0x01010012,
     "minSdkVersion": 0x0101020C,
+    "versionCode": 0x0101021B,
 }
 
 NO_ENTRY = 0xFFFFFFFF

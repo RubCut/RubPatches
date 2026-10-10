@@ -28,6 +28,7 @@ public final class Diary {
 
     private static final String KEY = "diary";
     private static final int KEEP = 40;
+    private static final int KEEP_DEV = 400;
 
     private static final List<String> LINES = new ArrayList<String>();
     private static boolean loaded;
@@ -54,7 +55,8 @@ public final class Diary {
             String last = LINES.isEmpty() ? "" : LINES.get(LINES.size() - 1);
             if (last.length() > 10 && last.substring(10).equals(stamped.substring(10))) return;
             LINES.add(stamped);
-            while (LINES.size() > KEEP) LINES.remove(0);
+            int keep = DevMode.isOn() ? KEEP_DEV : KEEP;
+            while (LINES.size() > keep) LINES.remove(0);
             dirty = true;
             long now = android.os.SystemClock.uptimeMillis();
             if (now - savedAt >= REST) {
@@ -62,6 +64,11 @@ public final class Diary {
                 save();
             }
         }
+    }
+
+    /** A line only a developer wants. Written when the developer switch is on. */
+    public static void detail(String line) {
+        if (DevMode.isOn()) note("· " + line);
     }
 
     public static List<String> lines() {

@@ -49,6 +49,7 @@ import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
+import guard
 import panel
 import tiktok
 
@@ -77,24 +78,18 @@ MOST_BADGES = 16
 #: the badge that makes somebody a supporter, and the two things it unlocks
 SUPPORTER = "supporter"
 
-#: where the patches live. A patch is a signed zip the mod loads at start-up;
-#: the server only stores them and says which is newest, because the phone
-#: checks the signature itself and the key to make one is not here.
-PATCHES = os.path.join(HERE, "patches")
-PATCH_MOST = 8 * 1024 * 1024
-
-#: where a banner is kept, and how much of one is accepted
-BANNERS = os.path.join(HERE, "banners")
-BANNER_MOST = 5 * 1024 * 1024
-BANNER_KINDS = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
-
-#: how often each may be changed. Not a rule of taste: a banner is megabytes
-#: and a gradient is seen by everyone, and neither needs changing by the second
+#: how often a gradient may be changed. Not a rule of taste: it is seen by
+#: everyone, and does not need changing by the second
 GRADIENT_WAIT = 60
-BANNER_WAIT = 5 * 60
 
 #: as many colours as a gradient is worth having
 MOST_COLOURS = 5
+
+#: a crash report: how big one may be, how many are kept, how many an address
+#: may send in an hour. The phone sends nothing until its owner has said yes.
+CRASH_MOST = 32 * 1024
+CRASH_KEEP = 500
+CRASH_EACH = 20
 
 #: proving an account is yours: how long a code is good for, and how many
 #: times a page may be read before the code is spent. Long enough to open
@@ -181,12 +176,12 @@ def prepare():
             colours TEXT NOT NULL,
             changed INTEGER NOT NULL DEFAULT 0
         );
-        CREATE TABLE IF NOT EXISTS banner (
-            uid     TEXT PRIMARY KEY,
-            kind    TEXT NOT NULL DEFAULT '',
-            version TEXT NOT NULL DEFAULT '',
-            changed INTEGER NOT NULL DEFAULT 0,
-            dim     INTEGER NOT NULL DEFAULT 0
+        CREATE TABLE IF NOT EXISTS crash (
+            id   INTEGER PRIMARY KEY AUTOINCREMENT,
+            at   INTEGER NOT NULL,
+            mod  TEXT NOT NULL DEFAULT '',
+            what TEXT NOT NULL DEFAULT '',
+            body TEXT NOT NULL
         );
         CREATE TABLE IF NOT EXISTS face (
             id   TEXT PRIMARY KEY,
@@ -218,8 +213,6 @@ def prepare():
         db.execute("ALTER TABLE face ADD COLUMN told TEXT NOT NULL DEFAULT ''")
     # a badge grew a short name after it had a description: the description is
     # a sentence and belongs in the popup, the name is what it is called
-    if "dim" not in [row[1] for row in db.execute("PRAGMA table_info(banner)")]:
-        db.execute("ALTER TABLE banner ADD COLUMN dim INTEGER NOT NULL DEFAULT 0")
     badge_columns = [row[1] for row in db.execute("PRAGMA table_info(badge)")]
     for column in ("title_ru", "title_uk"):
         if column not in badge_columns:
@@ -350,26 +343,18 @@ def public():
         if badge in badges:
             badges[badge]["users"].append(uid)
 
-    # only accounts that still hold the badge, so a gradient or banner left
-    # over from a badge that was taken away stops being shown at once
+    # only accounts that still hold the badge, so a gradient left over from
+    # a badge that was taken away stops being shown at once
     paid = {uid for (uid,) in db.execute(
         "SELECT uid FROM held WHERE badge = ?", (SUPPORTER,))}
     gradients = {uid: colours.split(",") for uid, colours
                  in db.execute("SELECT uid, colours FROM gradient")
                  if uid in paid and colours}
-    banners = {}
-    shades = {}
-    for uid, version, dim in db.execute("SELECT uid, version, dim FROM banner"):
-        if uid not in paid or not version:
-            continue
-        banners[uid] = version
-        if dim:
-            shades[uid] = dim
     db.close()
 
     out = [badges[key] for key in sorted(badges)]
-    return {"badges": out, "gradients": gradients, "banners": banners,
-            "banner_dim": shades, "free_until": FREE_UNTIL, "now": int(time.time())}
+    return {"badges": out, "gradients": gradients,
+            "free_until": FREE_UNTIL, "now": int(time.time())}
 
 
 def mine(uid):
@@ -716,96 +701,54 @@ def gradient(body, ip):
     return 200, {"colours": colours}
 
 
-def banner_of(uid):
-    for ending in (".jpg", ".png", ".webp"):
-        path = os.path.join(BANNERS, uid + ending)
-        if os.path.isfile(path):
-            return path
-    return None
+#: address -> (the hour it was last counted in, how many it sent in it)
+CRASHED = {}
 
 
-def banner(uid, token, kind, blob, ip):
-    """The picture across the top of somebody's profile.
+def crash(body, raw, ip):
+    """A crash somebody agreed to tell us about.
 
-    Kept as a file: it is megabytes and is served as it arrived.
+    Kept as it came: the phone has already left out the account, the messages
+    and the text of the error, and picking the report apart again here would
+    only be a second place for that list to go out of date. What is pulled
+    out is what the panel shows in a row -- which version, and what threw.
     """
+    hour = int(time.time()) // 3600
+    seen = CRASHED.get(ip)
+    count = seen[1] + 1 if seen and seen[0] == hour else 1
+    if len(CRASHED) > 5000:
+        CRASHED.clear()
+    CRASHED[ip] = (hour, count)
+    if count > CRASH_EACH:
+        return 429, {"error": "too often"}
+
+    stack = body.get("stack")
+    if not isinstance(stack, str) or not stack.strip():
+        return 400, {"error": "no stack"}
+    meta = body.get("meta") if isinstance(body.get("meta"), dict) else {}
+    mod = meta.get("mod") if isinstance(meta.get("mod"), dict) else {}
+    thrown = meta.get("crash") if isinstance(meta.get("crash"), dict) else {}
+    version = str(mod.get("version") or body.get("version") or "")[:24]
+    what = str(thrown.get("type") or stack.strip().split("\n", 1)[0])[:160]
+
     db = connect()
-    who = vouched(db, {"uid": uid, "token": token})
-    if not who:
-        db.close()
-        return 403, {"error": "prove"}
-    if not supporter(db, who):
-        db.close()
-        return 403, {"error": "supporters only"}
-
-    left = waited(db, "banner", who, BANNER_WAIT)
-    if left:
-        db.close()
-        return 429, {"error": "too often", "wait": left}
-
-    if not blob:
-        for path in [banner_of(who)]:
-            if path:
-                os.remove(path)
-        db.execute("DELETE FROM banner WHERE uid = ?", (who,))
-        db.commit()
-        db.close()
-        return 200, {"banner": ""}
-
-    ending = BANNER_KINDS.get(kind or "")
-    if not ending:
-        db.close()
-        return 415, {"error": "jpeg, png or webp"}
-    if len(blob) > BANNER_MOST:
-        db.close()
-        return 413, {"error": "5 MB at most"}
-
-    os.makedirs(BANNERS, exist_ok=True)
-    old = banner_of(who)
-    if old:
-        os.remove(old)
-    with open(os.path.join(BANNERS, who + ending), "wb") as handle:
-        handle.write(blob)
-
-    version = hashlib.sha256(blob).hexdigest()[:12]
-    db.execute("INSERT INTO banner (uid, kind, version, changed) VALUES (?,?,?,?)"
-               " ON CONFLICT(uid) DO UPDATE SET kind = excluded.kind,"
-               " version = excluded.version, changed = excluded.changed",
-               (who, kind, version, int(time.time())))
+    db.execute("INSERT INTO crash (at, mod, what, body) VALUES (?,?,?,?)",
+               (int(time.time()), version, what, raw))
+    db.execute("DELETE FROM crash WHERE id NOT IN"
+               " (SELECT id FROM crash ORDER BY id DESC LIMIT ?)", (CRASH_KEEP,))
     db.commit()
     db.close()
-    return 200, {"banner": version}
+    return 200, {"ok": True}
 
 
-def shade(body, ip):
-    """How dark somebody's own banner is drawn, for everyone who sees it.
-
-    Its own endpoint because changing it sends nothing but a number, and
-    making somebody upload five megabytes again to darken a picture would be
-    silly.
-    """
+def crashes(limit=60):
+    """The latest reports, for the panel."""
     db = connect()
-    uid = vouched(db, body)
-    if not uid:
-        db.close()
-        return 403, {"error": "prove"}
-    if not supporter(db, uid):
-        db.close()
-        return 403, {"error": "supporters only"}
-    row = db.execute("SELECT 1 FROM banner WHERE uid = ?", (uid,)).fetchone()
-    if not row:
-        db.close()
-        return 404, {"error": "no banner to darken"}
-
-    try:
-        dim = int(body.get("dim", 0))
-    except (TypeError, ValueError):
-        dim = 0
-    dim = max(0, min(90, dim))
-    db.execute("UPDATE banner SET dim = ? WHERE uid = ?", (dim, uid))
-    db.commit()
+    rows = db.execute("SELECT id, at, mod, what, body FROM crash"
+                      " ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
     db.close()
-    return 200, {"dim": dim}
+    return [{"id": r[0], "at": r[1], "mod": r[2], "what": r[3], "body": r[4]}
+            for r in rows]
 
 
 def free(body, ip):
@@ -838,90 +781,6 @@ def free(body, ip):
     return 200, {"badges": out}
 
 
-def patch_for(mod, tiktok):
-    """The newest patch built for this mod, or nothing.
-
-    Each file carries its own manifest, so nothing about a patch is written
-    down twice: the file is the record.
-    """
-    if not isinstance(mod, str) or not NAMED.match(mod.replace(".", "_") or "_"):
-        return None
-    best = None
-    try:
-        names = sorted(os.listdir(PATCHES))
-    except OSError:
-        return None
-    for name in names:
-        if not name.endswith(".margyupd"):
-            continue
-        said = patch_manifest(os.path.join(PATCHES, name))
-        if not said or said.get("mod") != mod:
-            continue
-        wants = said.get("tiktok") or ""
-        if wants and tiktok and wants != tiktok:
-            continue
-        if best is None or version_before(best[0].get("version", ""),
-                                          said.get("version", "")):
-            best = (said, name)
-    if not best:
-        return None
-    said, name = best
-    return {"version": said.get("version", ""), "url": "/patch/" + name,
-            "notes": said.get("notes", ""), "notes_ru": said.get("notes_ru", ""),
-            "made": said.get("made", 0)}
-
-
-def patches():
-    """Every patch on the shelf, newest first, as the panel shows them."""
-    out = []
-    try:
-        names = os.listdir(PATCHES)
-    except OSError:
-        return out
-    for name in sorted(names):
-        if not name.endswith(".margyupd"):
-            continue
-        said = patch_manifest(os.path.join(PATCHES, name)) or {}
-        out.append({
-            "file": name,
-            "version": said.get("version", "?"),
-            "mod": said.get("mod", "?"),
-            "tiktok": said.get("tiktok", ""),
-            "notes": said.get("notes_ru") or said.get("notes", ""),
-            "size": os.path.getsize(os.path.join(PATCHES, name)),
-        })
-    out.sort(key=lambda one: one["file"], reverse=True)
-    return out
-
-
-def patch_manifest(path):
-    """What a patch says about itself, read out of the file."""
-    try:
-        with zipfile.ZipFile(path) as pack:
-            with pack.open("manifest.json") as handle:
-                return json.loads(handle.read(64 * 1024).decode("utf-8"))
-    except Exception:
-        return None
-
-
-def version_before(one, two):
-    """Whether one version is older than another, by its numbers."""
-    def numbers(said):
-        out = []
-        for piece in str(said).split("."):
-            try:
-                out.append(int(piece))
-            except ValueError:
-                out.append(0)
-        return out
-    left, right = numbers(one), numbers(two)
-    while len(left) < len(right):
-        left.append(0)
-    while len(right) < len(left):
-        right.append(0)
-    return left < right
-
-
 def sane(uid):
     return isinstance(uid, str) and uid.isdigit() and 6 <= len(uid) <= 24
 
@@ -949,8 +808,35 @@ def words(said):
 
 # --------------------------------------------------------------- the plugins
 
+#: file name -> (when it was last changed, its sha256). A plugin is megabytes
+#: and the list is asked for by every phone that opens the store.
+DIGESTS = {}
+
+
+def digest_of(name):
+    """The sha256 of a stored plugin, worked out once per version of the file."""
+    path = os.path.join(PLUGINS, os.path.basename(name))
+    try:
+        changed = os.path.getmtime(path)
+    except OSError:
+        return ""
+    known = DIGESTS.get(name)
+    if known and known[0] == changed:
+        return known[1]
+    with open(path, "rb") as handle:
+        value = hashlib.sha256(handle.read()).hexdigest()
+    if len(DIGESTS) > 500:
+        DIGESTS.clear()
+    DIGESTS[name] = (changed, value)
+    return value
+
+
 def plugins():
-    """Everything the store offers, newest first."""
+    """Everything the store offers, newest first.
+
+    Each entry carries the hash of its file: the phone checks what it was
+    handed against it before it lets the plugin anywhere near the app.
+    """
     db = connect()
     rows = db.execute(
         "SELECT id, name, version, author, about, tiktok, file, icon, size"
@@ -959,7 +845,7 @@ def plugins():
     return {"plugins": [
         {"id": r[0], "name": r[1], "version": r[2], "author": r[3], "about": r[4],
          "tiktok": r[5], "url": "/plugin/" + r[6], "icon": ("/picture/" + r[7])
-         if r[7] else "", "size": r[8]}
+         if r[7] else "", "size": r[8], "sha256": digest_of(r[6])}
         for r in rows]}
 
 
@@ -1229,8 +1115,9 @@ class Handler(BaseHTTPRequestHandler):
         # a header ends at a line break, so nothing that reaches one may hold
         # one, whoever it came from
         self.send_header("Location", where.replace("\r", " ").replace("\n", " "))
-        if cookie is not None:
-            self.send_header("Set-Cookie", cookie)
+        # one cookie or several: signing in sets two
+        for one in ([cookie] if isinstance(cookie, str) else cookie or []):
+            self.send_header("Set-Cookie", one)
         self.send_header("Content-Length", "0")
         self.end_headers()
 
@@ -1255,16 +1142,13 @@ class Handler(BaseHTTPRequestHandler):
                     "SELECT b.id, b.colour, b.image, b.title, b.text, COUNT(h.uid)"
                     " FROM badge b LEFT JOIN held h ON h.badge = b.id"
                     " GROUP BY b.id ORDER BY b.id")]
-            looks = [{"uid": r[0], "version": r[1], "changed": r[2]}
-                     for r in db.execute(
-                         "SELECT uid, version, changed FROM banner ORDER BY changed DESC")]
             colours = [{"uid": r[0], "colours": r[1].split(","), "changed": r[2]}
                        for r in db.execute(
                            "SELECT uid, colours, changed FROM gradient"
                            " ORDER BY changed DESC")]
             db.close()
-            self.html(panel.main_page(badges, plugins()["plugins"], looks, colours,
-                                      patches(), query.get("said", [""])[0]))
+            self.html(panel.main_page(badges, plugins()["plugins"], colours,
+                                      query.get("said", [""])[0], crashes()))
             return
 
         if path == "/admin/badge":
@@ -1289,69 +1173,41 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if path == "/admin/out":
-            self.go("/admin", "margyt=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax")
+            self.go("/admin", panel.cookie(""))
             return
 
         self.answer(404, {"error": "no such page"})
 
     def panel_post(self, path):
+        if not guard.same_site(self.headers):
+            self.answer(403, {"error": "not from here"})
+            return
+
         if path == "/admin/in":
             said = self.form()
+            ip = self.who()
+            seen = guard.device(self.headers.get("Cookie", ""))
+            # asked before the password is so much as looked at: somebody
+            # shut out learns nothing from trying, not even that it was wrong
+            left = guard.wait(ip, seen)
+            if left:
+                self.html(panel.sign_in_page(
+                    "слишком много неверных попыток, вход закрыт ещё на %s"
+                    % panel.span(left)), 429)
+                return
             if panel.admit(said.get("user", ""), said.get("password", "")):
-                self.go("/admin", "margyt=%s; Path=/; Max-Age=43200; HttpOnly;"
-                                  " SameSite=Lax" % panel.ticket())
+                cookies = [panel.cookie(panel.ticket())]
+                fresh = guard.passed(ip, seen)
+                if fresh:
+                    cookies.append(panel.seen_cookie(fresh))
+                self.go("/admin", cookies)
             else:
+                guard.failed(ip, seen)
                 self.html(panel.sign_in_page("не подошло"))
             return
 
         if not self.signed_in():
             self.html(panel.sign_in_page())
-            return
-
-        if path == "/admin/patch/add":
-            try:
-                form = cgi.FieldStorage(
-                    fp=self.rfile, headers=self.headers,
-                    environ={"REQUEST_METHOD": "POST",
-                             "CONTENT_TYPE": self.headers.get("Content-Type", "")})
-                item = form["file"]
-                raw = item.file.read() if item.filename else b""
-            except Exception as trouble:
-                self.go("/admin?said=не вышло: %s" % trouble)
-                return
-            if not raw or len(raw) > PATCH_MOST:
-                self.go("/admin?said=пустой или слишком большой файл")
-                return
-            said = None
-            try:
-                with zipfile.ZipFile(io.BytesIO(raw)) as pack:
-                    inside = set(pack.namelist())
-                    said = json.loads(pack.read("manifest.json").decode("utf-8"))
-                if not {"manifest.json", "classes.dex", "signature"} <= inside:
-                    raise ValueError("в файле не хватает частей")
-            except Exception as trouble:
-                self.go("/admin?said=это не заплатка: %s" % trouble)
-                return
-            mod = str(said.get("mod") or "")
-            which = str(said.get("version") or "")
-            if not named(mod.replace(".", "_")) or not named(which.replace(".", "_")):
-                self.go("/admin?said=в манифесте нет версии")
-                return
-            os.makedirs(PATCHES, exist_ok=True)
-            name = "%s-%s.margyupd" % (mod, which)
-            with open(os.path.join(PATCHES, name), "wb") as handle:
-                handle.write(raw)
-            self.go("/admin?said=заплатка %s для %s загружена" % (which, mod))
-            return
-
-        if path == "/admin/patch/drop":
-            which = os.path.basename(self.form().get("file", ""))
-            if which.endswith(".margyupd"):
-                try:
-                    os.remove(os.path.join(PATCHES, which))
-                except OSError:
-                    pass
-            self.go("/admin?said=заплатка снята")
             return
 
         if path == "/admin/password":
@@ -1365,7 +1221,14 @@ class Handler(BaseHTTPRequestHandler):
                 self.go("/admin?said=новый пароль короче десяти знаков")
                 return
             panel.set_password(panel.who(), fresh)
-            self.go("/admin?said=пароль сменён")
+            # the key the cookies are signed with changed with it, so every
+            # browser that was in is out; this one is let straight back
+            guard.forget_everyone()
+            cookies = [panel.cookie(panel.ticket())]
+            again = guard.passed(self.who(), "")
+            if again:
+                cookies.append(panel.seen_cookie(again))
+            self.go("/admin?said=пароль сменён, остальные браузеры выкинуты", cookies)
             return
 
         if path == "/admin/badge/new":
@@ -1448,20 +1311,6 @@ class Handler(BaseHTTPRequestHandler):
             self.go("/admin/badge?id=%s" % said.get("id", ""))
             return
 
-        if path == "/admin/banner/drop":
-            said = self.form()
-            uid = said.get("uid", "")
-            if sane(uid):
-                file = banner_of(uid)
-                if file:
-                    os.remove(file)
-                db = connect()
-                db.execute("DELETE FROM banner WHERE uid = ?", (uid,))
-                db.commit()
-                db.close()
-            self.go("/admin?said=баннер снят")
-            return
-
         if path == "/admin/gradient/drop":
             said = self.form()
             uid = said.get("uid", "")
@@ -1505,15 +1354,6 @@ class Handler(BaseHTTPRequestHandler):
             file = os.path.join(PLUGINS, name)
             if not name.endswith(".mtp") or not os.path.isfile(file):
                 self.answer(404, {"error": "no such plugin"})
-                return
-            with open(file, "rb") as handle:
-                self.answer(200, None, "application/octet-stream", handle.read())
-            return
-        if path.startswith("/patch/"):
-            name = os.path.basename(path[len("/patch/"):])
-            file = os.path.join(PATCHES, name)
-            if not name.endswith(".margyupd") or not os.path.isfile(file):
-                self.answer(404, {"error": "no such patch"})
                 return
             with open(file, "rb") as handle:
                 self.answer(200, None, "application/octet-stream", handle.read())
@@ -1578,71 +1418,27 @@ class Handler(BaseHTTPRequestHandler):
             self.push(blob)
             return
 
-        if path.startswith("/banner/"):
-            uid = os.path.basename(path[len("/banner/"):]).split(".")[0]
-            file = banner_of(uid) if sane(uid) else None
-            if not file:
-                self.answer(404, {"error": "no banner"})
-                return
-            kind = "image/png" if file.endswith(".png") else (
-                "image/webp" if file.endswith(".webp") else "image/jpeg")
-            with open(file, "rb") as handle:
-                blob = handle.read()
-            self.send_response(200)
-            self.send_header("Content-Type", kind)
-            self.send_header("Content-Length", str(len(blob)))
-            self.send_header("Cache-Control", "public, max-age=300")
-            self.end_headers()
-            self.push(blob)
-            return
-
         if path == "/health":
             self.answer(200, {"ok": True})
             return
 
         self.answer(404, {"error": "no such thing"})
 
-    def take_banner(self):
-        """A picture, sent as itself.
-
-        Who it belongs to travels in the query, the picture is the whole body.
-        Multipart would mean parsing megabytes to find the only part there is.
-        """
-        said = parse_qs(urlparse(self.path).query)
-        uid = (said.get("uid") or [""])[0]
-        token = (said.get("token") or [""])[0]
-        kind = (self.headers.get("Content-Type") or "").split(";")[0].strip()
-        try:
-            length = int(self.headers.get("Content-Length") or 0)
-        except ValueError:
-            length = 0
-        if length < 0:
-            length = 0
-        if length > BANNER_MOST:
-            self.answer(413, {"error": "5 MB at most"})
-            return
-        blob = self.rfile.read(length) if length else b""
-        code, out = banner(uid, token, kind, blob, self.who())
-        self.answer(code, out)
-
     def do_POST(self):
         path = urlparse(self.path).path
         if path.startswith("/admin"):
             self.panel_post(path)
             return
-        if path == "/banner":
-            self.take_banner()
-            return
-
         try:
             length = int(self.headers.get("Content-Length") or 0)
             if length < 0:
                 self.answer(400, {"error": "unreadable"})
                 return
-            if length > 8192:
+            if length > (CRASH_MOST if path == "/crash" else 8192):
                 self.answer(413, {"error": "that is a lot of json"})
                 return
-            body = json.loads(self.rfile.read(length) or b"{}")
+            raw = self.rfile.read(length) or b"{}"
+            body = json.loads(raw)
             if not isinstance(body, dict):
                 raise ValueError
         except Exception:
@@ -1662,13 +1458,12 @@ class Handler(BaseHTTPRequestHandler):
             code, out = free(body, ip)
         elif path == "/gradient":
             code, out = gradient(body, ip)
-        elif path == "/shade":
-            code, out = shade(body, ip)
+        elif path == "/crash":
+            code, out = crash(body, raw.decode("utf-8", "replace"), ip)
         elif path == "/patches":
-            # the ask and the file are different paths on purpose: nginx
-            # redirects /patch to /patch/ once /patch/ is a location of its own
-            found = patch_for(body.get("mod", ""), body.get("tiktok", ""))
-            code, out = 200, (found or {})
+            # 1.x asked here for fixes that travel without an apk. There are
+            # none any more, and "nothing new" keeps those phones quiet
+            code, out = 200, {}
         else:
             code, out = 404, {"error": "no such thing"}
         self.answer(code, out)

@@ -32,7 +32,8 @@ in front for rate limiting; the service listens on localhost only.
     POST /prove/check       the page is read, and the account is given its key
     POST /profile           that account decides what to show and in what order
     POST /old               the badge anyone running the mod before the 24th gets
-    POST /gradient          a supporter's colours, and /banner, /shade
+    POST /gradient          a supporter's colours
+    POST /crash             a crash report, from a phone whose owner said yes
     GET  /icon/<name>.png   the pictures
 
 `/badges` is the same shape `badges.json` had, so the mod reads it the same

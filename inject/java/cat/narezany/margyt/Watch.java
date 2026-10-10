@@ -44,7 +44,6 @@ public final class Watch implements Application.ActivityLifecycleCallbacks {
             Tester.mark(activity);
         } catch (Throwable ignored) {
         }
-        Patch.resumed(activity);
     }
 
     @Override

@@ -42,7 +42,7 @@ final class Skin {
 
     /** The colour of a section label or a caption on this screen. */
     int muted() {
-        return (text & 0x00FFFFFF) | 0x66000000;
+        return (text & 0x00FFFFFF) | 0x99000000;
     }
 
     boolean dark() {

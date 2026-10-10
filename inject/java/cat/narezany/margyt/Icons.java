@@ -41,16 +41,6 @@ final class Icons {
                 + "6LAPs+KkxQvCiaULPjXgL4reZYo4GPGCcCCywYrjCQJ3wS07w8Pn2519D9VWgtpeIFYCGZAg"
                 + "tOlw5uB/u+hng/a1ryK06XDmAMZUHyErxn33igmtEd8ywSELg6JlgWOSjkJVPnZTiMneLMCK"
                 + "jBhviVlTUKJQlBSsfcJDQrpzBhqx1lQWQAtSAAAAAElFTkSuQmCC");
-        PNG.put("contrast",
-                "iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAQAAAD9CzEMAAABl0lEQVRYw+2XMU7DQBBFX6JI"
-                + "YOiSgiISFJwAGgso4BTJJRAUIGREn5zAOYULpISLJBU0QAJpkhZkQRGazZJgr71Zry0h5W/n"
-                + "v5pvj3dm/sIa/wElXDwC+oyZMWNMnwAPl1L24HXajJgp1og2dfPgVXxCZfD5CvGpmoRvME0N"
-                + "Pl9TGqsFr9BJDHjGDfd8Lj3rUNEN79BNeeN5Cq95XnjaxdF7+15qSn6xQZtv+byn8xUdjZwv"
-                + "45DhQqJS0NT6qX+xx5Pkmknha0yMBGCHV8FNqKkFfM1jGYdjvgTrq6s2zCAAd7L0FNXd0i6s"
-                + "eGzyLvhWHF1eOAtmAnAp+CHlKOlqh1cLbMnqdqOkZ0EAHsQOL0oFVgTOxY4gSg2sCJyIHYMo"
-                + "NbEisC/LLYLQisC2rIXiBXJPUe4/Ofdjmnuh2WgVDh/qVmGj2V0kNTsb7fotqV1nHzi3aQMn"
-                + "28g8Sh+Z2Yb+i87QN7Utuzzq2RYz43UgLYuG8VrdOrZk7jWt4yrm98rE/OrY99Ns9r2AC0gh"
-                + "V6gCLoGFXGPXyB8/r0+TDhSx0vMAAAAASUVORK5CYII=");
         PNG.put("download",
                 "iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAY0lEQVR4Ae3PsQ2AAAzEQDb3"
                 + "6FD9ABQgjHxS6ryPJPmN8+YVUEABBRRQQAGmgALY8xcOcwTHwzCPH8zjB/P4wTx+MI8fzOMH"
@@ -99,14 +89,6 @@ final class Icons {
                 + "d1xgAIZpFrcpRtkpnlWrqPM7HSIiItqdYgC+Lw66QDHRfvGKehWj/cRjXtZktxfcYYAeEU3G"
                 + "KCZpEm1+bLCT5lRbxDajFGNsELHXYpOcJGfaKW7R4yrbRMQqJ8lYi53pWJd70AeW+dxnwP8A"
                 + "JSPd1VIG1sgAAAAASUVORK5CYII=");
-        PNG.put("format_color_fill",
-                "iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAQAAAD9CzEMAAABF0lEQVRYw+3WPwrCMBTH8e9U"
-                + "D6C49BqeoKOH6S1EdycPUNzcehDByb0GxFkcLHWR2vSfSfuCCHnZmvD7DEleCn215MAEZ7Xk"
-                + "QUHqioh4UFC4I2Yc34Anfk2E3F0SE9Iy3gFRjxcmqvEnTtKEHj9nLkvU4wFJoi1ekOiKFyL6"
-                + "4gWIb/EjicAgvkkE5sDaKL5OrM0BZRivE8oesBsWwGYQsBm2yabDapPb+2d//OeYxsTSRDU+"
-                + "4smTSJKoxk/fB0QxlSL0O7wrv+9k9kKPX5CXMzmL8US9A+212e3YE9VscFdt/iz/6Gfaikz+"
-                + "tyXR1iTDX4iu7h9yK9fcCG0foYAVCsWqpymEJFy4kNjH+/JlXoXw8IAH/gd4AVwTAKSqZjcq"
-                + "AAAAAElFTkSuQmCC");
         PNG.put("gradient",
                 "iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAQAAAD9CzEMAAAAcklEQVRYw+2XMQoAIQwE9x++"
                 + "P0/Tyj/kKks9WBNU2Ekl6E6TQASEiKbA0OBkNRjKOr7T4aP6SmHb8Q6HzQU1RFDngnGF5fe9"

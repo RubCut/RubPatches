@@ -41,6 +41,9 @@ public final class Palette {
         if ((colour & 0xFFFFFF) == (reference & 0xFFFFFF)) return true;
 
         float[] here = hsv(colour);
+        // Native hot/pastel pink UI sits outside the older red-only hue zone.
+        if ((reference & 0xFFFFFF)==0xFE2C55 && here[1]>=0.06f && here[2]>=0.25f
+                && (here[0]>=300f || here[0]<=10f)) return true;
         if (here[1] < MIN_SATURATION || here[2] < MIN_VALUE) return false;
         float apart = Math.abs(here[0] - hsv(reference)[0]);
         if (apart > 180f) apart = 360f - apart;
@@ -56,6 +59,9 @@ public final class Palette {
      */
     public static int map(int colour, int reference, int accent) {
         if (reference == accent) return colour;
+        // already the accent: an accent that sits inside the family (a pink, a
+        // red) would otherwise be moved again every time it passes through here
+        if ((colour & 0xFFFFFF) == (accent & 0xFFFFFF)) return colour;
         try {
             if (!captures(colour, reference)) return colour;
 
@@ -76,6 +82,40 @@ public final class Palette {
             // nothing about a colour is worth taking an app down for
             return colour;
         }
+    }
+
+    /**
+     * TikTok's other two hues: the cyan half of the brand and the green of
+     * "online". Neither is in the red family, so neither moved with the accent,
+     * which left a cyan plus, cyan tabs and a green presence dot on screen next
+     * to an accent-coloured everything else.
+     *
+     * Measured from the app on screen: the story plus is #0FC1E5, the cyan of
+     * selected tabs and links sits at hue 185-190, the presence dot is #1CD764.
+     * The zones are narrow on purpose -- a green or a blue that merely
+     * resembles these (success ticks, links) is somebody else's colour.
+     */
+    public static boolean secondary(int colour) {
+        // Called for every colour the app reads, so: integers only, and the
+        // greys, darks and pale tints are turned away before any hue is worked out.
+        int r = (colour >> 16) & 0xFF, g = (colour >> 8) & 0xFF, b = colour & 0xFF;
+        int max = Math.max(r, Math.max(g, b)), min = Math.min(r, Math.min(g, b));
+        if (max < 128 || (max - min) * 100 < 60 * max) return false;
+        float d = max - min, hue;
+        if (max == r) hue = ((g - b) / d) % 6f;
+        else if (max == g) hue = (b - r) / d + 2f;
+        else hue = (r - g) / d + 4f;
+        hue *= 60f;
+        if (hue < 0f) hue += 360f;
+        if (hue >= 175f && hue <= 205f) return true;  // cyan: s >= 0.60, v >= 0.50 above
+        float saturation = d / max, value = max / 255f;
+        return saturation >= 0.78f && value >= 0.72f && value <= 0.92f
+                && hue >= 136f && hue <= 150f;
+    }
+
+    /** The accent in the place of a secondary colour; alpha is never touched. */
+    public static int toAccent(int colour, int accent) {
+        return (colour & 0xFF000000) | (accent & 0xFFFFFF);
     }
 
     private static float[] hsv(int colour) {

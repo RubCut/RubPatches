@@ -294,6 +294,11 @@ public static final String KEY = "badges_on";
         waiting = then;
     }
 
+    /** The screen that asked to be told is going away: stop holding on to it. */
+    public static void stopTelling(Runnable then) {
+        if (waiting == then) waiting = null;
+    }
+
     private static void told() {
         final Runnable then = waiting;
         if (then == null) return;

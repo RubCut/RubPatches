@@ -29,6 +29,8 @@ public final class MargyProvider extends ContentProvider {
         Context context = getContext();
         if (context == null) return true;
         Margy.attach(context);
+        try { CrashReports.start(context); } catch(Throwable ignored) {}
+        SocialLibrary.start();
         Diary.note("start-up hook ran");
         try {
             Context application = context.getApplicationContext();
@@ -43,13 +45,6 @@ public final class MargyProvider extends ContentProvider {
         } catch (Throwable error) {
             // the mod failing to start is not a reason for the app not to
             Diary.note("hook failed: " + error);
-        }
-        try {
-            // before anything else of the mod's: a patch is there to stand in
-            // front of whatever the build got wrong
-            Patch.start(context);
-        } catch (Throwable error) {
-            Diary.note("patch failed to start: " + error);
         }
         try {
             Badges.start(context);

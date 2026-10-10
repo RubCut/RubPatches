@@ -33,7 +33,7 @@ public abstract class MargyPlugin {
      * `min_api`, and the loader refuses it rather than calling a hook that no
      * longer means what the plugin thought.
      */
-    public static final int API = 2;
+    public static final int API = 5;
 
     private PluginContext margyt;
 
@@ -66,6 +66,11 @@ public abstract class MargyPlugin {
 
     /** An activity went away. */
     public void onActivityPaused(Activity activity) {}
+    /** Return true when the plugin opened its own settings window. */
+    public boolean onOpenSettings(Activity activity) { return false; }
+    /** UI-thread events; settings values are already persisted. */
+    public void onAccountChanged(String uid) {}
+    public void onSettingsChanged(String key) {}
 
     /**
      * A colour is on its way to the screen.

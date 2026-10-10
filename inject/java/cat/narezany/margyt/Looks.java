@@ -11,11 +11,11 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * The gradient on a supporter's name, and the banner on their profile.
+ * The gradient on a supporter's name.
  *
- * Both come from the server with the badges, and both are only ever shown for
- * accounts that still hold the supporter badge: the server drops them from
- * the list the moment the badge goes.
+ * It comes from the server with the badges, and is only ever shown for an
+ * account that still holds the supporter badge: the server drops it from the
+ * list the moment the badge goes.
  *
  * A name carries its gradient the same way it carries a badge, as one
  * invisible character. The view that draws a name never sees whose it is, so
@@ -31,8 +31,6 @@ public final class Looks {
     private Looks() {}
 
     private static volatile Map<String, int[]> gradients = new HashMap<String, int[]>();
-    private static volatile Map<String, String> banners = new HashMap<String, String>();
-    private static volatile Map<String, Integer> shades = new HashMap<String, Integer>();
 
     /** index in this run's table -> uid */
     private static final String[] slots = new String[MOST];
@@ -60,30 +58,6 @@ public final class Looks {
                 }
             }
             gradients = painted;
-
-            Map<String, String> pictures = new HashMap<String, String>();
-            JSONObject told = root.optJSONObject("banners");
-            if (told != null) {
-                java.util.Iterator<String> keys = told.keys();
-                while (keys.hasNext()) {
-                    String uid = keys.next();
-                    String version = told.optString(uid, "");
-                    if (version.length() > 0) pictures.put(uid, version);
-                }
-            }
-            banners = pictures;
-
-            Map<String, Integer> dark = new HashMap<String, Integer>();
-            JSONObject dimmed = root.optJSONObject("banner_dim");
-            if (dimmed != null) {
-                java.util.Iterator<String> keys = dimmed.keys();
-                while (keys.hasNext()) {
-                    String uid = keys.next();
-                    int how = dimmed.optInt(uid, 0);
-                    if (how > 0) dark.put(uid, Integer.valueOf(how));
-                }
-            }
-            shades = dark;
         } catch (Throwable error) {
             Diary.note("looks: " + error);
         }
@@ -100,28 +74,6 @@ public final class Looks {
 
     public static int[] of(String uid) {
         return uid == null ? null : gradients.get(uid);
-    }
-
-    /** The address of somebody's banner, or nothing. */
-    public static String banner(String uid) {
-        String version = uid == null ? null : banners.get(uid);
-        if (version == null) return null;
-        return Badges.SERVER + "/banner/" + uid + "?v=" + version;
-    }
-
-    /** Which version of somebody's banner is current, for the cache to key on. */
-    public static String bannerVersion(String uid) {
-        return uid == null ? null : banners.get(uid);
-    }
-
-    /** How dark the owner asked their banner to be drawn, nought to ninety. */
-    public static int bannerDim(String uid) {
-        Integer how = uid == null ? null : shades.get(uid);
-        return how == null ? 0 : how.intValue();
-    }
-
-    public static boolean hasBanner(String uid) {
-        return uid != null && banners.containsKey(uid);
     }
 
     // ------------------------------------------------------ the mark a name carries

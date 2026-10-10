@@ -76,6 +76,13 @@ public final class Streaks {
     private static final String GREY = "SECONDARY_ACTIVE";
 
     private static final long EVERY = 15 * 60 * 1000L;
+
+    /** A conversation that is still grey after this many sends is left alone until tomorrow. */
+    private static final int MAX_ATTEMPTS = 3;
+    /** How long to give a send before looking at the flame again, and sending once more if it is still grey. */
+    private static final long RECHECK = 4 * 60 * 1000L;
+    /** How long to watch the flame right after a send. */
+    private static final long VERIFY = 15000L;
     private static final long DAY = 24 * 60 * 60 * 1000L;
 
     /** The constant on TikTok's own enum that says who sent this and why. */
@@ -88,8 +95,19 @@ public final class Streaks {
     /** Stickers the app has drawn, so there is something to choose from. */
     private static final Map<String, StickerItem> seenStickers =
             new LinkedHashMap<String, StickerItem>();
+    private static final Map<String, StickerItem> favourites = new LinkedHashMap<String, StickerItem>();
 
     private static volatile boolean started;
+    private static Handler timer;
+    private static Context timerContext;
+    private static final Runnable timedRound = new Runnable(){public void run(){
+        Context c=timerContext;if(c!=null)round(c);rescheduleForeground();
+    }};
+    static synchronized void rescheduleForeground(){
+        if(timer==null || timerContext==null)return;
+        timer.removeCallbacks(timedRound);
+        if(isEnabled())timer.postDelayed(timedRound,StreakSchedule.delay(System.currentTimeMillis(),EVERY));
+    }
 
     // -------------------------------------------------------- the switches
 
@@ -100,6 +118,11 @@ public final class Streaks {
     public static void setEnabled(boolean on) {
         SharedPreferences prefs = prefs();
         if (prefs != null) prefs.edit().putBoolean(KEY_ON, on).apply();
+        Context context = Margy.context();
+        if (context != null) StreakAlarm.schedule(context, false);
+        if (on) {
+            if (context != null) round(context);
+        }
     }
 
     public static String mode() {
@@ -133,7 +156,7 @@ public final class Streaks {
 
     public static void choose(String id) {
         SharedPreferences prefs = prefs();
-        if (prefs != null) prefs.edit().putString(KEY_STICKER, id).apply();
+        if (prefs != null) prefs.edit().putString(KEY_STICKER, id).putString(KEY_MODE,BY_STICKER).apply();
     }
 
     private static boolean flag(String key, boolean fallback) {
@@ -161,7 +184,7 @@ public final class Streaks {
 
     /** The app looking a streak up: both halves of the answer are worth having. */
     public static StreakData streakOf(IStreakService from, String conversation, boolean fresh) {
-        StreakData data = from == null ? null : from.J(conversation, fresh);
+        StreakData data = readStreak(from,conversation,fresh);
         note(from, conversation);
         if (data != null) {
             synchronized (known) {
@@ -180,7 +203,7 @@ public final class Streaks {
     /** The app asking whether to show one. */
     public static boolean showsStreak(IStreakService from, String conversation, boolean flag) {
         note(from, conversation);
-        return from != null && from.h0(conversation, flag);
+        try{if(from==null)return false;Method m;try{m=from.getClass().getMethod("LJJJI",String.class,boolean.class);}catch(NoSuchMethodException e){m=from.getClass().getMethod("h0",String.class,boolean.class);}m.setAccessible(true);return Boolean.TRUE.equals(m.invoke(from,conversation,flag));}catch(Throwable error){Diary.note("streak visibility: "+error);return false;}
     }
 
     // The rest are the same thing: questions the app asks about one
@@ -212,15 +235,67 @@ public final class Streaks {
         return from == null ? null : from.O(conversation);
     }
 
+    private static volatile boolean discoveryQueued;
+    /** The service has just turned up: whatever was waiting for it can go now. */
+    private static void kick() {
+        if (!isEnabled() || discoveryQueued) return;
+        discoveryQueued = true;
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            discoveryQueued = false;
+            Context c = Margy.context();
+            if (c != null) round(c);
+        }, 1500L);
+    }
+
+    /** True once a round has everything it needs: an account and TikTok's own service. */
+    static boolean ready() {
+        NativeStreaks.prepare();
+        return service != null && Account.liveId() != null;
+    }
+
+    /**
+     * The same question, given a moment to become true.
+     *
+     * An alarm that started the process finds a TikTok that has not asked
+     * anything yet, and the service arrives while the app boots. Waiting for it
+     * here is what decides whether that round sends or is handed to the next
+     * one; the caller sets the alarm again first, so a wait that runs out costs
+     * a retry rather than the send.
+     */
+    static boolean ready(long waitMillis) {
+        long end = System.currentTimeMillis() + waitMillis;
+        while (!ready() && System.currentTimeMillis() < end) {
+            try { Thread.sleep(250); } catch (InterruptedException stopped) { Thread.currentThread().interrupt(); break; }
+        }
+        return ready();
+    }
+
+    /**
+     * One round, on the calling thread, for the alarm.
+     * Answers whether it is worth trying again soon.
+     */
+    static boolean runNow(Context context) {
+        if (!isEnabled()) return false;
+        if (!roundRunning.compareAndSet(false, true)) return true;
+        try {
+            return roundWorker(context, false);
+        } finally {
+            roundRunning.set(false);
+        }
+    }
     private static void note(IStreakService from, String conversation) {
         try {
-            if (from != null) service = from;
+            currentAccount();
+            if (from != null) {boolean first=service==null;if(service==null || service.getClass()!=from.getClass())status=null;service = from;if(first)kick();}
             if (conversation == null || conversation.length() == 0) return;
             synchronized (asked) {
                 if (asked.size() > 200) {
                     asked.remove(asked.keySet().iterator().next());
                 }
+                boolean fresh = !asked.containsKey(conversation);
                 asked.put(conversation, Long.valueOf(System.currentTimeMillis()));
+                if (fresh) {persistConversations();if(isEnabled()&&!discoveryQueued){discoveryQueued=true;new Handler(Looper.getMainLooper()).postDelayed(()->{discoveryQueued=false;Context c=Margy.context();if(c!=null)round(c);},5000L);}}
+
             }
         } catch (Throwable ignored) {
         }
@@ -233,7 +308,7 @@ public final class Streaks {
             String id = idOf(base);
             if (id != null) {
                 synchronized (seenStickers) {
-                    if (seenStickers.size() > 60) {
+                    if (seenStickers.size() >= 120) {
                         seenStickers.remove(seenStickers.keySet().iterator().next());
                     }
                     seenStickers.put(id, sticker);
@@ -243,6 +318,28 @@ public final class Streaks {
         }
         return base;
     }
+
+    static void clearStickers(){synchronized(seenStickers){seenStickers.clear();favourites.clear();}}
+    static boolean replaceFavourites(List<?> items){
+        synchronized(seenStickers){
+            Map<String,StickerItem> next=new LinkedHashMap<String,StickerItem>();
+            for(Object value:items)if(value instanceof StickerItem){StickerItem item=(StickerItem)value;String id=idOf(item.stickerBase);if(id!=null)next.put(id,item);}
+            boolean changed=!new ArrayList<String>(favourites.keySet()).equals(new ArrayList<String>(next.keySet()));
+            favourites.clear();favourites.putAll(next);return changed;
+        }
+    }
+    static void discover(IStreakService from,String conversation){note(from,conversation);}
+    static boolean rememberFavourite(StickerItem item){
+        if(item==null)return false;String id=idOf(item.stickerBase);if(id==null)return false;
+        synchronized(seenStickers){boolean added=!favourites.containsKey(id);favourites.put(id,item);return added;}
+    }
+    private static String conversationAccount;
+    private static synchronized void currentAccount(){
+        String uid=Account.liveId();if(java.util.Objects.equals(uid,conversationAccount))return;
+        conversationAccount=uid;service=null;status=null;synchronized(asked){asked.clear();}synchronized(known){known.clear();}
+        if(uid!=null)restoreConversations();
+    }
+    private static String conversationKey(){return "streak_conversations_"+Account.liveId();}
 
     /** What to call a sticker: its own id, or failing that its picture's. */
     private static String idOf(StickerBase base) {
@@ -254,8 +351,9 @@ public final class Streaks {
 
     /** What the settings screen offers: whatever has been seen, newest first. */
     public static List<String> offered() {
+        FavouriteStickers.read();
         synchronized (seenStickers) {
-            List<String> out = new ArrayList<String>(seenStickers.keySet());
+            List<String> out = new ArrayList<String>(favourites.keySet());
             java.util.Collections.reverse(out);
             return out;
         }
@@ -263,7 +361,7 @@ public final class Streaks {
 
     public static StickerItem sticker(String id) {
         synchronized (seenStickers) {
-            return seenStickers.get(id);
+            return favourites.get(id);
         }
     }
 
@@ -274,34 +372,42 @@ public final class Streaks {
      * thumbnails on one screen, not something worth a cache on disk.
      */
     public static android.graphics.Bitmap thumbnail(Context context, String id) {
-        synchronized (thumbnails) {
-            if (thumbnails.containsKey(id)) return thumbnails.get(id);
-            thumbnails.put(id, null);  // asked for; do not ask twice
-        }
-        final String url = urlOf(id);
-        if (url == null) return null;
-        final String key = id;
-        Net.away("sticker thumbnail", new Runnable() {
-            @Override
-            public void run() {
-                byte[] raw = Net.bytes(url);
-                if (raw == null) return;
-                try {
-                    android.graphics.Bitmap bitmap =
-                            android.graphics.BitmapFactory.decodeByteArray(raw, 0, raw.length);
-                    if (bitmap == null) return;
-                    synchronized (thumbnails) {
-                        thumbnails.put(key, bitmap);
-                    }
-                } catch (Throwable ignored) {
-                }
-            }
-        });
-        return null;
+        return thumbnail(context,id,null);
     }
-
-    private static final Map<String, android.graphics.Bitmap> thumbnails =
-            new LinkedHashMap<String, android.graphics.Bitmap>();
+    public static android.graphics.Bitmap thumbnail(Context context,String id,Runnable ready) {
+        final String url=urlOf(id);if(url==null)return null;
+        synchronized(thumbnails){
+            android.graphics.Bitmap cached=thumbnails.get(id);if(cached!=null)return cached;
+            if(ready!=null){List<Runnable> list=waiting.get(id);if(list==null){list=new ArrayList<Runnable>();waiting.put(id,list);}list.add(ready);}
+            if(loading.contains(id))return null;
+            Long failed=failures.get(id);
+            if(failed!=null && System.currentTimeMillis()-failed<30000L){waiting.remove(id);return null;}
+            loading.add(id);
+        }
+        final String key=id;
+        thumbnailWorkers.execute(()->{
+            android.graphics.Bitmap bitmap=null;
+            try {byte[] raw=Net.bytes(url);if(raw!=null){
+                android.graphics.BitmapFactory.Options options=new android.graphics.BitmapFactory.Options();options.inJustDecodeBounds=true;
+                android.graphics.BitmapFactory.decodeByteArray(raw,0,raw.length,options);
+                options.inSampleSize=1;while(Math.max(options.outWidth,options.outHeight)/options.inSampleSize>160)options.inSampleSize*=2;
+                options.inJustDecodeBounds=false;bitmap=android.graphics.BitmapFactory.decodeByteArray(raw,0,raw.length,options);
+            }}catch(Throwable ignored){}
+            List<Runnable> callbacks;
+            synchronized(thumbnails){loading.remove(key);callbacks=waiting.remove(key);
+                if(bitmap!=null){if(thumbnails.size()>=60)thumbnails.remove(thumbnails.keySet().iterator().next());thumbnails.put(key,bitmap);failures.remove(key);}
+                else {if(failures.size()>=120)failures.remove(failures.keySet().iterator().next());failures.put(key,System.currentTimeMillis());}
+            }
+            if(bitmap!=null && callbacks!=null)new Handler(Looper.getMainLooper()).post(()->{for(Runnable callback:callbacks)try{callback.run();}catch(Throwable e){Diary.note("sticker preview callback: "+e.getClass().getSimpleName());}});
+        });return null;
+    }
+    private static final java.util.concurrent.ExecutorService thumbnailWorkers=java.util.concurrent.Executors.newFixedThreadPool(2,r->{
+        Thread thread=new Thread(r,"margyt-sticker-thumbnail");thread.setDaemon(true);thread.setPriority(Thread.MIN_PRIORITY);return thread;
+    });
+    private static final Map<String,android.graphics.Bitmap> thumbnails=new LinkedHashMap<String,android.graphics.Bitmap>();
+    private static final java.util.Set<String> loading=new java.util.HashSet<String>();
+    private static final Map<String,Long> failures=new LinkedHashMap<String,Long>();
+    private static final Map<String,List<Runnable>> waiting=new LinkedHashMap<String,List<Runnable>>();
 
     private static String urlOf(String id) {
         try {
@@ -311,6 +417,7 @@ public final class Streaks {
             // the thumbnail first: this is a grid of them, and the full-size
             // picture is a video on some stickers and a still on others
             StickerImage image = base.thumbnail != null ? base.thumbnail : base.image;
+            if (image == null || image.urlList == null || image.urlList.isEmpty()) image=base.image;
             if (image == null || image.urlList == null || image.urlList.isEmpty()) return null;
             return String.valueOf(image.urlList.get(0));
         } catch (Throwable ignored) {
@@ -323,51 +430,104 @@ public final class Streaks {
     public static synchronized void start(Context context) {
         if (started) return;
         started = true;
+        restoreConversations();
         final Handler handler = new Handler(Looper.getMainLooper());
         final Context application = context.getApplicationContext();
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                round(application);
-                handler.postDelayed(this, EVERY);
-            }
-        }, EVERY);
+        timer=handler;timerContext=application==null?context:application;
+        try {
+            // Made now rather than when the first one is needed: a channel that
+            // does not exist yet takes the notification with it, and the only
+            // notification this feature sends is the one that saves the streak.
+            StreakAlarm.channel(application);
+            // Put in again on every start, without asking whether one is already
+            // there: a pending intent outlives the alarm it stood for -- a reboot
+            // or a force stop cancels the alarm and leaves the intent behind --
+            // so "something is already waiting" is not proof that anything will
+            // ever fire. Replacing it costs one call and cannot lose a send.
+            if (isEnabled()) StreakAlarm.schedule(application, false);
+        } catch (Throwable ignored) { }
+        rescheduleForeground();
+        handler.postDelayed(()->round(timerContext),30000L);
     }
 
     /** One pass over what is known, sending where it is needed. */
     public static void round(final Context context) {
         if (!isEnabled()) return;
+        if (!roundRunning.compareAndSet(false, true)) return;
+        Net.away("streaks", () -> {
+            try { if (roundWorker(context)) StreakAlarm.schedule(context, true); }
+            catch (Throwable error) { Diary.note("streaks round: " + error); }
+            finally { roundRunning.set(false); }
+        });
+    }
+
+    private static final java.util.concurrent.atomic.AtomicBoolean roundRunning =
+            new java.util.concurrent.atomic.AtomicBoolean();
+
+    /** Answers whether it is worth trying again soon (no service yet, or a send failed). */
+    private static boolean roundWorker(final Context context) {
+        return roundWorker(context, true);
+    }
+
+    private static boolean roundWorker(final Context context, boolean verifyImmediately) {
+        final long deadline = verifyImmediately ? Long.MAX_VALUE
+                : android.os.SystemClock.uptimeMillis() + 2000L;
+        currentAccount();if(Account.liveId()==null)return true;NativeStreaks.prepare();if(!StreakSchedule.due(System.currentTimeMillis(),StreakSchedule.minute()))return false;
+        if(!StreakAlarm.online(context)){Diary.note("streaks: no network -- waiting for it, nothing marked as sent");return true;}
+        FavouriteStickers.read();
         final boolean byText = BY_TEXT.equals(mode());
         final StickerItem sticker = byText ? null : sticker(chosen());
         if (!byText && sticker == null) {
-            Diary.note("streaks: nothing to send -- no sticker chosen yet");
-            return;
+            if (chosen().length() == 0) {
+                Diary.note("streaks: nothing to send -- no sticker chosen yet");
+                return false;
+            }
+            Diary.note("streaks: chosen sticker is still loading -- retrying");
+            new Handler(Looper.getMainLooper()).post(() -> FavouriteStickers.load(null));
+            return true;
         }
 
         List<String> all = conversations();
         if (all.isEmpty()) {
             Diary.note("streaks: no conversation has been looked at yet");
-            return;
+            return true; // An initialized service can still be loading its conversations.
         }
 
+        final String owner=Account.liveId();
         final List<String> due = new ArrayList<String>();
-        int grey = 0, lit = 0, gone = 0, unknown = 0, already = 0;
+        int grey = 0, lit = 0, gone = 0, unknown = 0, already = 0, waiting = 0;
+        boolean again = false;
         long now = System.currentTimeMillis();
         for (String conversation : all) {
+            if (android.os.SystemClock.uptimeMillis() >= deadline) return true;
             StreakData data = ask(conversation);
             if (data == null) {
                 unknown++;
+                again = true;
                 continue;
             }
+            if(data.convId!=null && !conversation.equals(data.convId)){unknown++;again=true;continue;}
             String state = statusOf(data);
             if (GREY.equals(state)) {
                 grey++;
-                if (sentToday(conversation, now)) already++;
-                else due.add(conversation);
+                int made = automaticAttempts(conversation, now);
+                if (made >= MAX_ATTEMPTS) {
+                    already++;
+                } else if (made > 0 && now - automaticLast(conversation) < RECHECK) {
+                    waiting++;
+                    again = true;
+                } else {
+                    if (made > 0) Diary.note("streaks: still grey after attempt " + made + ", sending again: " + conversation);
+                    due.add(conversation);
+                }
             } else if ("ACTIVE".equals(state)) {
                 lit++;
+                // A selected time means one daily send to every existing flame,
+                // even while TikTok still calls it active. No-time mode remains grey-only.
+                if (StreakSchedule.minute() >= 0 && automaticAttempts(conversation, now) == 0) due.add(conversation);
             } else if (state == null) {
                 unknown++;
+                again = true;
             } else {
                 gone++;
             }
@@ -375,22 +535,52 @@ public final class Streaks {
 
         Diary.note("streaks: " + all.size() + " looked at -- " + grey + " grey, "
                 + lit + " lit, " + gone + " over, " + unknown + " unreadable; "
-                + already + " already sent today, " + due.size() + " to send");
-        if (due.isEmpty()) return;
+                + already + " gave up for today, " + waiting + " waiting to be re-checked, "
+                + due.size() + " to send");
+        if (due.isEmpty()) return service == null || again;
 
-        Net.away("streaks", new Runnable() {
-            @Override
-            public void run() {
-                for (String conversation : due) {
-                    if (deliver(context, sticker, conversation)) {
-                        remember(conversation);
-                        Diary.note("streak kept: " + conversation);
-                    } else {
-                        Diary.note("streak NOT kept: " + conversation);
-                    }
+        boolean failed = false;
+        final List<String> submitted = new ArrayList<String>();
+        for (String conversation : due) {
+            if (android.os.SystemClock.uptimeMillis() >= deadline) return true;
+            if(!owner.equals(Account.liveId()) || !isEnabled())return false;
+            if (deliver(context, sticker, conversation)) {
+                rememberAutomatic(conversation);
+                submitted.add(conversation);
+                Diary.note("streak request submitted; delivery unconfirmed: "
+                        + conversation);
+            } else {
+                Diary.note("streak request failed: " + conversation);
+                failed = true;
+            }
+        }
+        // Broadcast receivers have a short execution deadline. Check delivery on
+        // the next alarm instead of sleeping another fifteen seconds in goAsync.
+        if (!submitted.isEmpty() && (!verifyImmediately || !verify(submitted))) failed = true;
+        return failed || again;
+    }
+
+    /**
+     * Watch the flame for a few seconds after sending.
+     * True when every conversation stopped being grey; the rest are left for
+     * the next check, which sends again if the flame is still grey by then.
+     */
+    private static boolean verify(List<String> sent) {
+        List<String> left = new ArrayList<String>(sent);
+        long end = System.currentTimeMillis() + VERIFY;
+        while (!left.isEmpty() && System.currentTimeMillis() < end) {
+            try { Thread.sleep(3000); } catch (InterruptedException e) { break; }
+            for (java.util.Iterator<String> it = left.iterator(); it.hasNext(); ) {
+                String conversation = it.next();
+                String state = statusOf(ask(conversation));
+                if (state != null && !GREY.equals(state)) {
+                    Diary.note("streak confirmed: " + conversation + " is now " + state);
+                    it.remove();
                 }
             }
-        });
+        }
+        if (!left.isEmpty()) Diary.note("streak not confirmed yet, " + left.size() + " still grey -- will look again");
+        return left.isEmpty();
     }
 
     /**
@@ -441,13 +631,17 @@ public final class Streaks {
      * sent today, none of it -- and writes down what happened to each one.
      */
     public static void test(final Context context) {
+        currentAccount();if(Account.liveId()==null)return;
+        FavouriteStickers.read();
         final boolean byText = BY_TEXT.equals(mode());
         final StickerItem sticker = byText ? null : sticker(chosen());
+        final String owner=Account.liveId();
         final List<String> all = conversations();
         Diary.note("streak test: " + all.size() + " conversation(s) known, sending "
-                + (byText ? "text [" + text() + "]"
+                + (byText ? "text"
                           : "a sticker " + (sticker == null ? "NOT chosen" : "chosen"))
-                + ", service " + (service == null ? "not seen yet" : "seen"));
+                + ", service " + (service == null ? "not seen yet" : "seen")
+                + ", network " + (StreakAlarm.online(context) ? "up" : "DOWN"));
         describe();
         if (all.isEmpty()) return;
         if (!byText && sticker == null) return;
@@ -456,10 +650,69 @@ public final class Streaks {
             @Override
             public void run() {
                 for (String conversation : all) {
+                    if(!owner.equals(Account.liveId()))return;
                     String state = statusOf(ask(conversation));
                     boolean sent = deliver(context, sticker, conversation);
                     Diary.note("streak test: " + conversation + " (" + state + ") -> "
-                            + (sent ? "sent" : "not sent"));
+                            + (sent ? "request submitted, delivery unconfirmed"
+                                    : "request failed"));
+                }
+            }
+        });
+    }
+
+    private static final java.util.concurrent.atomic.AtomicBoolean allRunning =
+            new java.util.concurrent.atomic.AtomicBoolean();
+
+    /**
+     * Send the chosen sticker, now, to everyone there is a streak with.
+     *
+     * Unlike the test button this looks at what TikTok says about each
+     * conversation and leaves out the ones without a streak (no streak, or
+     * one that is already over). Lit and grey flames both get the sticker.
+     * It does not wait for the schedule and does not need the switch on.
+     */
+    public static void sendAll(final Context context) {
+        currentAccount();
+        if (Account.liveId() == null) { Screen.say(Text.STREAK_ALL_NONE); return; }
+        FavouriteStickers.read();
+        final StickerItem sticker = BY_TEXT.equals(mode()) ? null : sticker(chosen());
+        if (sticker == null) { Screen.say(Text.STREAK_ALL_NO_STICKER); return; }
+        final List<String> all = conversations();
+        if (all.isEmpty()) { Screen.say(Text.STREAK_ALL_NO_CHATS); return; }
+        if (!allRunning.compareAndSet(false, true)) { Screen.say(Text.STREAK_ALL_BUSY); return; }
+        final String owner = Account.liveId();
+        Net.away("streak all", new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    List<String> targets = new ArrayList<String>();
+                    for (String conversation : all) {
+                        StreakData data = ask(conversation);
+                        if (data == null) continue;
+                        if (data.convId != null && !conversation.equals(data.convId)) continue;
+                        String state = statusOf(data);
+                        if ("ACTIVE".equals(state) || GREY.equals(state)) targets.add(conversation);
+                    }
+                    Diary.note("streak all: " + targets.size() + " streak(s) among " + all.size() + " conversation(s)");
+                    if (targets.isEmpty()) { Screen.say(Text.STREAK_ALL_NONE); return; }
+                    int sent = 0;
+                    for (String conversation : targets) {
+                        if (!owner.equals(Account.liveId())) break;
+                        if (send(context, sticker, conversation)) {
+                            remember(conversation);
+                            sent++;
+                            Diary.note("streak all: request submitted, delivery unconfirmed: " + conversation);
+                        } else {
+                            Diary.note("streak all: request failed: " + conversation);
+                        }
+                        try { Thread.sleep(600L); } catch (InterruptedException e) { break; }
+                    }
+                    Screen.say(String.format(java.util.Locale.getDefault(), Text.STREAK_ALL_DONE, sent, targets.size()));
+                } catch (Throwable error) {
+                    Diary.note("streak all: " + error);
+                } finally {
+                    allRunning.set(false);
                 }
             }
         });
@@ -502,18 +755,46 @@ public final class Streaks {
         }
     }
 
+    private static void persistConversations() {
+        SharedPreferences p = prefs();
+        if (p == null) return;
+        org.json.JSONArray saved = new org.json.JSONArray();
+        for (String id : asked.keySet()) saved.put(id);
+        p.edit().putString(conversationKey(), saved.toString()).apply();
+    }
+
+    private static void restoreConversations() {
+        SharedPreferences p = prefs();
+        if (p == null) return;
+        try {
+            org.json.JSONArray saved = new org.json.JSONArray(
+                    p.getString(conversationKey(), "[]"));
+            synchronized (asked) {
+                for (int i = 0; i < saved.length() && i < 200; i++) {
+                    String id = saved.optString(i, "");
+                    if (id.length() > 0) asked.put(id, 0L);
+                }
+            }
+        } catch (Throwable error) {
+            Diary.note("streaks: saved conversations unreadable: " + error);
+        }
+    }
+
     /**
      * Ask the service about one conversation.
      *
-     * The cached answer is the fallback: the service is only there once the
-     * app has used it at least once, and until then the mod knows only what
-     * went past.
+     * Ask for the current native state. A missing answer does not fall back
+     * to a remembered grey flame: that could send after the streak was kept.
      */
+    private static StreakData readStreak(IStreakService from,String conversation,boolean fresh){
+        if(from==null)return null;
+        try{Method m;try{m=from.getClass().getMethod("LJIJJLI",String.class,boolean.class);}catch(NoSuchMethodException e){m=from.getClass().getMethod("J",String.class,boolean.class);}m.setAccessible(true);Object data=m.invoke(from,conversation,fresh);return data instanceof StreakData?(StreakData)data:null;}catch(Throwable error){Diary.note("streak read: "+error);return null;}
+    }
     private static StreakData ask(String conversation) {
         IStreakService from = service;
         if (from != null) {
             try {
-                StreakData fresh = from.J(conversation, false);
+                StreakData fresh = readStreak(from,conversation,true);
                 if (fresh != null) {
                     synchronized (known) {
                         known.put(conversation, fresh);
@@ -523,22 +804,35 @@ public final class Streaks {
             } catch (Throwable ignored) {
             }
         }
-        synchronized (known) {
-            return known.get(conversation);
-        }
+        return null; // A stale grey flame must never trigger an automatic send.
     }
 
-    private static boolean sentToday(String conversation, long now) {
+    private static long lastAttempt(String conversation) {
         SharedPreferences prefs = prefs();
-        if (prefs == null || conversation == null) return true;
-        return now - prefs.getLong("streak_at_" + conversation, 0) < DAY;
+        if (prefs == null || conversation == null) return 0;
+        return prefs.getLong("streak_attempt_at_" + Account.liveId()+"_"+conversation,0);
+    }
+
+    private static String automaticKey(String conversation){return "streak_schedule_"+Account.liveId()+"_"+StreakSchedule.minute()+"_"+conversation;}
+    private static long automaticLast(String conversation){if(StreakSchedule.minute()<0)return lastAttempt(conversation);SharedPreferences p=prefs();return p==null?0:p.getLong(automaticKey(conversation)+"_at",0);}
+    private static int automaticAttempts(String conversation,long now){if(StreakSchedule.minute()<0)return attemptsToday(conversation,now);SharedPreferences p=prefs();if(p==null)return MAX_ATTEMPTS;if(!StreakSchedule.sameDay(now,automaticLast(conversation)))return 0;return p.getInt(automaticKey(conversation)+"_count",1);}
+    private static void rememberAutomatic(String conversation){int minute=StreakSchedule.minute();if(minute<0){remember(conversation);return;}SharedPreferences p=prefs();if(p==null)return;long now=System.currentTimeMillis();int count=automaticAttempts(conversation,now)+1;String key=automaticKey(conversation);p.edit().putLong(key+"_at",now).putInt(key+"_count",count).apply();}
+
+    /** How many times today a send was submitted to this conversation. */
+    private static int attemptsToday(String conversation, long now) {
+        SharedPreferences prefs = prefs();
+        if (prefs == null || conversation == null) return MAX_ATTEMPTS;
+        if (!StreakSchedule.sameDay(now, lastAttempt(conversation))) return 0;
+        return Math.max(1, prefs.getInt("streak_attempts_" + Account.liveId()+"_"+conversation, 1));
     }
 
     private static void remember(String conversation) {
         SharedPreferences prefs = prefs();
         if (prefs != null) {
-            prefs.edit().putLong("streak_at_" + conversation,
-                    System.currentTimeMillis()).apply();
+            long now = System.currentTimeMillis();
+            int made = attemptsToday(conversation, now) + 1;
+            prefs.edit().putLong("streak_attempt_at_" + Account.liveId()+"_"+conversation, now)
+                    .putInt("streak_attempts_" + Account.liveId()+"_"+conversation, made).apply();
         }
     }
 
@@ -554,6 +848,21 @@ public final class Streaks {
      * the options object by having a constructor that takes one thing.
      */
     public static boolean send(Context context, StickerItem sticker, String conversation) {
+        if (Looper.myLooper() == Looper.getMainLooper())
+            return sendOnMain(context, sticker, conversation);
+        java.util.concurrent.FutureTask<Boolean> task = new java.util.concurrent.FutureTask<Boolean>(
+                () -> sendOnMain(context, sticker, conversation));
+        if (!new Handler(Looper.getMainLooper()).post(task)) return false;
+        try {
+            return task.get(5, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (Exception error) {
+            task.cancel(false);
+            Diary.note("streak send: main-thread dispatch did not complete: " + error);
+            return false;
+        }
+    }
+
+    private static boolean sendOnMain(Context context, StickerItem sticker, String conversation) {
         try {
             Object service = messageService();
             if (service == null) {
@@ -563,10 +872,18 @@ public final class Streaks {
 
             Method sender = null;
             for (Method method : service.getClass().getMethods()) {
-                if (method.getParameterTypes().length == 13
-                        && method.getReturnType() == void.class) {
+                Class<?>[] signature = method.getParameterTypes();
+                if (signature.length == 13 && method.getReturnType() == void.class
+                        && Context.class.isAssignableFrom(signature[0])
+                        && sourceFor(signature[3]) != null
+                        && signature[4].isInstance(sticker)
+                        && signature[8] == String.class
+                        && signature[12] == boolean.class) {
+                    if (sender != null) {
+                        Diary.note("streak send: ambiguous sender on this release");
+                        return false;
+                    }
                     sender = method;
-                    break;
                 }
             }
             if (sender == null) {
@@ -587,35 +904,25 @@ public final class Streaks {
             // meant handing made-up protocol messages to a sender that wanted
             // none -- and that is what the exception was.
             Class<?>[] types = sender.getParameterTypes();
-            Object[] args = new Object[types.length];
-            int stickerAt = -1;
-            for (int i = 0; i < types.length; i++) {
-                if (types[i].isInstance(sticker)) stickerAt = i;
+            if (sourceFor(types[3]) == null) {
+                Diary.note("streak send: source enum absent on this release");
+                return false;
             }
-
+            Object[] args = new Object[types.length];
             for (int i = 0; i < types.length; i++) {
-                if (types[i].isPrimitive()) {
-                    args[i] = blank(types[i]);
-                } else if (types[i] == Context.class) {
-                    args[i] = context.getApplicationContext();
-                } else if (i == stickerAt) {
-                    args[i] = sticker;
-                } else if (types[i] == String.class) {
-                    args[i] = conversation;
-                } else if (types[i].isEnum()) {
-                    args[i] = constant(types[i], SOURCE);
-                } else if (i == stickerAt + 1) {
-                    // the one argument TikTok does build, and it builds it
-                    // with nothing in it
-                    args[i] = maybe(types[i]);
-                } else {
-                    args[i] = null;
-                }
+                if (types[i].isPrimitive()) args[i] = blank(types[i]);
+                else if (i == 0) args[i] = context.getApplicationContext();
+                else if (i == 3) args[i] = sourceFor(types[3]);
+                else if (i == 4) args[i] = sticker;
+                else if (i == 5) args[i] = maybe(types[5]);
+                else if (i == 8) args[i] = conversation;
+                else args[i] = null;
             }
 
             sender.setAccessible(true);
             sender.invoke(service, args);
-            Diary.note("streak send: " + sender.getName() + " called for " + conversation);
+            Diary.note("streak send: " + sender.getName()
+                    + " invoked; TikTok has not confirmed delivery for " + conversation);
             return true;
         } catch (Throwable error) {
             Throwable why = error instanceof java.lang.reflect.InvocationTargetException
@@ -688,13 +995,17 @@ public final class Streaks {
         }
     }
 
-    /** A named constant on an enum, or its first value if that name has gone. */
+    /** 47.2.41 exposes the source as 12qb interface, implemented by 13GH. */
+    static Object sourceFor(Class<?> contract) {
+        if(!contract.isEnum()&&!contract.isInterface())return null;Object source=constant(contract,SOURCE);if(source!=null)return source;
+        try{Class<?> nativeSource=Class.forName("X.13GH");source=constant(nativeSource,SOURCE);return source!=null&&contract.isInstance(source)?source:null;}catch(Throwable ignored){return null;}
+    }
+    /** A named constant on an enum; never guess another sending source. */
     private static Object constant(Class<?> type, String name) {
         try {
             return Enum.valueOf((Class<Enum>) type.asSubclass(Enum.class), name);
         } catch (Throwable ignored) {
-            Object[] all = type.getEnumConstants();
-            return all == null || all.length == 0 ? null : all[0];
+            return null;
         }
     }
 

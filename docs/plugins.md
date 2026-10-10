@@ -32,7 +32,7 @@ margyt.hello.mtp
 └── icon.png        optional
 ```
 
-Nested folders are ignored — everything is read from the top of the zip.
+Nested paths, duplicate entries, and files other than manifest.json, classes.dex, and icon.png are rejected. Limits: 16 MiB DEX, 64 KiB manifest, 1 MiB icon; limits count inflated bytes.
 `icon.png` is what the plugin list draws; a square picture, 128×128 is plenty.
 Without one the list draws a dot in the accent colour.
 
@@ -247,3 +247,34 @@ margyt().away("fetching", () -> {
 
 `away` names the work so the diary can say whose it was when it goes wrong.
 `fetch` answers null rather than throwing.
+
+## Opening settings
+
+Tapping an installed plugin opens its registered settings rows. API 3 remains backward compatible and now offers optional `boolean onOpenSettings(Activity activity)`: return true only after opening your window. Legacy public `openSettings`, `showSettings`, `showSettingsDialog` accepting Activity or Context are supported when they return void or boolean. A plugin with no rows or settings entry shows a short explanation; the host cannot invent controls for it.
+
+
+## API 4
+
+Additive API; old plugins do not need recompilation. Use `min_api: 4` if your plugin requires these helpers.
+
+| Helper / hook | Behavior |
+|---|---|
+| `onAccountChanged(String uid)` | Active account changed; null means signed out. Re-read account preferences rather than keeping the previous account's values. |
+| `onSettingsChanged(String key)` | A registered plugin setting was persisted by the mod menu. |
+| `accountId()` / `accountPrefs()` | Active UID and private per-account preferences; signed-out preferences use a separate guest store. `prefs()` remains device-wide. |
+| `accentColour()` | Current account's resolved accent. |
+| `activity()` / `screen()` | Current Activity, or null. Do not retain it. |
+| `onUiThread(Runnable)` | Post UI work to the main thread. |
+| `copyText(String)` | Copy plain text on the main thread. |
+| `download(url, name, Downloaded)` | Download outside the Activity into the plugin's writable files directory. Filename: 1–80 ASCII letters/digits/dot/underscore/dash, excluding `.` and `..`. Callback runs on the main thread with File and success flag. Concurrent duplicate filenames throw IllegalStateException. |
+| `showWindow(title, message)` | Open the mod window in the current Activity on the main thread. |
+| `progress(what, percent)` / `progressGone()` | Plugin-specific job; dismissing it does not dismiss another plugin's progress. |
+
+```java
+@Override public void onAccountChanged(String uid) {
+    boolean enabled = margyt().accountPrefs().getBoolean("enabled", false);
+    margyt().log("account preferences loaded: " + enabled);
+}
+```
+
+Registered setting rows still use `prefs()` for backward compatibility. A plugin may use `accountPrefs()` for its own account-specific interface and state.

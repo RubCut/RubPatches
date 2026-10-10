@@ -55,6 +55,7 @@ public final class Updater {
     // -------------------------------------------------------------- knowing
 
     public static synchronized void start(final Context context) {
+        if (SOURCE.length() == 0) return;
         if (started) return;
         started = true;
         tidy(context);
@@ -65,9 +66,6 @@ public final class Updater {
             @Override
             public void run() {
                 check(application, false);
-                // a patch is small and silent: it is taken now and shows up
-                // the next time the app starts
-                Patch.check(application, null);
                 handler.postDelayed(this, EVERY);
             }
         });
@@ -80,6 +78,10 @@ public final class Updater {
      * where the automatic check says nothing unless there is news.
      */
     public static void check(final Context context, final boolean byHand) {
+        if (SOURCE.length() == 0) {
+            if (byHand) Screen.say(Text.UPDATE_UNAVAILABLE);
+            return;
+        }
         Net.away("update", new Runnable() {
             @Override
             public void run() {
@@ -181,7 +183,7 @@ public final class Updater {
                 if (activity == null || activity.isFinishing()) return;
                 String message = Text.UPDATE_THERE_IS + " " + latest
                         + (notes == null || notes.length() == 0 ? "" : "\n\n" + notes);
-                Popup.ask(activity, Text.UPDATE, message,
+                Popup.askUpdate(activity, Text.UPDATE, message,
                         Text.UPDATE_GET, new Runnable() {
                             @Override
                             public void run() {
@@ -211,30 +213,38 @@ public final class Updater {
         return new File(context.getFilesDir(), "margyt/update.apk");
     }
 
-    public static void fetch(final Context context) {
+    private static final java.util.concurrent.atomic.AtomicBoolean fetching=new java.util.concurrent.atomic.AtomicBoolean();
+    public static void fetch(Context caller) {
+        if(!fetching.compareAndSet(false,true))return;
+        final Context context=caller.getApplicationContext();
+        final String url=where;
         final File apk = file(context);
+        final DownloadTasks.Control control=DownloadTasks.begin("update","Обновление MargyT","Мод",()->fetch(context));
         Net.away("update apk", new Runnable() {
             @Override
             public void run() {
-                Screen.progress(Text.UPDATE_GETTING, 0);
-                boolean done = Net.download(where, apk, new Net.Along() {
+                boolean downloaded=false;
+                try {
+                Screen.progress("update",Text.UPDATE_GETTING, 0);
+                boolean done = Net.download(url, apk, new Net.Along() {
                     @Override
                     public void at(int percent, long got, long total) {
-                        Screen.progress(Text.UPDATE_GETTING, percent);
+                        DownloadTasks.progress("update",percent);Screen.progress("update",Text.UPDATE_GETTING, percent);
                     }
-                });
-                Screen.progressGone();
+                },control);
                 if (!done) {
-                    Screen.say(Text.UPDATE_FAILED);
+                    if(!control.cancelled())Screen.say(Text.UPDATE_FAILED);
                     apk.delete();
                     return;
                 }
+                downloaded=true;
                 try {
                     context.getSharedPreferences(Margy.PREFS, Context.MODE_PRIVATE)
                             .edit().putString(KEY_GOT, latest()).apply();
                 } catch (Throwable ignored) {
                 }
                 install(context);
+                } finally {fetching.set(false);DownloadTasks.finish("update",downloaded);if(downloaded)Screen.progressDone("update");else Screen.progressGone("update");}
             }
         });
     }

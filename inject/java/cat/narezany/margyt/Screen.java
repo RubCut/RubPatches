@@ -49,10 +49,13 @@ public final class Screen {
 
     public static void at(Activity activity) {
         current = new WeakReference<Activity>(activity);
+        MAIN.post(() -> { if (progressLine != null) progressWindow(); });
     }
 
     public static void gone(Activity activity) {
+        PlayerTools.cancelSmooth();
         if (current.get() == activity) current = new WeakReference<Activity>(null);
+        if (barOwner.get() == activity) hideProgressWindow();
         // an offer belongs to the screen it was made on
         Dialog open = showing;
         if (open != null) {
@@ -208,6 +211,24 @@ public final class Screen {
 
     private static volatile Dialog bar;
     private static volatile TextView barText;
+    private static volatile android.widget.ProgressBar barProgress;
+    private static volatile DownloadMark barSurface;
+    private static DownloadIsland barIsland;
+    private static android.animation.ValueAnimator completionMotion;
+    private static String progressLine;
+    private static Dialog noteDialog;
+    private static volatile String doneNote;
+    private static final ProgressJobs progressJobs = new ProgressJobs();
+    private static WeakReference<Activity> barOwner = new WeakReference<Activity>(null);
+
+    private static void hideProgressWindow() {
+        if(noteDialog!=null){Dialog n=noteDialog;noteDialog=null;close(n);}
+        if(barIsland!=null){barIsland.dispose();barIsland=null;}
+        if(completionMotion!=null){completionMotion.cancel();completionMotion=null;}
+        Dialog old=bar; bar=null; barText=null;barProgress=null;barSurface=null;
+        barOwner=new WeakReference<Activity>(null);
+        if(old!=null)close(old);
+    }
 
     /**
      * A line at the top of the screen saying how a download is going.
@@ -217,18 +238,34 @@ public final class Screen {
      * watched. Its own window, so it survives whatever screen changes under it.
      */
     public static void progress(final String what, final int percent) {
+        progress("default",what,percent);
+    }
+    public static void progress(final String job,final String what,final int percent) {
         MAIN.post(new Runnable() {
             @Override
             public void run() {
+                DownloadTasks.observe(job,what,percent);
+                progressJobs.update(job,what,percent);
+                progressLine = progressJobs.line();
+                progressWindow();
+            }
+        });
+    }
+
+    /** Recreate the window on its new owner, retaining the running download. */
+    private static void progressWindow() {
                 try {
-                    String line = percent < 0 ? what : what + "  " + percent + "%";
-                    TextView already = barText;
-                    if (already != null && bar != null) {
-                        already.setText(line);
-                        return;
-                    }
+                    String line = progressLine;
+                    if(line==null)return;
                     Activity activity = current.get();
                     if (activity == null || activity.isFinishing()) return;
+                    TextView already = barText;
+                    if (already != null && bar != null && barOwner.get()==activity && bar.isShowing()) {
+                        if(!line.equals(already.getContentDescription()))already.setContentDescription(line);
+                        updateProgress();
+                        return;
+                    }
+                    hideProgressWindow();
 
                     Dialog dialog = new Dialog(activity);
                     Window window = dialog.getWindow();
@@ -239,17 +276,26 @@ public final class Screen {
                     window.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
                             | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
 
-                    TextView text = pill(activity, line, new Runnable() {
-                        @Override
-                        public void run() {
-                        }
-                    });
-                    dialog.setContentView(text);
+                    DownloadMark content=new DownloadMark(activity,onAccent());
+                    content.setOrientation(android.widget.LinearLayout.VERTICAL);
+                    content.setPadding(dp(activity,16),dp(activity,10),dp(activity,16),dp(activity,12));
+                    TextView text=new TextView(activity);text.setText(progressJobs.line()==null?"Задачи":"Загрузка");text.setGravity(Gravity.CENTER);text.setPadding(0,0,0,0);text.setContentDescription(line);text.setTextColor(0xFFF2F0F5);text.setTextSize(13);text.setSingleLine(true);text.setEllipsize(android.text.TextUtils.TruncateAt.END);Fonts.apply(text);
+                    content.addView(text,new android.widget.LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT));
+                    android.widget.ProgressBar progress=new android.widget.ProgressBar(activity,null,android.R.attr.progressBarStyleHorizontal);
+                    progress.setMax(100);
+                    GradientDrawable track=new GradientDrawable();track.setColor((Accent.colour()&0xFFFFFF)|0x33000000);track.setCornerRadius(dp(activity,4));
+                    GradientDrawable fill=new GradientDrawable();fill.setColor(Accent.colour());fill.setCornerRadius(dp(activity,4));
+                    android.graphics.drawable.ClipDrawable clip=new android.graphics.drawable.ClipDrawable(fill,Gravity.LEFT,android.graphics.drawable.ClipDrawable.HORIZONTAL);
+                    android.graphics.drawable.LayerDrawable layers=new android.graphics.drawable.LayerDrawable(new android.graphics.drawable.Drawable[]{track,clip});
+                    layers.setId(0,android.R.id.background);layers.setId(1,android.R.id.progress);progress.setProgressDrawable(layers);
+                    progress.setIndeterminateTintList(android.content.res.ColorStateList.valueOf(Accent.colour()));
+                    android.widget.LinearLayout.LayoutParams meter=new android.widget.LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,dp(activity,10));meter.topMargin=dp(activity,8);content.addView(progress,meter);content.bind(progress);
+                    dialog.setContentView(content);
                     dialog.setCanceledOnTouchOutside(false);
                     dialog.show();
 
                     WindowManager.LayoutParams params = window.getAttributes();
-                    params.width = ViewGroup.LayoutParams.WRAP_CONTENT;
+                    params.width = Math.min(dp(activity,260),activity.getResources().getDisplayMetrics().widthPixels-dp(activity,32));
                     params.height = ViewGroup.LayoutParams.WRAP_CONTENT;
                     params.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
                     params.y = dp(activity, 56);
@@ -257,23 +303,79 @@ public final class Screen {
 
                     bar = dialog;
                     barText = text;
+                    barSurface=content;
+                    barProgress=progress;updateProgress();
+                    barIsland=new DownloadIsland(activity,dialog,content);text.setOnClickListener(v->{if(barIsland!=null)barIsland.toggle();});
+                    barOwner = new WeakReference<Activity>(activity);
                 } catch (Throwable error) {
                     Diary.note("progress: " + error);
                 }
+    }
+
+    public static void showTasks(){MAIN.post(()->{if(bar!=null&&barText==null)hideProgressWindow();if(bar==null){progressLine="Задачи";progressWindow();progressLine=progressJobs.line();if(barSurface!=null)barSurface.progress(100);}if(barIsland!=null&&!barIsland.expanded())barIsland.toggle();});}
+    static void tasksCollapsed(){if(progressLine==null)hideProgressWindow();}
+    public static void progressGone() {
+        progressGone("default");
+    }
+    private static void updateProgress(){android.widget.ProgressBar meter=barProgress;if(meter==null)return;int percent=progressJobs.percent();meter.setIndeterminate(false);if(percent>=0)meter.setProgress(percent);DownloadMark surface=barSurface;if(surface!=null)surface.progress(percent);}
+    public static void progressGone(final String job) {
+        endProgress(job,false);
+    }
+    public static void progressDone(final String job){endProgress(job,true);}
+    /** Finish the shared unnamed job with the same flower-and-check ending as a download. */
+    public static void progressDone(){endProgress("default",true);}
+    /** Completed download: the check stays a little longer with the folder it landed in underneath. */
+    public static void progressDone(final String job,final String where){doneNote=where;endProgress(job,true);}
+    private static void endProgress(final String job,final boolean completed){
+        MAIN.post(new Runnable() {
+            @Override
+            public void run() {
+                DownloadTasks.endObserved(job,completed);
+                progressJobs.remove(job);
+                progressLine = progressJobs.line();
+                if(progressLine==null){if(!completed)doneNote=null;if(completed)finishProgress();else hideProgressWindow();}else{doneNote=null;progressWindow();}
             }
         });
     }
 
-    public static void progressGone() {
-        MAIN.post(new Runnable() {
-            @Override
-            public void run() {
-                Dialog open = bar;
-                bar = null;
-                barText = null;
-                if (open != null) close(open);
-            }
-        });
+    private static void finishProgress(){
+        if(barIsland!=null && barIsland.expanded()){barIsland.collapse(()->{if(progressLine==null)finishProgress();});return;}
+        final Dialog finished=bar;final Activity owner=barOwner.get();
+        if(finished==null || owner==null || owner.isFinishing() || !finished.isShowing()){hideProgressWindow();return;}
+        final DownloadMark mark=barSurface;
+        if(mark==null || barText==null || barProgress==null){hideProgressWindow();return;}
+        Window window=finished.getWindow();if(window==null){hideProgressWindow();return;}
+        WindowManager.LayoutParams params=window.getAttributes();final int width=params.width;
+        if(barIsland!=null){barIsland.dispose();barIsland=null;}mark.setOnClickListener(null);
+        mark.begin(width,barText,barProgress);final int height=mark.initialHeight();barText=null;barProgress=null;
+        if(Motion.enabled(owner)){
+            android.animation.ValueAnimator morph=android.animation.ValueAnimator.ofFloat(0,1);completionMotion=morph;morph.setDuration(620L);
+            morph.setInterpolator(new android.view.animation.PathInterpolator(0.4f,0f,0.2f,1f));
+            morph.addUpdateListener(a->{if(bar==finished && finished.isShowing()){float value=(Float)a.getAnimatedValue();mark.morph(value);WindowManager.LayoutParams p=window.getAttributes();p.width=Math.round(DownloadMorph.mix(width,dp(owner,56),value));p.height=Math.round(DownloadMorph.mix(height,dp(owner,56),value));window.setAttributes(p);}});morph.start();
+        }else{mark.morph(1);params.width=dp(owner,56);params.height=dp(owner,56);window.setAttributes(params);}
+        final String note=doneNote;doneNote=null;
+        if(note!=null&&note.length()>0)showNote(owner,finished,note);
+        final long hold=note!=null&&note.length()>0?3800L:2400L;
+        MAIN.postDelayed(()->{if(bar==finished && progressLine==null){if(Motion.enabled(owner)){Dialog n=noteDialog;if(n!=null&&n.getWindow()!=null)n.getWindow().getDecorView().animate().alpha(0).setDuration(180L).start();mark.animate().alpha(0).setDuration(180L).withEndAction(()->{if(bar==finished && progressLine==null)hideProgressWindow();}).start();}else hideProgressWindow();}},hold);
+    }
+
+    /** "Saved to Music/MargyT" in a small pill right under the check. */
+    private static void showNote(final Activity owner,final Dialog finished,final String where){
+        try{
+            Dialog dialog=new Dialog(owner);Window window=dialog.getWindow();if(window==null)return;
+            dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));window.setDimAmount(0f);
+            window.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL|WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE);
+            TextView text=new TextView(owner);text.setText("Сохранено в "+where);text.setTextColor(0xFFF2F0F5);text.setTextSize(12);text.setGravity(Gravity.CENTER);text.setMaxLines(2);text.setEllipsize(android.text.TextUtils.TruncateAt.END);Fonts.apply(text);
+            text.setPadding(dp(owner,14),dp(owner,8),dp(owner,14),dp(owner,8));
+            GradientDrawable pill=new GradientDrawable();pill.setColor(0xFF24262B);pill.setCornerRadius(dp(owner,16));text.setBackground(pill);
+            dialog.setContentView(text);dialog.show();
+            WindowManager.LayoutParams params=window.getAttributes();
+            params.width=ViewGroup.LayoutParams.WRAP_CONTENT;params.height=ViewGroup.LayoutParams.WRAP_CONTENT;
+            params.gravity=Gravity.TOP|Gravity.CENTER_HORIZONTAL;params.y=dp(owner,56)+dp(owner,56)+dp(owner,8);window.setAttributes(params);
+            if(Motion.enabled(owner)){text.setAlpha(0f);text.setTranslationY(-dp(owner,6));text.animate().alpha(1f).translationY(0).setStartDelay(260L).setDuration(260L).start();}
+            noteDialog=dialog;
+        }catch(Throwable error){Diary.note("note: "+error);}
     }
 
     private static int onAccent() {

@@ -3,6 +3,7 @@ package cat.narezany.margyt;
 import android.app.Activity;
 import android.app.Application;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
@@ -12,6 +13,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.widget.LinearLayout;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import java.util.Locale;
@@ -53,8 +55,11 @@ public final class SettingsRow implements Application.ActivityLifecycleCallbacks
         Plugins.onActivityResumed(activity);
         Plugins.screen(activity);
         Screen.at(activity);
+        SocialLibrary.refresh(null);
         Updater.resumed(activity);
         Themes.watch(activity);
+        PinkButtons.watch(activity);
+        Tutorial.maybeShow(activity);
 
         String name = activity.getClass().getName();
 
@@ -141,6 +146,7 @@ public final class SettingsRow implements Application.ActivityLifecycleCallbacks
     @Override
     public void onActivityPaused(Activity activity) {
         Plugins.onActivityPaused(activity);
+        Tutorial.paused(activity);
         Screen.gone(activity);
     }
 
@@ -271,11 +277,16 @@ public final class SettingsRow implements Application.ActivityLifecycleCallbacks
         background.setCornerRadius(skin.radius);
         row.setBackground(background);
 
-        TextView glyph = new TextView(activity);
-        glyph.setText("\u266A");  // a note, the same one as on the icon
-        glyph.setTextColor(skin.text);
-        glyph.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
-        glyph.setGravity(Gravity.CENTER);
+        ImageView glyph = new ImageView(activity);
+        Bitmap emblem = Launcher.preview(Launcher.DEFAULT);
+        if (emblem != null) glyph.setImageBitmap(emblem);
+        glyph.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        GradientDrawable circle = new GradientDrawable();
+        circle.setShape(GradientDrawable.OVAL);
+        circle.setColor(0xFF000000);
+        glyph.setBackground(circle);
+        glyph.setClipToOutline(true);
+        glyph.setContentDescription("MargyT");
         row.addView(glyph, new LinearLayout.LayoutParams(dp(activity, 24), dp(activity, 24)));
 
         TextView title = new TextView(activity);

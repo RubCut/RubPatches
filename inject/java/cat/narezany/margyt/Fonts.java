@@ -52,11 +52,8 @@ public final class Fonts {
      */
     public static final String TWEMOJI_ASSET = "margyt/twemoji.ttf";
 
-    private static String packAsset(String which) {
-        if (TWEMOJI.equals(which)) return TWEMOJI_ASSET;
-        if (NOTO.equals(which)) return "margyt/noto.ttf";
-        if (BLOBMOJI.equals(which)) return "margyt/blobmoji.ttf";
-        return null;
+    private static String packAsset(Context context, String which) {
+        return EmojiPackManager.asset(context, which);
     }
 
     /** The names of the ones that need no file. */
@@ -101,6 +98,7 @@ public final class Fonts {
         forget();
         SharedPreferences prefs = prefs();
         if (prefs != null) prefs.edit().putString(KEY, value).apply();
+        new android.os.Handler(android.os.Looper.getMainLooper()).post(Themes::repaintVisible);
     }
 
     public static String emoji() {
@@ -115,6 +113,8 @@ public final class Fonts {
 
     public static void chooseEmoji(Context context, String value) {
         if (value == null) value = SYSTEM;
+        if (context == null) context = Margy.context();
+        if (EmojiPackManager.find(context, value) == null) value = SYSTEM;
         chosenEmoji = value;
         forget();
         SharedPreferences prefs = prefs();
@@ -124,13 +124,18 @@ public final class Fonts {
     private static void forget() {
         face = null;
         looked = false;
+        styleBase=null;styled=new Typeface[4];
+    }
+
+    static void reload() {
+        chosen = null;
+        chosenEmoji = null;
+        forget();
     }
 
     /** Every pack is in the apk, so one is ready the moment it is chosen. */
     public static boolean emojiReady(Context context) {
-        String which = emoji();
-        if (EMOJI_FILE.equals(which)) return emojiFile(context, which).isFile();
-        return true;
+        return EmojiPackManager.ready(context, emoji());
     }
 
     /**
@@ -144,7 +149,9 @@ public final class Fonts {
         Typeface known = bundled;
         if (known != null) return known;
         try {
-            known = Typeface.createFromAsset(context.getAssets(), TWEMOJI_ASSET);
+            String asset = packAsset(context, TWEMOJI);
+            if (asset == null) return null;
+            known = Typeface.createFromAsset(context.getAssets(), asset);
             bundled = known;
             return known;
         } catch (Throwable error) {
@@ -157,7 +164,7 @@ public final class Fonts {
 
     /** Where a font picked out of the phone's storage is kept. */
     public static File file(Context context) {
-        return new File(context.getFilesDir(), "margyt/font");
+        return AccountAppearance.file(context,"font");
     }
 
     /**
@@ -172,39 +179,62 @@ public final class Fonts {
     }
 
     public static boolean take(Context context, android.net.Uri uri, boolean forEmoji) {
+        final SharedPreferences destination=AccountAppearance.prefs(context);
+        final String owner=AccountAppearance.scope(context);
+        File temporary = null;
         try {
-            java.io.InputStream in = context.getContentResolver().openInputStream(uri);
-            if (in == null) return false;
             File out = forEmoji ? emojiFile(context, EMOJI_FILE) : file(context);
             File parent = out.getParentFile();
             if (parent != null) parent.mkdirs();
-            java.io.FileOutputStream sink = new java.io.FileOutputStream(out);
-            byte[] buffer = new byte[16384];
-            int read;
-            while ((read = in.read(buffer)) > 0) sink.write(buffer, 0, read);
-            sink.close();
-            in.close();
+            temporary = new File(parent, out.getName() + ".tmp");
+            java.io.InputStream in = context.getContentResolver().openInputStream(uri);
+            if (in == null) return false;
+            java.io.FileOutputStream sink = new java.io.FileOutputStream(temporary);
+            try {
+                byte[] buffer = new byte[16384];
+                int read;
+                long total = 0;
+                while ((read = in.read(buffer)) > 0) {
+                    total += read;
+                    if (total > 24L * 1024 * 1024) return false;
+                    sink.write(buffer, 0, read);
+                }
+            } finally {
+                sink.close();
+                in.close();
+            }
 
             // refuse it here rather than have every screen fall back silently
-            Typeface test = Typeface.createFromFile(out);
+            Typeface test = Typeface.createFromFile(temporary);
             if (test == null) return false;
-            if (forEmoji) chooseEmoji(context, EMOJI_FILE);
-            else choose(FILE);
+            if (!temporary.renameTo(out)) return false;
+            destination.edit().putString(forEmoji?KEY_EMOJI:KEY,forEmoji?EMOJI_FILE:FILE).apply();
+            if(owner.equals(AccountAppearance.scope(context)))reload();
             return true;
         } catch (Throwable error) {
             Diary.note("font: " + error);
             return false;
+        } finally {
+            if (temporary != null && temporary.isFile()) temporary.delete();
         }
     }
 
-    private static File emojiFile(Context context, String which) {
+    static File emojiFile(Context context, String which) {
+        if(EMOJI_FILE.equals(which))return AccountAppearance.file(context,"emoji-custom");
         return new File(context.getFilesDir(), "margyt/emoji-" + which);
     }
 
     // ----------------------------------------------------------- using it
 
     /** The chosen typeface, or null to leave whatever was there alone. */
-    public static synchronized Typeface chosenFace() {
+    public static Typeface chosenFace() {
+        // asked for every label the app writes, so the answer once known is
+        // read without waiting for anybody
+        if (looked) return face;
+        return lookedUp();
+    }
+
+    private static synchronized Typeface lookedUp() {
         if (looked) return face;
         // built under the lock and only then called built: the flag used to
         // go up first, so whatever asked next was handed nothing
@@ -229,8 +259,15 @@ public final class Fonts {
      */
     private static Typeface build() {
         Context context = Margy.context();
-        String letters = name();
-        String emoji = emoji();
+        return build(context, name(), emoji());
+    }
+
+    /** A non-persistent settings preview of a selected pack. */
+    public static Typeface preview(Context context, String emojiPack) {
+        return build(context, name(), emojiPack);
+    }
+
+    private static Typeface build(Context context, String letters, String emoji) {
 
         Typeface plain = null;
         try {
@@ -255,7 +292,7 @@ public final class Fonts {
             return plain;
         }
 
-        String asset = packAsset(emoji);
+        String asset = packAsset(context, emoji);
         if (asset != null) return hybrid(context, letters, null, asset);
 
         File pack = emojiFile(context, emoji);
@@ -361,29 +398,80 @@ public final class Fonts {
      * Keeps the weight the view already had: a bold name stays bold, because
      * what is being changed is the shape of the letters and not the emphasis.
      */
-    public static void apply(TextView view) {
-        Typeface wanted = chosenFace();
-        if (wanted == null || view == null) return;
-        try {
-            Typeface had = view.getTypeface();
-            int style = had == null ? Typeface.NORMAL : had.getStyle();
-            Typeface out = style == Typeface.NORMAL
-                    ? wanted : Typeface.create(wanted, style);
-            if (out != had) view.setTypeface(out);
-        } catch (Throwable ignored) {
+    private static final class OwnedFont {
+        Typeface original,applied;OwnedFont(Typeface original){this.original=original;}
+    }
+    private static final java.util.Map<TextView,OwnedFont> ownedFonts=
+            java.util.Collections.synchronizedMap(new java.util.WeakHashMap<TextView,OwnedFont>());
+    private static Typeface styleBase;
+    private static Typeface[] styled=new Typeface[4];
+    public static void applyTree(android.view.View root) {
+        // no font chosen and none to give back: nothing on the screen to visit
+        if(chosenFace()==null && ownedFonts.isEmpty())return;
+        long probe=Probe.start();applyTree(root,0,new int[]{4000});Probe.stop(Probe.FONTS,probe);
+    }
+
+    /** Whether this kind of view draws pictures with its letters, and must keep its own font. */
+    private static final java.util.concurrent.ConcurrentHashMap<Class<?>,Boolean> glyphs=
+            new java.util.concurrent.ConcurrentHashMap<Class<?>,Boolean>();
+    private static boolean drawsGlyphs(android.view.View view){
+        Class<?> type=view.getClass();Boolean known=glyphs.get(type);
+        if(known==null){
+            // worked out once for each class: this used to make a lowercase
+            // copy of the class name for every label the app wrote
+            String kind=type.getName().toLowerCase(java.util.Locale.ROOT);
+            known=Boolean.valueOf(kind.contains("icon") || kind.contains("emoji"));glyphs.put(type,known);
+        }
+        return known.booleanValue();
+    }
+    private static void applyTree(android.view.View root,int depth,int[] budget) {
+        if(root==null || depth>40 || --budget[0]<0)return;
+        if(root instanceof TextView)apply((TextView)root);
+        if(root instanceof android.view.ViewGroup){
+            android.view.ViewGroup group=(android.view.ViewGroup)root;
+            for(int i=0;i<group.getChildCount() && budget[0]>0;i++)applyTree(group.getChildAt(i),depth+1,budget);
         }
     }
+    public static void apply(TextView view) {
+        if(view==null)return;
+        Typeface wanted=chosenFace();
+        if(wanted==null && ownedFonts.isEmpty())return;
+        if(drawsGlyphs(view))return;
+        try{
+            Typeface had=view.getTypeface();OwnedFont mine=ownedFonts.get(view);
+            if(wanted==null){
+                if(mine!=null){if(had==mine.applied)view.setTypeface(mine.original);ownedFonts.remove(view);}return;
+            }
+            if(mine==null){mine=new OwnedFont(had);ownedFonts.put(view,mine);}
+            else if(had!=mine.applied)mine.original=had;
+            Typeface out=keep(wanted,mine.original);
+            if(out!=had)view.setTypeface(out);mine.applied=out;
+        }catch(Throwable ignored){}
+    }
+
+    public static void setText(TextView view,int resource){view.setText(resource);apply(view);}
+    public static void setHint(TextView view,int resource){view.setHint(resource);apply(view);}
+    public static void setHint(TextView view,CharSequence text){view.setHint(text);apply(view);}
+    public static void setTextAppearance(TextView view,int resource){view.setTextAppearance(resource);apply(view);}
+    public static void setTextAppearance(TextView view,Context context,int resource){view.setTextAppearance(context,resource);apply(view);}
 
     // --------------------------------------------- where TikTok sets one
 
     public static void setTypeface(TextView view, Typeface face) {
-        Typeface wanted = chosenFace();
-        view.setTypeface(wanted == null ? face : keep(wanted, face));
+        Typeface wanted=chosenFace();
+        if(wanted==null && ownedFonts.isEmpty()){view.setTypeface(face);return;}
+        boolean replace=wanted!=null && !drawsGlyphs(view);
+        view.setTypeface(replace?keep(wanted,face):face);
+        if(replace){OwnedFont mine=new OwnedFont(face);mine.applied=view.getTypeface();ownedFonts.put(view,mine);}
+        else ownedFonts.remove(view);
     }
-
     public static void setTypeface(TextView view, Typeface face, int style) {
-        Typeface wanted = chosenFace();
-        view.setTypeface(wanted == null ? face : wanted, style);
+        Typeface wanted=chosenFace();
+        if(wanted==null && ownedFonts.isEmpty()){view.setTypeface(face,style);return;}
+        boolean replace=wanted!=null && !drawsGlyphs(view);
+        view.setTypeface(replace?wanted:face,style);
+        if(replace){OwnedFont mine=new OwnedFont(Typeface.create(face,style));mine.applied=view.getTypeface();ownedFonts.put(view,mine);}
+        else ownedFonts.remove(view);
     }
 
     public static Typeface setTypeface(android.graphics.Paint paint, Typeface face) {
@@ -394,8 +482,14 @@ public final class Fonts {
     /** Ours, at the weight theirs was going to be. */
     private static Typeface keep(Typeface wanted, Typeface theirs) {
         try {
-            if (theirs == null || theirs.getStyle() == Typeface.NORMAL) return wanted;
-            return Typeface.create(wanted, theirs.getStyle());
+            int style=theirs==null?Typeface.NORMAL:theirs.getStyle();
+            if(style==Typeface.NORMAL)return wanted;
+            if(style<0 || style>=4)return Typeface.create(wanted,style);
+            synchronized(Fonts.class){
+                if(styleBase!=wanted){styleBase=wanted;styled=new Typeface[4];}
+                if(styled[style]==null)styled[style]=Typeface.create(wanted,style);
+                return styled[style];
+            }
         } catch (Throwable ignored) {
             return wanted;
         }
@@ -404,6 +498,6 @@ public final class Fonts {
     private static SharedPreferences prefs() {
         Context context = Margy.context();
         if (context == null) return null;
-        return context.getSharedPreferences(Margy.PREFS, Context.MODE_PRIVATE);
+        return AccountAppearance.prefs(context);
     }
 }

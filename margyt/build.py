@@ -10,22 +10,42 @@ of fifty-two dex files only the ones that call telephony are taken apart.
 from __future__ import annotations
 
 import base64
+import json
 import os
+import re
 import time
 from typing import Dict, List, Optional
 
-from . import accent as accent_module, artwork, dexpatch, icon as icon_module, manifest as manifest_module, nightly, resadd
+from . import accent as accent_module, artwork, prerecolour, dexcache, dexpatch, icon as icon_module, manifest as manifest_module, nightly, resadd
 from .apkzip import Apk, STORED
 from .arsc import Arsc
 from . import axml as axml_module
 from .axml import Axml
-from .dexpatch import Smali
 from .toolchain import Toolchain
 
 PACKAGE = "cat.narezany.margyt"
 SETTINGS_ACTIVITY = PACKAGE + ".SettingsActivity"
 STORE_ACTIVITY = PACKAGE + ".StoreActivity"
 STARTUP_PROVIDER = PACKAGE + ".MargyProvider"
+ALARM_RECEIVER = PACKAGE + ".StreakAlarm"
+# What an exact streak alarm needs: the alarm itself, a wake lock while it
+# runs, a way back after a reboot, and the question about battery savers.
+ALARM_PERMISSIONS = (
+    "android.permission.SCHEDULE_EXACT_ALARM",
+    "android.permission.USE_EXACT_ALARM",
+    "android.permission.WAKE_LOCK",
+    "android.permission.RECEIVE_BOOT_COMPLETED",
+    "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+    "android.permission.POST_NOTIFICATIONS",
+    "android.permission.ACCESS_NETWORK_STATE",
+)
+ALARM_ACTIONS = [
+    "android.intent.action.BOOT_COMPLETED",
+    "android.intent.action.MY_PACKAGE_REPLACED",
+    "android.intent.action.TIME_SET",
+    "android.intent.action.TIMEZONE_CHANGED",
+    PACKAGE + ".STREAK_FIRE",
+]
 
 # The screen the MargyT row is put at the top of. The row itself is added to
 # the view tree while the screen is drawn -- nothing patches the code that
@@ -43,6 +63,56 @@ SETTINGS_THEME = "Theme_DeviceDefault_Light_NoActionBar"
 # what a renamed provider authority ends in, so two mods of the same app can
 # sit on one phone without the installer refusing the second
 AUTHORITY_MARKER = ".margyt"
+
+
+def emoji_asset_entries(asset_root: str) -> List[tuple]:
+    """Read the pack manifest and return safe APK asset path/source pairs."""
+    manifest_path = os.path.join(asset_root, "emoji", "packs.json")
+    with open(manifest_path, "rb") as source:
+        raw = source.read()
+    if len(raw) > 65536:
+        raise ValueError("emoji pack manifest exceeds 64 KiB")
+    manifest = json.loads(raw.decode("utf-8"))
+    if not isinstance(manifest, dict) or not isinstance(manifest.get("packs"), list):
+        raise ValueError("emoji pack manifest must contain a packs list")
+    entries = []
+    ids = set()
+    paths = set()
+    for pack in manifest["packs"]:
+        if not isinstance(pack, dict):
+            raise ValueError("emoji pack entry must be an object")
+        pack_id, name, version, asset = (pack.get(key) for key in
+                                          ("id", "name", "version", "asset"))
+        if not isinstance(pack_id, str) or not re.fullmatch(r"[a-z0-9_-]{1,32}", pack_id):
+            raise ValueError("invalid emoji pack id")
+        if pack_id in ids:
+            raise ValueError("duplicate emoji pack id: " + pack_id)
+        if not isinstance(name, str) or not name.strip() or len(name) > 48:
+            raise ValueError("invalid emoji pack name: " + pack_id)
+        if not isinstance(version, str) or len(version) > 24:
+            raise ValueError("invalid emoji pack version: " + pack_id)
+        if not isinstance(asset, str) or len(asset) > 120:
+            raise ValueError("invalid emoji pack asset: " + pack_id)
+        normalized = asset.replace("\\", "/")
+        if normalized.startswith("/") or ".." in normalized.split("/"):
+            raise ValueError("emoji pack asset escapes assets directory: " + pack_id)
+        if not re.fullmatch(r"[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*\.(?:ttf|otf)", normalized):
+            raise ValueError("emoji pack asset must be a TTF/OTF: " + pack_id)
+        if normalized in paths:
+            raise ValueError("duplicate emoji pack asset: " + normalized)
+        source_path = os.path.join(asset_root, *normalized.split("/"))
+        if not os.path.isfile(source_path):
+            raise FileNotFoundError("emoji pack asset missing: " + normalized)
+        if os.path.getsize(source_path) > 24 * 1024 * 1024:
+            raise ValueError("emoji font exceeds 24 MiB: " + normalized)
+        min_api = pack.get("minAndroid", 29)
+        if not isinstance(min_api, int) or min_api < 1 or min_api > 100:
+            raise ValueError("invalid minimum Android version: " + pack_id)
+        ids.add(pack_id)
+        paths.add(normalized)
+        entries.append(("assets/margyt/" + normalized, source_path))
+    entries.append(("assets/margyt/emoji/packs.json", manifest_path))
+    return entries
 
 # Without this an apk cannot hand Android another apk to install, and TikTok
 # does not ask for it: its own updates come from a store. The mod's do not.
@@ -62,16 +132,26 @@ def _java_name(owner: str) -> str:
 class Build:
     def __init__(self, apk_path: str, out_path: str, root: str, tools: Toolchain,
                  workspace: str, keystore: Optional[str] = None,
-                 accent: Optional[int] = None, test: bool = False):
+                 accent: Optional[int] = None,
+                 keystore_alias: str = "androiddebugkey",
+                 keystore_password: str = "android",
+                 key_password: str = "android", test: bool = False):
         self.apk_path = apk_path
         self.out_path = out_path
         self.root = root
         self.tools = tools
         self.workspace = workspace
         self.keystore = keystore
-        self.accent = dexpatch.TIKTOK_PINK if accent is None else accent
+        self.keystore_alias = keystore_alias
+        self.keystore_password = keystore_password
+        self.key_password = key_password
         self.test = test
+        self.accent = dexpatch.TIKTOK_PINK if accent is None else accent
         self.started = time.time()
+        self.patched_dex_count = 0
+        self.total_dex_count = 0
+        self.rewrite_count = 0
+        self.static_target_count = 0
 
     def say(self, message: str) -> None:
         print("\033[1;36m==>\033[0m %s" % message)
@@ -114,7 +194,6 @@ class Build:
         self.write_emblem()
         self.write_icons()
         self.write_version(manifest_module.version_name(manifest), self.test)
-        self.write_patch_key()
         self.find_anchors(apk)
         self.write_theme(arsc)
         self.write_shots(manifest)
@@ -151,6 +230,7 @@ class Build:
         manifest_module.add_activity(manifest, SETTINGS_ACTIVITY, SETTINGS_LABEL, theme)
         self.detail("%s declared, reached from TikTok's own settings" % SETTINGS_ACTIVITY)
         manifest_module.add_activity(manifest, STORE_ACTIVITY, SETTINGS_LABEL, theme)
+        manifest_module.add_activity(manifest, PACKAGE + ".PluginEditorActivity", SETTINGS_LABEL, theme)
         self.detail("%s declared, the plugin store" % STORE_ACTIVITY)
 
         if not manifest_module.has_activity(manifest, TIKTOK_SETTINGS):
@@ -163,6 +243,10 @@ class Build:
             self.detail("asking for %s: the mod installs its own updates"
                         % INSTALL_PERMISSION.rsplit(".", 1)[-1])
 
+        for permission in ALARM_PERMISSIONS:
+            manifest_module.add_permission(manifest, permission)
+        manifest_module.add_receiver(manifest, ALARM_RECEIVER, ALARM_ACTIONS)
+        self.detail("%s declared: streak sends wake on the system clock" % ALARM_RECEIVER)
         manifest_module.add_provider(
             manifest, STARTUP_PROVIDER, "%s.margyt" % package)
         self.detail("%s declared: the mod starts with the app" % STARTUP_PROVIDER)
@@ -186,6 +270,7 @@ class Build:
         self.say("Icons to choose from")
         extended = self.add_icon_choices(apk, arsc, manifest)
         self.add_assets(apk)
+        self.add_prerecoloured(apk)
 
         apk.replace("AndroidManifest.xml", manifest.build())
         if extended is not None:
@@ -195,6 +280,17 @@ class Build:
 
         self.say("Rewriting the bytecode")
         self.patch_dex_files(apk, api, renames)
+
+        # Include the exact patch coverage in the in-app diagnostics. The
+        # first compile above validates the call surface before dex work starts.
+        self.write_build_info()
+        dex_path = self.tools.compile_dex(
+            os.path.join(self.root, "inject", "java"), self.workspace, api,
+            os.path.join(self.root, "inject", "stubs"),
+        )
+        injected = open(dex_path, "rb").read()
+        if dexpatch.dex_format(injected) != dex_format or dexpatch.missing_targets(injected):
+            raise RuntimeError("build diagnostics changed the injected method surface")
 
         name = dexpatch.next_dex_name(apk.names())
         apk.add(name, injected)
@@ -208,7 +304,8 @@ class Build:
         self.detail("%.0f MB" % (os.path.getsize(self.out_path) / 1e6))
 
         self.say("Signing")
-        self.tools.sign(self.out_path, self.keystore)
+        self.tools.sign(self.out_path, self.keystore, self.keystore_alias,
+                        self.keystore_password, self.key_password)
 
         self.say("Done in %.0f s: %s" % (time.time() - self.started, self.out_path))
         return self.out_path
@@ -361,49 +458,6 @@ class Build:
         self.detail("MargyT %s on TikTok %s%s"
                     % (mod, tiktok, ", a test build" if test else ""))
 
-    #: where the key that signs patches is looked for. The private half is
-    #: never in this repository and never on the server; the public half is
-    #: built into the apk so a phone can tell a patch of ours from anybody
-    #: else's.
-    PATCH_KEY = os.path.join(os.path.expanduser("~"), ".config", "margyt",
-                             "patch-public.b64")
-
-    def write_patch_key(self) -> None:
-        """Bake in the key that a patch has to be signed with.
-
-        Without a key the build still works and patches are simply refused:
-        an apk that would run anything handed to it over plain http is worse
-        than an apk that cannot be patched at all.
-        """
-        key = ""
-        path = os.environ.get("MARGYT_PATCH_KEY", self.PATCH_KEY)
-        try:
-            with open(path, encoding="utf-8") as handle:
-                key = handle.read().strip()
-        except OSError:
-            pass
-
-        out = os.path.join(self.root, "inject", "java", "cat", "narezany", "margyt",
-                           "Patchkey.java")
-        with open(out, "w", encoding="utf-8") as handle:
-            handle.write(
-                "package cat.narezany.margyt;\n\n"
-                "/**\n"
-                " * Written by the build. Do not edit.\n"
-                " *\n"
-                " * The public half of the key patches are signed with, in the\n"
-                " * shape `KeyFactory` wants. Empty means this build takes no\n"
-                " * patches at all, which is what a build made without the key\n"
-                " * should do.\n"
-                " */\n"
-                "final class Patchkey {\n\n"
-                "    private Patchkey() {}\n\n"
-                "    static final String KEY = \"%s\";\n"
-                "}\n" % key
-            )
-        self.detail("patches: %s" % ("signed with the key in %s" % path if key
-                                     else "refused, no key to check them with"))
-
     def write_theme(self, arsc: Arsc) -> None:
         """The colours TikTok repaints when its own theme changes."""
         owned, safe = nightly.theme_colours(arsc, dexpatch.TIKTOK_PINK)
@@ -470,14 +524,53 @@ class Build:
         "trust me, it is coming" is not a setting. They are read straight out
         of the apk with no network involved.
         """
-        for name in ("twemoji.ttf", "noto.ttf", "blobmoji.ttf", "meow.ogg"):
-            path = os.path.join(self.root, "assets", name)
+        asset_root = os.path.join(self.root, "assets")
+        entries = emoji_asset_entries(asset_root)
+        entries.append(("assets/margyt/meow.ogg", os.path.join(asset_root, "meow.ogg")))
+        # the anti-burn eye: two small transparent PNGs, drawn as they are
+        for eye in ("burn_eye_open.png", "burn_eye_closed.png"):
+            entries.append(("assets/margyt/" + eye, os.path.join(asset_root, eye)))
+        for destination, path in entries:
             with open(path, "rb") as handle:
                 raw = handle.read()
             # stored rather than deflated: a font and a sound are both read
             # straight out of the apk, and neither can be read compressed
-            apk.add("assets/margyt/" + name, raw, STORED)
-            self.detail("assets/margyt/%s: %d kB" % (name, len(raw) // 1024))
+            apk.add(destination, raw, STORED)
+            self.detail("%s: %d kB" % (destination, len(raw) // 1024))
+
+    def add_prerecoloured(self, apk: Apk) -> None:
+        """Like animations recoloured for the palette now, not on the phone.
+
+        See margyt/prerecolour.py. One that cannot be handled here (an
+        unsupported PNG, an oversized file) is skipped and keeps the runtime
+        path, so this can only add speed, never remove a heart.
+        """
+        def read(path: str):
+            try:
+                return apk.read("assets/" + path)
+            except Exception:
+                return None
+
+        made = skipped = size = 0
+        for path, name in prerecolour.candidates(apk.names()):
+            try:
+                source = apk.read(path)
+                files = {}
+                for colour in prerecolour.COLOURS:
+                    done = prerecolour.make(name, source, colour, read)
+                    if done is None:
+                        raise ValueError("not handled")
+                    files[prerecolour.shipped_path(name, colour)] = done
+            except Exception as error:
+                skipped += 1
+                self.detail("%s: left to the app (%s)" % (name, error))
+                continue
+            for destination, data in files.items():
+                apk.add(destination, data)
+                size += len(data)
+            made += 1
+        self.detail("%d like animations ready for %d colours (%d kB), %d left to the app"
+                    % (made, len(prerecolour.COLOURS), size // 1024, skipped))
 
     # --------------------------------------------------------- the icons
 
@@ -501,6 +594,7 @@ class Build:
         ("tigr", "айй тигрр"),
         ("govno", "че за говно"),
         ("glamour", "Гламурная"),
+        ("tilcayo", "Толстый тилкайо"),
     ]
 
     ICON_PACKAGE = 0x30
@@ -600,6 +694,7 @@ class Build:
             owner, name = found
             self.detail("%s: %s->%s" % (label, owner, name))
             lines.append((label, owner, name))
+        self.static_target_count = len(lines)
 
         out = os.path.join(self.root, "inject", "java", "cat", "narezany", "margyt",
                            "Anchors.java")
@@ -627,11 +722,29 @@ class Build:
                 )
             handle.write("}\n")
 
+    def write_build_info(self) -> None:
+        out = os.path.join(self.root, "inject", "java", "cat", "narezany", "margyt",
+                           "BuildInfo.java")
+        with open(out, "w", encoding="utf-8") as handle:
+            handle.write(
+                "package cat.narezany.margyt;\n\n"
+                "/** Written by the build. Do not edit. */\n"
+                "final class BuildInfo {\n"
+                "    private BuildInfo() {}\n"
+                "    static final int PATCHED_DEX = %d;\n"
+                "    static final int TOTAL_DEX = %d;\n"
+                "    static final int REWRITES = %d;\n"
+                "    static final int STATIC_TARGETS = %d;\n"
+                "}\n"
+                % (self.patched_dex_count, self.total_dex_count,
+                   self.rewrite_count, self.static_target_count)
+            )
+
     # ------------------------------------------------------------------ dex
 
     def patch_dex_files(self, apk: Apk, api: int, literals: Dict[str, str]) -> None:
-        smali = Smali(self.tools.smali, api)
         names = sorted(n for n in apk.names() if n.endswith(".dex"))
+        self.total_dex_count = len(names)
         candidates: List[str] = []
         for name in names:
             if dexpatch.interesting(apk.read(name), literals):
@@ -641,19 +754,67 @@ class Build:
         telephony_labels = {label for label, _pattern, _target in dexpatch.rules()}
         calls = 0
         pink = 0
+        like_hooks = 0
+        speed_lock = 0
+        edge_speed_lock = 0
+        feature_hits = {"seekbar":0,"comment copy":0,"native comment clipboard":0,"publication date":0,"visible publication date":0,"double-tap heart":0,"native heart tint":0,"comment dim exclusion":0,"ads":0}
+        feature_hits["native comment text actions"]=0
+        feature_hits["native loading indicator"]=0
+        feature_hits["native speed lock"]=0
+        feature_hits["native right-area slots"]=0
+        feature_hits["native player resume"]=0
+        feature_hits["native offline choices"]=0
+        feature_hits["native offline row"]=0
+        feature_hits["native offline count accepted"]=0
+        feature_hits["native offline comments response"]=0
+        for feature in ("native repost","native repost avatar","native profile layout","native message timestamps","native notification guide","native friends order","native notification filters","native experiment overrides","native author date slot"):feature_hits[feature]=0
         total = 0
+        patched_dex_count = 0
+        # all of them at once, as many side by side as the machine has room
+        # for; the counting below is done afterwards and in order, so what the
+        # build says does not depend on which finished first
+        results = dexcache.patch_all(
+            {name: apk.read(name) for name in candidates}, self.tools.smali, api,
+            os.path.join(self.workspace, "patch"), literals, self.detail
+        )
         for name in candidates:
-            patched, counts = dexpatch.patch(
-                apk.read(name), name, smali, os.path.join(self.workspace, "patch"), literals
-            )
+            patched, counts = results[name]
             if not counts:
-                self.detail("%s: nothing to rewrite after all" % name)
                 continue
             apk.replace(name, patched)
+            patched_dex_count += 1
+            feature_hits["seekbar"] += counts.get("setSeekBarShowType (any owner)",0)
+            feature_hits["comment copy"] += sum(v for key,v in counts.items()
+                if "BaseCommentCell;" in key and "setOnLongClickListener" in key)
+            feature_hits["publication date"] += sum(v for key,v in counts.items()
+                if "getDesc" in key and any(anchor in key for anchor in dexpatch.DATE_CAPTIONS))
+            feature_hits["double-tap heart"] += sum(v for key,v in counts.items() if "LX/0HCj;" in key and "setImageDrawable" in key)
+            feature_hits["native heart tint"] += sum(v for key,v in counts.items() if "LX/0HCj;" in key and "setTintColor" in key)
+            feature_hits["comment dim exclusion"] += counts.get("native comment cell protection",0)
+            feature_hits["native comment text actions"] += counts.get("native comment text actions",0)
+            feature_hits["native loading indicator"] += counts.get("native loading indicator",0)
+            feature_hits["native speed lock"] += counts.get("native speed lock",0)
+            feature_hits["native right-area slots"] += counts.get("native right-area slots",0)
+            feature_hits["native player resume"] += counts.get("native player resume",0)
+            feature_hits["native offline choices"] += counts.get("native offline choices",0)
+            feature_hits["native offline row"] += counts.get("native offline row",0)
+            feature_hits["native offline count accepted"] += counts.get("native offline count accepted",0)
+            feature_hits["native offline comments response"] += counts.get("native offline comments response",0)
+            for feature in ("native repost","native repost avatar","native profile layout","native message timestamps","native notification guide"):feature_hits[feature]+=counts.get(feature,0)
+            feature_hits["native experiment overrides"]+=counts.get("native experiment overrides",0)
+            feature_hits["native author date slot"]+=counts.get("native author date slot",0)
+            feature_hits["native friends order"]+=sum(v for key,v in counts.items() if "FriendsListResponse" in key and "getUserList" in key)
+            feature_hits["native notification filters"]+=sum(v for key,v in counts.items() if "NotificationManager" in key and "notify" in key)
+            feature_hits["visible publication date"] += counts.get("visible publication date",0)
+            feature_hits["ads"] += sum(v for key,v in counts.items() if "FeedItemList" in key and "getItems" in key)
+            feature_hits["native comment clipboard"] += sum(v for key,v in counts.items() if "0oir->LIZ" in key)
             hits = sum(counts.values())
             total += hits
             calls += sum(v for label, v in counts.items() if label in telephony_labels)
             pink += counts.get("the pink itself", 0)
+            like_hooks += counts.get("feed Lottie setAnimation", 0)
+            speed_lock += counts.get("hold speed, feed touch", 0)
+            edge_speed_lock += counts.get("hold speed, edge touch", 0)
             self.detail(
                 "%s: %d (%s)"
                 % (name, hits, ", ".join("%s x%d" % (k.split("(")[0], v)
@@ -661,6 +822,27 @@ class Build:
             )
         self.detail("%d telephony call sites, %d places the accent colour was written "
                     "down, %d rewrites in all" % (calls, pink, total))
+        self.patched_dex_count = patched_dex_count
+        self.rewrite_count = total
+        missing=[feature for feature,hits in feature_hits.items() if not hits]
+        if feature_hits["native offline comments response"] < 4:
+            missing.append("native offline comments response (need all four)")
+        if feature_hits["native right-area slots"]<4 and "native right-area slots" not in missing:
+            missing.append("native right-area slots (need all four)")
+        if missing:
+            raise RuntimeError("Required feature hooks did not match: "+", ".join(missing)
+                               +". This APK is unsupported; no silent feature omissions.")
+        self.detail("Feature hooks: "+", ".join("%s x%d"%item for item in feature_hits.items()))
+        if not like_hooks:
+            raise RuntimeError(
+                "TikTok's feed-like animation entry did not match: this build "
+                "would leave the heart animation unchanged"
+            )
+        if not speed_lock or not edge_speed_lock:
+            raise RuntimeError(
+                "TikTok's feed touch listener did not match: the hold speed the "
+                "mod lets people choose would never be applied"
+            )
         if not pink:
             self.detail("WARNING: the accent colour is not a constant in this apk any "
                         "more, so the colour picker will have nothing to change")

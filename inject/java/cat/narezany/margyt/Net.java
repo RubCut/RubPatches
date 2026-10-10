@@ -23,6 +23,19 @@ public final class Net {
     private static final int TIMEOUT = 15000;
     private static final int LIMIT = 4 * 1024 * 1024;
 
+    private static boolean secure(String address) {
+        try {
+            java.net.URI uri = new java.net.URI(address);
+            boolean okay = "https".equalsIgnoreCase(uri.getScheme())
+                    && uri.getHost() != null && uri.getUserInfo() == null;
+            if (!okay) Diary.note("network: refused non-HTTPS endpoint");
+            return okay;
+        } catch (Throwable error) {
+            Diary.note("network: invalid endpoint");
+            return false;
+        }
+    }
+
     /** Run something on a thread of the mod's own, named so it is findable. */
     public static void away(final String what, final Runnable work) {
         Thread thread = new Thread(new Runnable() {
@@ -65,7 +78,9 @@ public final class Net {
     public static Answer fetch(String url, String tag) {
         java.net.HttpURLConnection link = null;
         try {
+            if (!secure(url)) return null;
             link = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
+            link.setInstanceFollowRedirects(false);
             link.setConnectTimeout(15000);
             link.setReadTimeout(20000);
             link.setRequestProperty("User-Agent", "MargyT");
@@ -81,7 +96,10 @@ public final class Net {
             java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
             byte[] buffer = new byte[16384];
             int got;
-            while ((got = in.read(buffer)) > 0) out.write(buffer, 0, got);
+            while ((got = in.read(buffer)) > 0) {
+                if (out.size() + got > LIMIT) return null;
+                out.write(buffer, 0, got);
+            }
             in.close();
             return new Answer(out.toByteArray(), fresh, false);
         } catch (Throwable error) {
@@ -99,9 +117,23 @@ public final class Net {
      * and what that account wants shown.
      */
     public static String post(String url, String json) {
+        return postWire(url, json, false);
+    }
+
+    /** Return bounded JSON errors too; callers still check the server's ok flag. */
+    public static String postResult(String url, String json) {
+        return postWire(url, json, true);
+    }
+
+    private static String postWire(String url, String json, boolean includeErrors) {
+        return postWire(url,json,includeErrors,65536);
+    }
+    private static String postWire(String url, String json, boolean includeErrors,int limit) {
         java.net.HttpURLConnection link = null;
         try {
+            if (!secure(url) || json == null || json.length() > limit) return null;
             link = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
+            link.setInstanceFollowRedirects(false);
             link.setConnectTimeout(15000);
             link.setReadTimeout(20000);
             link.setRequestMethod("POST");
@@ -122,11 +154,14 @@ public final class Net {
             java.io.ByteArrayOutputStream read = new java.io.ByteArrayOutputStream();
             byte[] buffer = new byte[8192];
             int got;
-            while ((got = in.read(buffer)) > 0) read.write(buffer, 0, got);
+            while ((got = in.read(buffer)) > 0) {
+                if (read.size() + got > LIMIT) return null;
+                read.write(buffer, 0, got);
+            }
             in.close();
             String said = new String(read.toByteArray(), "UTF-8");
             if (code != 200) Diary.note("post " + url + ": " + code + " " + said);
-            return code == 200 ? said : null;
+            return code == 200 || includeErrors ? said : null;
         } catch (Throwable error) {
             Diary.note("post: " + error);
             return null;
@@ -238,10 +273,11 @@ public final class Net {
     public static byte[] bytes(String url) {
         HttpURLConnection connection = null;
         try {
+            if (!secure(url)) return null;
             connection = (HttpURLConnection) new URL(url).openConnection();
             connection.setConnectTimeout(TIMEOUT);
             connection.setReadTimeout(TIMEOUT);
-            connection.setInstanceFollowRedirects(true);
+            connection.setInstanceFollowRedirects(false);
             connection.setRequestProperty("User-Agent", "MargyT");
             if (connection.getResponseCode() / 100 != 2) return null;
 
@@ -287,27 +323,46 @@ public final class Net {
      * An apk is tens of megabytes, which is the one thing here worth watching
      * and the one thing not to hold in memory.
      */
-    public static boolean download(String url, File into, Along along) {
+    public static boolean download(String url, File into, Along along) {return download(url,into,along,null);}
+    public static boolean download(String url,File into,Along along,DownloadTasks.Control control) {
+        File partial=new File(into.getParentFile(),into.getName()+".part");
         HttpURLConnection connection = null;
         try {
-            connection = (HttpURLConnection) new URL(url).openConnection();
-            connection.setConnectTimeout(TIMEOUT);
-            connection.setReadTimeout(TIMEOUT);
-            connection.setInstanceFollowRedirects(true);
-            connection.setRequestProperty("User-Agent", "MargyT");
-            if (connection.getResponseCode() / 100 != 2) return false;
+            if(control!=null && control.cancelled())return false;
+            String address = url;
+            for (int hop = 0; ; hop++) {
+                if (!secure(address)) return false;
+                connection = (HttpURLConnection) new URL(address).openConnection();
+                if(control!=null){control.connection=connection;if(control.cancelled())return false;}
+                connection.setConnectTimeout(TIMEOUT);
+                connection.setReadTimeout(TIMEOUT);
+                connection.setInstanceFollowRedirects(false);
+                connection.setRequestProperty("User-Agent", "MargyT");
+                int code = connection.getResponseCode();
+                if (code / 100 == 2) break;
+                if (!(code == 301 || code == 302 || code == 303
+                        || code == 307 || code == 308) || hop >= 5) return false;
+                String location = connection.getHeaderField("Location");
+                if (location == null || location.isEmpty()) return false;
+                address = new URL(new URL(address), location).toString();
+                connection.disconnect();
+                connection = null;
+            }
 
             long total = connection.getContentLength();
+            if(control!=null && control.limit>0 && total>control.limit)throw new java.io.IOException("Download size limit");
             File parent = into.getParentFile();
             if (parent != null && !parent.isDirectory()) parent.mkdirs();
 
             InputStream in = connection.getInputStream();
-            OutputStream out = new FileOutputStream(into);
+            OutputStream out = new FileOutputStream(partial);
             try {
                 byte[] buffer = new byte[65536];
                 long got = 0;
                 int read, told = -1;
                 while ((read = in.read(buffer)) != -1) {
+                    if(control!=null && control.cancelled())return false;
+                    if(control!=null && control.limit>0 && got+read>control.limit)throw new java.io.IOException("Download size limit");
                     out.write(buffer, 0, read);
                     got += read;
                     int percent = total > 0 ? (int) (got * 100 / total) : -1;
@@ -316,16 +371,18 @@ public final class Net {
                         along.at(percent, got, total);
                     }
                 }
+                if(total>0 && got<total)throw new java.io.IOException("Incomplete download");
             } finally {
                 in.close();
                 out.close();
             }
-            return true;
+            return (control==null || !control.cancelled()) && partial.renameTo(into);
         } catch (Throwable error) {
             Diary.note("download: " + error);
             return false;
         } finally {
             if (connection != null) connection.disconnect();
+            if(control!=null)control.connection=null;partial.delete();
         }
     }
 

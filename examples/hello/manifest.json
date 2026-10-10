@@ -7,5 +7,5 @@
   "description": "Writes a line in the mod's diary every time TikTok starts.",
   "description_ru": "Пишет строку в журнал мода при каждом запуске TikTok.",
   "entry": "cat.narezany.hello.Hello",
-  "min_api": 1
+  "min_api": 3
 }

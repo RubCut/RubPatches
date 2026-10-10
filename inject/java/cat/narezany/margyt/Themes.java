@@ -6,6 +6,9 @@ import android.content.res.Configuration;
 import android.os.Build;
 import android.view.View;
 
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+
 /**
  * A theme of your own, over the one TikTok is wearing.
  *
@@ -44,8 +47,7 @@ public final class Themes {
     // ---------------------------------------------------------- the switches
 
     public static boolean isEnabled() {
-        Settled now = settled;
-        return (now == null ? read() : now).on;
+        return current().on;
     }
 
     public static void setEnabled(boolean on) {
@@ -55,8 +57,7 @@ public final class Themes {
     }
 
     public static boolean isMaterial() {
-        Settled now = settled;
-        return (now == null ? read() : now).material;
+        return current().material;
     }
 
     public static void setMaterial(boolean on) {
@@ -66,13 +67,11 @@ public final class Themes {
     }
 
     public static int text() {
-        Settled now = settled;
-        return (now == null ? read() : now).text;
+        return current().text;
     }
 
     public static int background() {
-        Settled now = settled;
-        return (now == null ? read() : now).background;
+        return current().background;
     }
 
     /**
@@ -86,8 +85,7 @@ public final class Themes {
      * 100 it is green.
      */
     public static int strength() {
-        Settled now = settled;
-        return (now == null ? read() : now).strength;
+        return current().strength;
     }
 
     public static void setStrength(int percent) {
@@ -98,9 +96,17 @@ public final class Themes {
 
     /** The chosen colour as it will actually be used. */
     public static int backgroundInUse() {
-        Settled now = settled;
-        if (now == null) now = read();
-        return toned(now.background, now.strength);
+        return current().ground;
+    }
+
+    /**
+     * Whether this phone has a palette of its own to paint with.
+     *
+     * Android 12 is where the wallpaper's colours became something an app
+     * can read. Below it there is nothing to take.
+     */
+    public static boolean available() {
+        return fromSystem(true) != 0 && fromSystem(false) != 0;
     }
 
     /**
@@ -113,12 +119,12 @@ public final class Themes {
      * and only the brightness is moved. A tenth of the way is now a very dark
      * green rather than a black that used to be green.
      */
-    private static int toned(int chosen, int percent) {
+    private static int toned(int chosen, int percent, boolean dark) {
         try {
             float[] hsv = new float[3];
             android.graphics.Color.colorToHSV(chosen, hsv);
             float how = percent / 100.0f;
-            if (isDark()) {
+            if (dark) {
                 // from nearly black up to the colour's own brightness
                 hsv[2] = 0.04f + (hsv[2] - 0.04f) * how;
             } else {
@@ -146,13 +152,20 @@ public final class Themes {
     private static final class Settled {
         final boolean on;
         final boolean material;
+        final boolean dark;
         final int text;
         final int background;
         final int strength;
 
-        Settled(boolean on, boolean material, int text, int background, int strength) {
+        /** The background at the depth asked for: asked for on every colour drawn. */
+        final int ground;
+
+        Settled(boolean on, boolean material, boolean dark,
+                int text, int background, int strength) {
+            this.ground = toned(background, strength, dark);
             this.on = on;
             this.material = material;
+            this.dark = dark;
             this.text = text;
             this.background = background;
             this.strength = strength;
@@ -161,33 +174,78 @@ public final class Themes {
 
     private static volatile Settled settled;
 
+    private static Settled current() {
+        Settled now = settled;
+        return now == null || now.dark != isDark() ? read() : now;
+    }
+
     private static Settled read() {
-        boolean on = flag(KEY_ON, false);
-        boolean material = flag(KEY_MATERIAL, false);
+        boolean dark = isDark();
+        // On unless switched off, and the phone's own palette unless another
+        // was chosen -- but only where the phone has a palette to offer:
+        // before Android 12 there is none, and a theme that is on by default
+        // and paints nothing but its own fallback is worse than no theme.
+        boolean on = flag(KEY_ON, available());
+        boolean material = flag(KEY_MATERIAL, true);
         int chosenText = 0;
         int chosenBackground = 0;
         if (material) {
             chosenText = fromSystem(true);
             chosenBackground = fromSystem(false);
         }
-        if (chosenText == 0) chosenText = number(KEY_TEXT, TEXT);
-        if (chosenBackground == 0) chosenBackground = number(KEY_BACKGROUND, BACKGROUND);
+        if (chosenText == 0) chosenText = number(modeKey(KEY_TEXT, dark),
+                number(KEY_TEXT, dark ? TEXT : 0xFF161823));
+        if (chosenBackground == 0) chosenBackground = number(modeKey(KEY_BACKGROUND, dark),
+                number(KEY_BACKGROUND, dark ? BACKGROUND : 0xFFFFFFFF));
 
         int strength = number(KEY_STRENGTH, 100);
         if (strength < 0) strength = 0;
         if (strength > 100) strength = 100;
 
-        Settled fresh = new Settled(on, material, chosenText, chosenBackground, strength);
-        settled = fresh;
+        Settled fresh = new Settled(on, material, dark,
+                chosenText, chosenBackground, strength);
+        // not kept until there is a context to have read the settings with:
+        // an answer given too early would otherwise be the answer for good
+        if (Margy.context() != null) settled = fresh;
         return fresh;
     }
 
     public static void setText(int colour) {
-        put(KEY_TEXT, colour);
+        put(modeKey(KEY_TEXT, isDark()), colour);
     }
 
     public static void setBackground(int colour) {
-        put(KEY_BACKGROUND, colour);
+        put(modeKey(KEY_BACKGROUND, isDark()), colour);
+    }
+
+    private static String modeKey(String key, boolean dark) {
+        return key + (dark ? "_dark" : "_light");
+    }
+
+    public static void reset() {
+        SharedPreferences p = prefs();
+        if (p != null) p.edit().putBoolean(KEY_ON, false).remove(KEY_MATERIAL)
+                .remove(KEY_TEXT).remove(KEY_BACKGROUND)
+                .remove(modeKey(KEY_TEXT, true)).remove(modeKey(KEY_TEXT, false))
+                .remove(modeKey(KEY_BACKGROUND, true)).remove(modeKey(KEY_BACKGROUND, false))
+                .remove(KEY_STRENGTH).apply();
+        forget();
+        AppearanceColors.reset();
+    }
+
+    public static void preset(int chosen) {
+        boolean dark = isDark();
+        int background = dark
+                ? (chosen == 1 ? 0xFF0D1B2A : 0xFF161823)
+                : (chosen == 1 ? 0xFFEAF3FA : 0xFFF8F8F8);
+        int text = dark ? 0xFFFFFFFF : 0xFF161823;
+        SharedPreferences p = prefs();
+        if (p != null) p.edit().putBoolean(KEY_ON, true)
+                .putBoolean(KEY_MATERIAL, false)
+                .putInt(modeKey(KEY_BACKGROUND, dark), background)
+                .putInt(modeKey(KEY_TEXT, dark), text)
+                .putInt(KEY_STRENGTH, 100).apply();
+        forget();
     }
 
     /**
@@ -231,8 +289,7 @@ public final class Themes {
      * caption over a video, and those two must not share a fate.
      */
     public static int recolour(int colour, boolean fromTheme) {
-        Settled now = settled;
-        if (now == null) now = read();
+        Settled now = current();
         if (!now.on) return colour;
         if (!(fromTheme ? Nightly.owns(colour) : Nightly.unmistakable(colour))) {
             return colour;
@@ -243,7 +300,7 @@ public final class Themes {
         float level = brightness(colour);
         if (!isDark()) level = 1.0f - level;
 
-        int mixed = mix(toned(now.background, now.strength), now.text, level);
+        int mixed = mix(now.ground, now.text, level);
         return (colour & 0xFF000000) | (mixed & 0xFFFFFF);
     }
 
@@ -301,10 +358,37 @@ public final class Themes {
         Settled now = settled;
         if (now == null) now = read();
         if (!now.on || root == null) return;
+        long probe = Probe.start();
         try {
             seen = BUDGET - budget;
             walk(root, 0);
         } catch (Throwable ignored) {
+        }
+        Probe.stop(Probe.THEME, probe);
+    }
+
+    private static final ArrayList<WeakReference<View>> watchedRoots =
+            new ArrayList<WeakReference<View>>();
+
+    /** Refresh custom role colours in visible TikTok screens after a setting changes. */
+    public static void repaintVisible() {
+        // asked for after a setting has changed, whichever it was: nothing
+        // remembered about any view is to be trusted
+        Accent.epoch++;
+        synchronized (watchedRoots) {
+            for (int i = watchedRoots.size() - 1; i >= 0; i--) {
+                View root = watchedRoots.get(i).get();
+                if (root == null) {
+                    watchedRoots.remove(i);
+                    continue;
+                }
+                repaint(root);
+                Fonts.applyTree(root);
+                AppearanceColors.repaint(root);
+                Badge.rewrite(root);
+                Accent.repaintTree(root);
+                root.invalidate();
+            }
         }
     }
 
@@ -319,7 +403,7 @@ public final class Themes {
      * views, and anything claiming to be tens of thousands is not a screen.
      */
     private static final int DEEP = 40;
-    private static final int BUDGET = 4000;
+    private static final int BUDGET = 12000;
 
     private static int seen;
 
@@ -340,8 +424,15 @@ public final class Themes {
             if (drawable instanceof android.graphics.drawable.ColorDrawable) {
                 int was = ((android.graphics.drawable.ColorDrawable) drawable).getColor();
                 int now = recolour(was, true);
-                if (now != was && view != null) {
+                if (now == was) return;
+                if (view != null) {
                     view.setBackground(new android.graphics.drawable.ColorDrawable(now));
+                } else {
+                    // inside a stack of drawables there is no view to hand a
+                    // new one to, so this one is changed -- its own copy of
+                    // it, since the same drawable is shared by every view
+                    // that was inflated from the same file
+                    ((android.graphics.drawable.ColorDrawable) drawable.mutate()).setColor(now);
                 }
                 return;
             }
@@ -361,6 +452,7 @@ public final class Themes {
                 return;
             }
             if (drawable instanceof android.graphics.drawable.LayerDrawable) {
+                // a ripple is one of these too, with the colour under it
                 android.graphics.drawable.LayerDrawable layers =
                         (android.graphics.drawable.LayerDrawable) drawable;
                 for (int i = 0; i < layers.getNumberOfLayers(); i++) {
@@ -371,15 +463,107 @@ public final class Themes {
             if (drawable instanceof android.graphics.drawable.InsetDrawable) {
                 paint(((android.graphics.drawable.InsetDrawable) drawable).getDrawable(),
                         null, depth + 1);
+                return;
             }
+            if (drawable instanceof android.graphics.drawable.DrawableContainer) {
+                // one drawable per state -- pressed, selected, plain -- and
+                // the plain one is what a row looks like nearly all the time
+                android.graphics.drawable.Drawable.ConstantState state =
+                        drawable.getConstantState();
+                if (state instanceof android.graphics.drawable.DrawableContainer
+                        .DrawableContainerState) {
+                    android.graphics.drawable.Drawable[] each =
+                            ((android.graphics.drawable.DrawableContainer
+                                    .DrawableContainerState) state).getChildren();
+                    if (each != null) {
+                        for (android.graphics.drawable.Drawable one : each) {
+                            paint(one, null, depth + 1);
+                        }
+                    }
+                }
+                return;
+            }
+            other(drawable);
         } catch (Throwable ignored) {
         }
     }
 
+    /** How a drawable the framework does not know says its colour, per class. */
+    private static final java.util.concurrent.ConcurrentHashMap<Class<?>, Object[]> colourOf =
+            new java.util.concurrent.ConcurrentHashMap<Class<?>, Object[]>();
+    private static final Object[] NONE = new Object[0];
+
+    /**
+     * A drawable from a library rather than from Android.
+     *
+     * A card's rounded rectangle and a Material shape are both classes of
+     * their own, and both are a flat colour with corners: they say so through
+     * a `getColor` or a `getFillColor` that hands back a colour list, and
+     * take a new one the same way. Asked by name, since neither is a type
+     * this code can see.
+     */
+    private static void other(android.graphics.drawable.Drawable drawable) throws Exception {
+        Class<?> type = drawable.getClass();
+        Object[] how = colourOf.get(type);
+        if (how == null) {
+            how = NONE;
+            if (!type.getName().startsWith("android.graphics.")) {
+                for (String[] pair : new String[][] {{"getColor", "setColor"},
+                        {"getFillColor", "setFillColor"}}) {
+                    try {
+                        java.lang.reflect.Method get = type.getMethod(pair[0]);
+                        if (get.getReturnType() != android.content.res.ColorStateList.class) {
+                            continue;
+                        }
+                        java.lang.reflect.Method set = type.getMethod(pair[1],
+                                android.content.res.ColorStateList.class);
+                        get.setAccessible(true);
+                        set.setAccessible(true);
+                        how = new Object[] {get, set};
+                        break;
+                    } catch (NoSuchMethodException none) {
+                        // not that one
+                    }
+                }
+            }
+            colourOf.put(type, how);
+        }
+        if (how.length == 0) return;
+        Object held = ((java.lang.reflect.Method) how[0]).invoke(drawable);
+        if (!(held instanceof android.content.res.ColorStateList)) return;
+        int was = ((android.content.res.ColorStateList) held).getDefaultColor();
+        int now = recolour(was, true);
+        if (now != was) {
+            ((java.lang.reflect.Method) how[1]).invoke(drawable,
+                    android.content.res.ColorStateList.valueOf(now));
+            drawable.invalidateSelf();
+        }
+    }
+
+    // What a view was wearing the last time it was looked at, and under which
+    // theme. A shape or a stack costs something to look inside, a screen has
+    // thousands of views, and nearly all of them are exactly as they were a
+    // moment ago -- so the ones that are, are passed over.
+    private static final int WORE = 0x4D617270;   // "Marp"
+    private static final int UNDER = 0x4D617271;
+
     private static void walk(View view, int depth) {
         if (view == null || depth > DEEP || ++seen > BUDGET) return;
 
-        paint(view.getBackground(), view, 0);
+        android.graphics.drawable.Drawable wears = view.getBackground();
+        if (wears != null) {
+            if (wears instanceof android.graphics.drawable.ColorDrawable) {
+                // a flat colour is cheaper to ask than to remember
+                paint(wears, view, 0);
+            } else {
+                Settled now = settled;
+                if (view.getTag(WORE) != wears || view.getTag(UNDER) != now) {
+                    paint(wears, view, 0);
+                    view.setTag(WORE, view.getBackground());
+                    view.setTag(UNDER, now);
+                }
+            }
+        }
 
         // Backgrounds only. Text colours are already answered where the app
         // sets them, in their thousands, and repainting them here as well
@@ -404,31 +588,92 @@ public final class Themes {
      * is moving.
      */
     public static void watch(final android.app.Activity activity) {
-        if (activity == null) return;
+        if (activity == null || activity.getClass().getName().startsWith("cat.narezany.margyt.")) return;
         try {
             final View root = activity.getWindow().getDecorView();
+            Fonts.applyTree(root);
+            DateOverlay.resume(root);
+            synchronized (watchedRoots) {
+                boolean found = false;
+                for (int i = watchedRoots.size() - 1; i >= 0; i--) {
+                    View held = watchedRoots.get(i).get();
+                    if (held == null) watchedRoots.remove(i);
+                    else if (held == root) found = true;
+                }
+                if (!found) watchedRoots.add(new WeakReference<View>(root));
+            }
             if (Boolean.TRUE.equals(root.getTag(WATCHING))) {
                 repaint(root);
                 Badge.rewrite(root);
+                Accent.repaintTree(root);
+                Dim.watch(activity);
                 return;
             }
             root.setTag(WATCHING, Boolean.TRUE);
             root.getViewTreeObserver().addOnGlobalLayoutListener(
                     new android.view.ViewTreeObserver.OnGlobalLayoutListener() {
+                        private long updated;
+                        private boolean owed;
+                        private int shape=Dim.layoutFingerprint(root,0);
+                        private final Runnable later = new Runnable() {
+                            @Override
+                            public void run() {
+                                owed = false;
+                                if (root.isAttachedToWindow()) look();
+                            }
+                        };
                         @Override
                         public void onGlobalLayout() {
                             long now = android.os.SystemClock.uptimeMillis();
-                            if (now - last < QUIET) return;
-                            last = now;
-                            repaint(root, AGAIN);
+                            if (now - updated < QUIET) {
+                                // Too soon after the last look -- but whatever
+                                // this layout brought is on the screen now, and
+                                // if nothing else moves nobody would ever come
+                                // back for it. That was the comments left
+                                // unpainted until the app was left and returned
+                                // to: they arrived inside the quiet. So one
+                                // look is owed for when the quiet ends.
+                                if (!owed) {
+                                    owed = true;
+                                    root.postDelayed(later, QUIET - (now - updated) + 20);
+                                }
+                                return;
+                            }
+                            look();
+                        }
+                        private void look() {
+                            // asked here as well as on the way to a colour:
+                            // once every colour on screen is remembered,
+                            // nothing else would notice the theme change
+                            isDark();
+                            long probe = Probe.start();
+                            int next=Dim.layoutFingerprint(root,0);
+                            Probe.stop(Probe.DIM_PRINT, probe);
+                            if(next==shape)return;shape=next;
+                            updated = android.os.SystemClock.uptimeMillis();
+                            // the whole screen, not the first part of it: what
+                            // has not changed is passed over, so the whole of
+                            // it costs less than the part used to
+                            repaint(root);
+                            Fonts.applyTree(root);
+                            probe = Probe.start();
+                            DateOverlay.resume(root);
+                            Probe.stop(Probe.DATES, probe);
+                            probe = Probe.start();
+                            AppearanceColors.repaint(root);
+                            Probe.stop(Probe.COLOURS, probe);
+                            probe = Probe.start();
                             Badge.rewrite(root);
-                            Banner.again();
-                            Dim.apply(activity);
+                            Probe.stop(Probe.BADGES, probe);
+                            probe = Probe.start();
+                            Accent.repaintTree(root);
+                            Probe.stop(Probe.ACCENT, probe);
                         }
                     });
             repaint(root);
             Badge.rewrite(root);
-            Dim.apply(activity);
+            Accent.repaintTree(root);
+            Dim.watch(activity);
         } catch (Throwable error) {
             Diary.note("theme: " + error);
         }
@@ -437,8 +682,6 @@ public final class Themes {
     private static volatile long last;
     private static final long QUIET = 400;
 
-    /** How much of the tree a repeat pass is allowed. */
-    private static final int AGAIN = 1200;
 
 
     // setTag(int, ...) wants a key that looks like a resource id, and every key
@@ -472,8 +715,15 @@ public final class Themes {
         if (mode != 0 && now - asked < 1000) return mode == 1;
         Boolean seen = painted();
         boolean dark = seen != null ? seen.booleanValue() : configured();
+        int was = mode;
         mode = dark ? 1 : 2;
         asked = now;
+        if (was != 0 && was != mode) {
+            // the palette has a dark end and a light end, and every answer
+            // remembered so far was worked out for the other one
+            settled = null;
+            Accent.forget();
+        }
         return dark;
     }
 
@@ -550,6 +800,6 @@ public final class Themes {
     private static SharedPreferences prefs() {
         Context context = Margy.context();
         if (context == null) return null;
-        return context.getSharedPreferences(Margy.PREFS, Context.MODE_PRIVATE);
+        return AccountAppearance.prefs(context);
     }
 }

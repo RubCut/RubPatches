@@ -78,6 +78,8 @@ def captures(colour: int, reference: int) -> bool:
 
     _alpha, hue, saturation, value = _split(colour)
     _ref_alpha, ref_hue, _ref_saturation, _ref_value = _split(reference)
+    if reference & 0xFFFFFF == 0xFE2C55 and saturation >= 0.06 and value >= 0.25 and (hue * 360 >= 300 or hue * 360 <= 10):
+        return True
     if saturation < MIN_SATURATION or value < MIN_VALUE:
         return False
     apart = abs(hue - ref_hue)
@@ -93,6 +95,9 @@ def map_colour(colour: int, reference: int, accent: int) -> int:
     on the colour the person actually chose.
     """
     if reference == accent or not captures(colour, reference):
+        return colour
+    # already the accent: one inside the family would be moved again each pass
+    if colour & 0xFFFFFF == accent & 0xFFFFFF:
         return colour
 
     alpha, hue, saturation, value = _split(colour)

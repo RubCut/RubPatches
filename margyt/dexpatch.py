@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import os
 import re
-import shutil
 import struct
 import subprocess
 from typing import Dict, List, Optional, Tuple
@@ -48,6 +47,20 @@ PHOTO_IMAGE = "Lcom/ss/android/ugc/aweme/feed/model/PhotoModeImageUrlModel;"
 ACCOUNT_SERVICE = "Lcom/ss/android/ugc/aweme/IAccountUserService;"
 ACCOUNT = "Lcat/narezany/margyt/Account;"
 COMMENTS = "Lcat/narezany/margyt/Comments;"
+RAIL = "Lcat/narezany/margyt/FeedRail;"
+RAIL_CLASSES = (
+    "Lcom/ss/android/ugc/aweme/feed/assem/digg/VideoDiggAssem;",
+    "Lcom/ss/android/ugc/aweme/feed/assem/videocomment/VideoCommentAssem;",
+    "Lcom/ss/android/ugc/aweme/feed/favorite/VideoFavoriteAssem;",
+    "Lcom/ss/android/ugc/aweme/feed/assem/share/VideoShareAssem;",
+)
+PLAYER_CONTROLLER="Lcom/ss/android/ugc/aweme/feed/controller/PlayerController;"
+REPOST_CLASS="Lcom/ss/android/ugc/aweme/upvote/detail/videorepost/VideoRepostAssem;"
+AVATAR_CLASS="Lcom/ss/android/ugc/aweme/feed/assem/avatar/FeedAvatarDefaultAssem;"
+PROFILE_CONTAINER="Lcom/ss/android/ugc/profile/platform/base/component/BaseContainerComponent;"
+MESSAGE_CLASSES=("Lcom/ss/android/ugc/aweme/im/sdk/chat/messagelist/skeleton/cell/IMSkeletonLayoutReusedUISlotAssem;","Lcom/ss/android/ugc/aweme/im/sdk/chat/messagelist/skeleton/cell/SkeletonLayoutReusedUISlotAssem;")
+PUSH_GUIDE="Lcom/ss/android/ugc/aweme/unifiedauth/push/UniAuthGuidePopupServiceImpl;"
+FRIENDS_RESPONSE="Lcom/ss/android/ugc/aweme/relation/model/FriendsListResponse;"
 COMMENT_IMAGE = "Lcom/ss/android/ugc/aweme/comment/model/CommentImageStruct;"
 COMMENT = "Lcom/ss/android/ugc/aweme/comment/model/Comment;"
 COMMENT_STICKER = "Lcom/ss/android/ugc/aweme/comment/model/CommentStickerStruct;"
@@ -100,19 +113,20 @@ WILD_SOURCES: List[Tuple[str, str, str, str]] = [
 # Everything but the sticker itself arrives as Object -- a reference is a
 # reference as far as the verifier is concerned -- which is what keeps a fifth
 # obfuscated name out of the mod's own source.
-_TAP = "Landroid/view/View;LX/1CpA;LX/13Vd;" + STICKER_TEMPLATE
-_SHEET = ("Landroid/view/View;Landroidx/fragment/app/FragmentManager;LX/13Vd;"
-          + STICKER_TEMPLATE)
-_INNER = "LX/1CpA;LX/13Vd;" + STICKER_TEMPLATE
+# 47.2.41: the two taps are RQ1 and rP, the sheet is DD2 and now starts from the
+# picture itself, the rounded corner is vQ1. What 46.9.42 called Yt1 has no
+# counterpart any more.
+_TAP = "Landroid/view/View;LX/1AUi;LX/0RoP;" + STICKER_TEMPLATE
+_SHEET = ("Lcom/bytedance/lighten/loader/SmartImageView;"
+          "Landroidx/fragment/app/FragmentManager;LX/0RoP;" + STICKER_TEMPLATE)
 _CORNER = "Lcom/ss/android/ugc/aweme/views/RoundingCornerLayout;" + STICKER_TEMPLATE
 _ANY = "Ljava/lang/Object;"
 
 WILD_SOURCES += [
-    ("UP", "(%s)V" % _TAP, "(%s%s)V" % (_ANY * 4, STICKER_TEMPLATE), STICKERS),
-    ("tR1", "(%s)V" % _TAP, "(%s%s)V" % (_ANY * 4, STICKER_TEMPLATE), STICKERS),
-    ("dy1", "(%s)V" % _SHEET, "(%s%s)V" % (_ANY * 4, STICKER_TEMPLATE), STICKERS),
-    ("Yt1", "(%s)V" % _INNER, "(%s%s)V" % (_ANY * 3, STICKER_TEMPLATE), STICKERS),
-    ("XQ1", "(%s)V" % _CORNER, "(%s%s)V" % (_ANY * 2, STICKER_TEMPLATE), STICKERS),
+    ("RQ1", "(%s)V" % _TAP, "(%s%s)V" % (_ANY * 4, STICKER_TEMPLATE), STICKERS),
+    ("rP", "(%s)V" % _TAP, "(%s%s)V" % (_ANY * 4, STICKER_TEMPLATE), STICKERS),
+    ("DD2", "(%s)V" % _SHEET, "(%s%s)V" % (_ANY * 4, STICKER_TEMPLATE), STICKERS),
+    ("vQ1", "(%s)V" % _CORNER, "(%s%s)V" % (_ANY * 2, STICKER_TEMPLATE), STICKERS),
 ]
 
 # TikTok's A/B facade. The class name is real; the method names are what the
@@ -195,10 +209,48 @@ ANCHORED_SOURCES: List[Tuple[str, str, str, str, str, str]] = [
     # every call to it would mean wrapping several thousand unrelated views.
     ("bindSticker: ", VIEW, "setOnLongClickListener",
      "(%s)V" % LONG_CLICK, "(%s%s)V" % (VIEW, LONG_CLICK), COMMENTS),
+    # TikTok 47.0.42 has one long-press listener on the comment-row base
+    # cell.  The class descriptor is a stable dex string and restricts this
+    # rewrite to that row; other long presses (video, profiles, stickers) are
+    # deliberately not touched.
+    ("Lcom/ss/android/ugc/aweme/commentv2/commentlist/powercell/BaseCommentCell;",
+     VIEW, "setOnLongClickListener", "(%s)V" % LONG_CLICK,
+     "(%s%s)V" % (VIEW, LONG_CLICK), COMMENTS),
     ("[tiktok_logo]", CANVAS, "drawBitmap",
      "(Landroid/graphics/Bitmap;FFLandroid/graphics/Paint;)V",
      "(%sLandroid/graphics/Bitmap;FFLandroid/graphics/Paint;)V" % CANVAS, WATERMARK),
 ]
+
+# Most anchors are ordinary text literals.  A class descriptor is also an
+# ordinary dex string, though, so it can occur in synthetic listener classes
+# that merely *refer* to the cell.  This one must mean the smali declaration
+# itself, never a const-class or method parameter elsewhere.
+CLASS_ANCHORED_SOURCES = {
+    "Lcom/ss/android/ugc/aweme/commentv2/commentlist/powercell/BaseCommentCell;",
+}
+
+# TikTok 47.2.41's feed touch listener. The callback below is inserted only in
+# this one method after the multi-touch early return; no global touch dispatch
+# is rewritten.
+SPEED_TOUCH_CLASS = "LY/ATListenerS452S0100000_16;"
+SPEED_EDGE_CLASS = "LX/16wu;"
+SPEED_EDGE_METHOD = ".method public final onTouch(Landroid/view/View;Landroid/view/MotionEvent;)Z"
+SPEED_TOUCH_METHOD = (
+    ".method public static final onTouch$8(LY/ATListenerS452S0100000_16;"
+    "Landroid/view/View;Landroid/view/MotionEvent;)Z"
+)
+SPEED_TOUCH_TARGET = (
+    "Lcat/narezany/margyt/SpeedGesture;->onTouch(Ljava/lang/Object;"
+    "Landroid/view/View;Landroid/view/MotionEvent;)Z"
+)
+SPEED_TOUCH_HOOK = """\
+    invoke-static {p0, p1, p2}, Lcat/narezany/margyt/SpeedGesture;->onTouch(Ljava/lang/Object;Landroid/view/View;Landroid/view/MotionEvent;)Z
+    move-result v0
+    if-eqz v0, :margyt_speed_touch_continue
+    const/4 v0, 0x1
+    return v0
+:margyt_speed_touch_continue
+"""
 STRING = "Ljava/lang/String;"
 URL_MODEL = "Lcom/ss/android/ugc/aweme/base/model/UrlModel;"
 BOXED_BOOLEAN = "Ljava/lang/Boolean;"
@@ -232,6 +284,8 @@ MODEL_SOURCES: List[Tuple[str, str, str, str, str]] = [
     # who is signed in. The mod does not ask -- there is no unobfuscated way to
     # reach the service -- so it listens instead: the app asks often enough,
     # and the answer goes past on its way back.
+    (ACCOUNT_SERVICE, "getCurUser", "()%s" % USER,
+     "(%s)%s" % (ACCOUNT_SERVICE, USER), ACCOUNT),
     (ACCOUNT_SERVICE, "getCurUserId", "()%s" % STRING,
      "(%s)%s" % (ACCOUNT_SERVICE, STRING), ACCOUNT),
     (ACCOUNT_SERVICE, "getCurSecUserId", "()%s" % STRING,
@@ -249,6 +303,14 @@ MODEL_SOURCES: List[Tuple[str, str, str, str, str]] = [
     # and becomes a picture on the way into the view that shows it
     (USER, "getNickname", "()Ljava/lang/String;",
      "(%s)Ljava/lang/String;" % USER, BADGE),
+    ("Lcom/ss/android/ugc/aweme/im/contacts/api/model/IMUser;", "getDisplayName", "()Ljava/lang/String;",
+     "(Ljava/lang/Object;)Ljava/lang/String;", BADGE),
+    ("Lcom/ss/android/ugc/aweme/im/common/model/BaseContact;", "getNickName", "()Ljava/lang/String;",
+     "(Ljava/lang/Object;)Ljava/lang/String;", BADGE),
+    ("Lcom/ss/android/ugc/aweme/im/contacts/api/model/IMContact;", "getDisplayName", "()Ljava/lang/String;",
+     "(Ljava/lang/Object;)Ljava/lang/String;", BADGE),
+    ("Lcom/ss/android/ugc/aweme/im/contacts/api/model/IMUser;", "getNickName", "()Ljava/lang/String;",
+     "(Ljava/lang/Object;)Ljava/lang/String;", BADGE),
     # and the model a profile switches to once it has finished loading, which
     # is why a badge used to appear while the profile loaded and then go away
     (PROFILE_USER, "getNickname", "()Ljava/lang/String;",
@@ -299,28 +361,15 @@ MODEL_SOURCES: List[Tuple[str, str, str, str, str]] = [
     # listens to the questions instead of the answers: every conversation the
     # app asks about is one the mod can then ask about itself.
     #
-    # The three method names are this release's, not the app's forever. They
-    # are the one version-shaped thing in the streak feature, they live here
-    # rather than in the Java, and the build counts what each of them matched.
-    (STREAK_SERVICE, ("J", "streakOf"), "(%sZ)%s" % (STRING, STREAK_DATA),
+    # The two method names are 47.2.41's, not the app's forever. They are the
+    # one version-shaped thing in the streak feature, they live here rather
+    # than in the Java, and the build counts what each of them matched. The
+    # eight that 46.9.42 called J, a0, h0, w, X, Y, l0 and O are gone from the
+    # interface and from here.
+    (STREAK_SERVICE, ("LJIJJLI", "streakOf"), "(%sZ)%s" % (STRING, STREAK_DATA),
      "(%s%sZ)%s" % (STREAK_SERVICE, STRING, STREAK_DATA), STREAKS),
-    (STREAK_SERVICE, ("a0", "hasStreak"), "(%s)Z" % STRING,
-     "(%s%s)Z" % (STREAK_SERVICE, STRING), STREAKS),
-    (STREAK_SERVICE, ("h0", "showsStreak"), "(%sZ)Z" % STRING,
+    (STREAK_SERVICE, ("LJJJI", "showsStreak"), "(%sZ)Z" % STRING,
      "(%s%sZ)Z" % (STREAK_SERVICE, STRING), STREAKS),
-    # every other question the app asks about one conversation, because the
-    # first three between them only ever turned up a single conversation and a
-    # feature that only knows about one chat is no feature
-    (STREAK_SERVICE, ("w", "streakCount"), "(%s)I" % STRING,
-     "(%s%s)I" % (STREAK_SERVICE, STRING), STREAKS),
-    (STREAK_SERVICE, ("X", "asksAbout"), "(%s)Z" % STRING,
-     "(%s%s)Z" % (STREAK_SERVICE, STRING), STREAKS),
-    (STREAK_SERVICE, ("Y", "asksAboutToo"), "(%s)Z" % STRING,
-     "(%s%s)Z" % (STREAK_SERVICE, STRING), STREAKS),
-    (STREAK_SERVICE, ("l0", "streakState"), "(%s)Ljava/lang/Integer;" % STRING,
-     "(%s%s)Ljava/lang/Integer;" % (STREAK_SERVICE, STRING), STREAKS),
-    (STREAK_SERVICE, ("O", "streakText"), "(%s)%s" % (STRING, STRING),
-     "(%s%s)%s" % (STREAK_SERVICE, STRING, STRING), STREAKS),
 
     # a sound pulled for copyright: the video stays and these four mute it
     (MUSIC, "available", "()Z", "(%s)Z" % MUSIC, SOUND),
@@ -338,25 +387,38 @@ MODEL_STATICS: List[Tuple[str, str, str, str, str]] = [
     for name, args, kind in AB_READERS
 ]
 
-# The date beside an author's name, which TikTok draws only when the video was
-# opened from a profile. Five questions decide it -- each "is this where it was
-# opened from one of the profile ones" -- and the mod answers them.
-#
-# The class is this release's and nothing else in the apk names it, so it is
-# written here rather than found: the counters say at once if a release renames
-# it. `Dates.java` carries the same name for handing the call back.
-DATE_GATES = "LX/0QeW;"
+# 47.2.41 no longer has the legacy 0QeW profile-date gates. Caption
+# renderers get a date from the exact post they are binding, without changing
+# descriptions read for sharing, storage or comment bodies.
 DATES = "Lcat/narezany/margyt/Dates;"
+ANCHORED_SOURCES.append(("LX/0HCj;", "Landroid/widget/ImageView;", "setImageDrawable",
+    "(Landroid/graphics/drawable/Drawable;)V",
+    "(Landroid/widget/ImageView;Landroid/graphics/drawable/Drawable;)V", "Lcat/narezany/margyt/Heart;"))
+CLASS_ANCHORED_SOURCES.add("LX/0HCj;")
+ANCHORED_SOURCES.append(("Lcom/ss/android/ugc/aweme/commentv2/commentlist/powercell/BaseCommentCell;",
+    VIEW,"findViewById","(I)Landroid/view/View;","(Landroid/view/View;I)Landroid/view/View;",COMMENTS))
+for method in ("setIconRes", "setTintColor"):
+    ANCHORED_SOURCES.append(("LX/0HCj;", "Lcom/bytedance/tux/icon/TuxIconView;", method,
+        "(I)V", "(Lcom/bytedance/tux/icon/TuxIconView;I)V", "Lcat/narezany/margyt/Heart;"))
 
-MODEL_STATICS += [
-    (DATE_GATES, ("LIZ", "fromProfile"), "(%s)Z" % STRING, "(%s)Z" % STRING, DATES),
-    (DATE_GATES, ("LIZIZ", "fromProfileToo"), "(%s)Z" % STRING, "(%s)Z" % STRING, DATES),
-    (DATE_GATES, ("LIZJ", "fromProfileAlso"), "(%s)Z" % STRING, "(%s)Z" % STRING, DATES),
-    (DATE_GATES, ("LIZLLL", "fromProfileAsWell"), "(%s)Z" % STRING,
-     "(%s)Z" % STRING, DATES),
-    (DATE_GATES, ("LJFF", "fromProfileOrOther"), "(%s)Z" % STRING,
-     "(%s)Z" % STRING, DATES),
-]
+DATE_CAPTIONS = (
+    "Lcom/ss/android/ugc/aweme/feed/assem/desc/VideoDescVM;",
+    "Lcom/ss/android/ugc/aweme/feed/assem/desc/VideoDescAssem;",
+    "Lcom/ss/android/ugc/aweme/feed/assem/desc/LandscapeVideoDescVM;",
+    "Lcom/ss/android/ugc/aweme/search/arch/v2/protocol/card/components/mediaplayer/components/desc/ui/SearchMediaTextDescAssem;",
+)
+for anchor in DATE_CAPTIONS:
+    ANCHORED_SOURCES.append((anchor, AWEME, "getDesc", "()Ljava/lang/String;",
+                             "(Ljava/lang/Object;)Ljava/lang/String;", DATES))
+    CLASS_ANCHORED_SOURCES.add(anchor)
+
+# The same verified readers can be invoked through the concrete implementation.
+MODEL_SOURCES += [("Lcom/ss/android/ugc/aweme/im/streak/impl/StreakService;",name,original,replacement,target)
+    for owner,name,original,replacement,target in list(MODEL_SOURCES)
+    if owner==STREAK_SERVICE and isinstance(name,tuple) and name[0] in ("LJIJJLI","LJJJI")]
+MODEL_SOURCES.append(("Landroid/app/Dialog;","show","()V","(Landroid/app/Dialog;)V","Lcat/narezany/margyt/DownloadChoice;"))
+
+MODEL_SOURCES.append((VIEW,"setVisibility","(I)V","(Landroid/view/View;I)V",RAIL))
 
 # and which subscription the system calls the default, which is -1 when there
 # is no card at all -- code that asks usually gives up on the spot
@@ -370,6 +432,8 @@ MODEL_STATICS += [
 # owner, field, its type, ours, the class ours lives in. A field rather than a
 # getter, so the read is an instruction of a different shape and becomes two.
 FIELD_SOURCES: List[Tuple[str, str, str, str, str]] = [
+    (FEED_ITEM_LIST, "items", LIST, "rawItems", FEED),
+    ("Lcom/ss/android/ugc/aweme/search/pages/result/topsearch/core/model/SearchMixFeedList;", "mItems", LIST, "searchItems", FEED),
     (VIDEO_CONTROL, "allowDownload", BOXED_BOOLEAN, "allowDownload", DOWNLOAD),
     # a slideshow is not a video and never goes near getDownloadAddr: its
     # images carry the stamp themselves, with the clean one beside them
@@ -420,10 +484,9 @@ COLOUR_SOURCES: List[Tuple[str, str, str]] = [
     ("Landroid/view/View;", "setBackgroundResource",
      "(I)V", "(Landroid/view/View;I)V"),
 
-    # where a picture is asked for by number, which is where a texture pack
-    # gets to answer instead
-    # (this list's replacements all land in Accent; the frame rate has its own
-    # class and so is written as a wild rule further down)
+    # where a picture is asked for by number. Nearly all of them are pictures
+    # and go straight back out; a background that is one flat colour comes the
+    # same way, and that is the one the theme moves
     ("Landroid/content/Context;", "getDrawable",
      "(I)Landroid/graphics/drawable/Drawable;",
      "(Landroid/content/Context;I)Landroid/graphics/drawable/Drawable;"),
@@ -436,6 +499,9 @@ COLOUR_SOURCES: List[Tuple[str, str, str]] = [
      "Landroid/graphics/drawable/Drawable;"),
     ("Landroid/widget/ImageView;", "setImageResource",
      "(I)V", "(Landroid/widget/ImageView;I)V"),
+    ("Landroid/widget/ImageView;", "setImageTintList",
+     "(Landroid/content/res/ColorStateList;)V",
+     "(Landroid/widget/ImageView;Landroid/content/res/ColorStateList;)V"),
 
     # A Lottie animation -- the heart, the loading spinners -- is a json file
     # rather than a picture, read as a stream. Which makes it the one thing in
@@ -443,9 +509,15 @@ COLOUR_SOURCES: List[Tuple[str, str, str]] = [
     ("Landroid/content/res/Resources;", "openRawResource",
      "(I)Ljava/io/InputStream;",
      "(Landroid/content/res/Resources;I)Ljava/io/InputStream;"),
+    ("Landroid/content/res/Resources;", "openRawResource",
+     "(ILandroid/util/TypedValue;)Ljava/io/InputStream;",
+     "(Landroid/content/res/Resources;ILandroid/util/TypedValue;)Ljava/io/InputStream;"),
     ("Landroid/content/res/AssetManager;", "open",
      "(Ljava/lang/String;)Ljava/io/InputStream;",
      "(Landroid/content/res/AssetManager;Ljava/lang/String;)Ljava/io/InputStream;"),
+    ("Landroid/content/res/AssetManager;", "open",
+     "(Ljava/lang/String;I)Ljava/io/InputStream;",
+     "(Landroid/content/res/AssetManager;Ljava/lang/String;I)Ljava/io/InputStream;"),
 
     # how far down a view is turned. TikTok fades its own overlay in and out
     # all the time -- when a video pauses, when a panel opens -- and every one
@@ -473,6 +545,8 @@ COLOUR_SOURCES: List[Tuple[str, str, str]] = [
      "([I)V", "(Landroid/graphics/drawable/GradientDrawable;[I)V"),
     ("Landroid/graphics/Paint;", "setColor",
      "(I)V", "(Landroid/graphics/Paint;I)V"),
+    ("Landroid/text/TextPaint;", "setColor",
+     "(I)V", "(Landroid/graphics/Paint;I)V"),
     ("Landroid/graphics/drawable/GradientDrawable;", "setColor",
      "(I)V", "(Landroid/graphics/drawable/GradientDrawable;I)V"),
     ("Landroid/widget/ImageView;", "setColorFilter",
@@ -488,10 +562,29 @@ COLOUR_SOURCES: List[Tuple[str, str, str]] = [
      "(I)V", "(Landroid/widget/TextView;I)V"),
     ("Landroid/view/View;", "setBackgroundColor",
      "(I)V", "(Landroid/view/View;I)V"),
+    ("Lcom/bytedance/tux/input/TuxTextView;", "setTextColorRes", "(I)V", "(Landroid/widget/TextView;I)V"),
+    ("Lcom/bytedance/tux/input/TuxTextView;", "setTextColor", "(I)V", "(Landroid/widget/TextView;I)V"),
+    ("Lcom/bytedance/tux/input/TuxTextView;", "setTextColor", "(Landroid/content/res/ColorStateList;)V", "(Landroid/widget/TextView;Landroid/content/res/ColorStateList;)V"),
+    ("Lcom/bytedance/tux/icon/TuxIconView;", "setTintColorRes", "(I)V", "(Lcom/bytedance/tux/icon/TuxIconView;I)V"),
+    ("Lcom/bytedance/tux/icon/TuxIconView;", "setTintColor", "(I)V", "(Lcom/bytedance/tux/icon/TuxIconView;I)V"),
     # TikTok's own icon view, and a real name at that
     ("Lcom/bytedance/tux/icon/TuxIconView;", "setColor",
      "(I)V", "(Lcom/bytedance/tux/icon/TuxIconView;I)V"),
 ]
+
+# Typed colour-state setters and outlines previously bypassed the accent.
+for _owner, _name, _descriptor, _receiver in (
+    ("Landroid/graphics/drawable/Drawable;", "setTintList", "(Landroid/content/res/ColorStateList;)V", "Landroid/graphics/drawable/Drawable;"),
+    ("Landroid/view/View;", "setBackgroundTintList", "(Landroid/content/res/ColorStateList;)V", "Landroid/view/View;"),
+    ("Landroid/graphics/drawable/GradientDrawable;", "setColor", "(Landroid/content/res/ColorStateList;)V", "Landroid/graphics/drawable/GradientDrawable;"),
+    ("Landroid/graphics/drawable/GradientDrawable;", "setStroke", "(II)V", "Landroid/graphics/drawable/GradientDrawable;"),
+    ("Landroid/graphics/drawable/GradientDrawable;", "setStroke", "(ILandroid/content/res/ColorStateList;)V", "Landroid/graphics/drawable/GradientDrawable;"),
+    ("Landroid/widget/TextView;", "setTextColor", "(Landroid/content/res/ColorStateList;)V", "Landroid/widget/TextView;"),
+    ("Landroid/widget/TextView;", "setHintTextColor", "(Landroid/content/res/ColorStateList;)V", "Landroid/widget/TextView;"),
+    ("Lcom/bytedance/tux/input/TuxTextView;", "setTextColor", "(Landroid/content/res/ColorStateList;)V", "Landroid/widget/TextView;"),
+    ("Lcom/bytedance/tux/input/TuxTextView;", "setHintTextColor", "(Landroid/content/res/ColorStateList;)V", "Landroid/widget/TextView;"),
+):
+    COLOUR_SOURCES.append((_owner,_name,_descriptor,"("+_receiver+_descriptor[1:]))
 
 # A static of the framework's own: no receiver, so the call keeps its shape
 # exactly and only the class it lands in changes.
@@ -574,8 +667,36 @@ def accent_rules() -> List[Tuple[str, "re.Pattern[str]", str]]:
                        % (re.escape(owner), name, re.escape(signature))),
             r"invoke-static\1 \2, %s->%s%s" % (ACCENT, name, signature),
         ))
+    # TikTok 47.2.41 does not open these animations through the framework
+    # AssetManager call sites above. The feed's DiggAnimationView hands the
+    # filename directly to its Lottie view, which then parses the asset on a
+    # background executor. Route that one call through Accent so its JSON is
+    # recoloured before the composition is cached. The marker strings below
+    # make sure only the dex that owns the like-animation code is disassembled.
+    out.append((
+        "feed Lottie setAnimation",
+        re.compile(r"invoke-virtual(/range)? (\{[^}]*\}), "
+                   r"LX/1HkT;->setAnimation\(Ljava/lang/String;\)V"),
+        r"invoke-static\1 \2, %s->setAnimation(Ljava/lang/Object;Ljava/lang/String;)V"
+        % ACCENT,
+    ))
     return out
 
+
+# Resource text, hints and native text styles must also apply the chosen font.
+for _font_owner in (TEXT_VIEW,TUX_TEXT,"Landroid/widget/EditText;","Landroid/widget/Button;"):
+    for _font_name,_font_sig in (
+        ("setText","(I)V"),("setHint","(I)V"),("setHint","(Ljava/lang/CharSequence;)V"),
+        ("setTextAppearance","(I)V"),("setTextAppearance","(Landroid/content/Context;I)V"),
+    ):
+        MODEL_SOURCES.append((_font_owner,_font_name,_font_sig,"("+TEXT_VIEW+_font_sig[1:],FONTS))
+
+
+MODEL_SOURCES += [
+    (FRIENDS_RESPONSE,"getUserList","()Ljava/util/List;","(Ljava/lang/Object;)Ljava/util/List;","Lcat/narezany/margyt/PinnedFriends;"),
+    ("Landroid/app/NotificationManager;","notify","(ILandroid/app/Notification;)V","(Landroid/app/NotificationManager;ILandroid/app/Notification;)V","Lcat/narezany/margyt/ModNotifications;"),
+    ("Landroid/app/NotificationManager;","notify","(Ljava/lang/String;ILandroid/app/Notification;)V","(Landroid/app/NotificationManager;Ljava/lang/String;ILandroid/app/Notification;)V","Lcat/narezany/margyt/ModNotifications;"),
+]
 
 def model_rules() -> List[Tuple[str, "re.Pattern[str]", str]]:
     """Calls on TikTok's own models, answered by the mod instead."""
@@ -661,6 +782,11 @@ def rewrite_models(root: str) -> Dict[str, int]:
     """Rewrite every call on TikTok's models, counting them by signature."""
     counts: Dict[str, int] = {}
     prepared = model_rules()
+    # there are a couple of hundred of these and each is a regex that stops at
+    # every call in the file before it finds out the owner is wrong; asking
+    # first whether the file spells the owner at all is what makes this pass
+    # take a second rather than most of the build
+    needles = [_required(pattern) for _label, pattern, _target in prepared]
     owners = tuple(set([owner for owner, _n, _o, _r, _t in MODEL_SOURCES]
                        + [owner for owner, _n, _o, _r, _t in MODEL_STATICS]
                        + [owner for owner, _f, _k, _n, _t in FIELD_SOURCES]
@@ -682,7 +808,9 @@ def rewrite_models(root: str) -> Dict[str, int]:
             if not any(owner in text for owner in owners):
                 continue
             before = text
-            for label, pattern, target in prepared:
+            for (label, pattern, target), needle in zip(prepared, needles):
+                if needle and needle not in text:
+                    continue
                 text, hits = pattern.subn(target, text)
                 if hits:
                     counts[label] = counts.get(label, 0) + hits
@@ -692,6 +820,13 @@ def rewrite_models(root: str) -> Dict[str, int]:
     return counts
 
 
+# This native helper exclusively formats comment clipboard payloads, including
+# the normal Copy action and saved comments. Match callers, not generic clips.
+ANCHORED_SOURCES.append(("LX/0oir;","LX/0oir;","LIZ",
+    "(Ljava/lang/String;Ljava/lang/String;Ljava/util/List;)Landroid/content/ClipData;",
+    "(Ljava/lang/String;Ljava/lang/String;Ljava/util/List;)Landroid/content/ClipData;",
+    "Lcat/narezany/margyt/CommentClipboard;"))
+
 def anchored_rules() -> List[Tuple[str, str, "re.Pattern[str]", str]]:
     """Rules and the marker the class they belong in has to carry."""
     out = []
@@ -699,8 +834,8 @@ def anchored_rules() -> List[Tuple[str, str, "re.Pattern[str]", str]]:
         out.append((
             anchor,
             "%s->%s (in the class marked %s)" % (owner.rsplit("/", 1)[-1][:-1], name, anchor),
-            re.compile(r"invoke-virtual(/range)? (\{[^}]*\}), %s->%s%s"
-                       % (re.escape(owner), name, re.escape(original))),
+            re.compile(r"invoke-%s(/range)? (\{[^}]*\}), %s->%s%s"
+                       % ("static" if owner=="LX/0oir;" else "virtual", re.escape(owner), name, re.escape(original))),
             r"invoke-static\1 \2, %s->%s%s" % (target, name, replacement),
         ))
     return out
@@ -718,20 +853,434 @@ def rewrite_anchored(root: str) -> Dict[str, int]:
             with open(path, encoding="utf-8") as handle:
                 text = handle.read()
             before = text
+            declaration=text.split("\n",1)[0]
+            if FEED_ITEM_LIST in declaration:
+                def native_ad_getter(match):
+                    body=match.group(0)
+                    if "Feed;->withoutAds" in body:return body
+                    body,hits=re.subn(r"(?m)^    return-object ([vp]\d+)",lambda m:"    invoke-static/range {"+m.group(1)+" .. "+m.group(1)+"}, "+FEED+"->withoutAds(Ljava/util/List;)Ljava/util/List;\n    move-result-object "+m.group(1)+"\n"+m.group(0),body)
+                    if hits:counts["native feed ad getter"]=hits
+                    return body
+                text=re.sub(r"(?ms)^\.method public getItems\(\)Ljava/util/List;.*?^\.end method",native_ad_getter,text)
+                def native_ad_setter(match):
+                    body=match.group(0)
+                    if "Feed;->withoutAds" in body:return body
+                    hook="\n    invoke-static/range {p1 .. p1}, "+FEED+"->withoutAds(Ljava/util/List;)Ljava/util/List;\n    move-result-object p1\n"
+                    body,hits=re.subn(r"(?m)^    \.registers [0-9]+",lambda m:m.group(0)+hook,body,count=1)
+                    if hits:counts["native feed ad ingress"]=hits
+                    return body
+                text=re.sub(r"(?ms)^\.method public setItems\(Ljava/util/List;\)V.*?^\.end method",native_ad_setter,text)
+            if "Lcom/ss/android/ugc/aweme/comment/longpresspanel/ui/CommentLongPressFragment;" in declaration:
+                def native_comment_items(match):
+                    body=match.group(0)
+                    if "Comments;->nativeItems" in body:return body
+                    hook="\n    invoke-static {p0, p1}, "+COMMENTS+"->nativeItems(Ljava/lang/Object;Ljava/util/List;)Ljava/util/List;\n    move-result-object p1\n"
+                    body,hits=re.subn(r"(?m)^    \.registers [0-9]+",lambda m:m.group(0)+hook,body,count=1)
+                    if hits:counts["native comment selection item"]=hits
+                    return body
+                text=re.sub(r"(?ms)^\.method public final oX\(Ljava/util/List;\)V.*?^\.end method",native_comment_items,text)
+            if "Lcom/ss/android/ugc/aweme/offlinemode/ui/sheet/OfflineModeSheetPageAssem;" in declaration:
+                def offline_legacy(match):
+                    body=match.group(0)
+                    hook="    invoke-static/range {p0 .. p0}, Lcat/narezany/margyt/OfflineChoices;->legacy(Ljava/lang/Object;)V\n"
+                    if hook.strip() not in body:
+                        body=re.sub(r"(?m)^    return-void",hook+"    return-void",body)
+                        counts["native offline legacy menu"]=counts.get("native offline legacy menu",0)+1
+                    return body
+                text=re.sub(r"(?ms)^\.method public final onAssemPostCreate\(\)V.*?^\.end method",offline_legacy,text)
+            comment_owner = next((owner for owner in (
+                "Lcom/ss/android/ugc/aweme/comment/commentlist/api/CommentApi;",
+                "LX/0oah;",
+                "Lcom/ss/android/ugc/aweme/commentv2/commentlist/CommentApiV2;",
+                "Lcom/ss/android/ugc/aweme/commentv2/commentlist/CommentApiV2SplitJson;"
+            ) if owner in declaration), None)
+            if comment_owner:
+                def offline_native_response(match):
+                    body=match.group(0)
+                    if "OfflineComments;->native" in body:return body
+                    task=comment_owner.endswith("/CommentApi;")
+                    static=task or comment_owner=="LX/0oah;"
+                    register="p0" if static else "p1"
+                    method="nativeTask" if task else "nativeObservable"
+                    result="LX/0Vgo;" if task else "LX/19ZK;"
+                    hook=(f"    invoke-static/range {{{register} .. {register}}}, Lcat/narezany/margyt/OfflineComments;->{method}(Ljava/lang/String;)Ljava/lang/Object;\n"
+                          "    move-result-object v0\n    if-eqz v0, :margyt_comments_online\n"
+                          f"    check-cast v0, {result}\n    return-object v0\n    :margyt_comments_online\n")
+                    # Preserve method/parameter annotations; insert at the first instruction.
+                    body,hits=re.subn(r"(?m)^(    (?:move|const|invoke|sget|iget|new|return|if|check)[\w/-]*(?: |$))",lambda m:hook+m.group(0),body,count=1)
+                    if hits:counts["native offline comments response"]=counts.get("native offline comments response",0)+1
+                    return body
+                signature=r"(?ms)^\.method public static LIZIZ\(.*?^\.end method" if comment_owner in ("LX/0oah;","Lcom/ss/android/ugc/aweme/comment/commentlist/api/CommentApi;") else r"(?ms)^\.method public fetchCommentListV2\(.*?^\.end method"
+                text=re.sub(signature,offline_native_response,text)
+            if "LX/0wk3;" in declaration:
+                def offline_saved(match):
+                    body=match.group(0)
+                    if "OfflineComments;->cached" not in body:
+                        body=re.sub(r"(?m)^    \.registers \d+",lambda m:m.group(0)+"\n    invoke-static/range {p0 .. p1}, Lcat/narezany/margyt/OfflineComments;->cached(Ljava/lang/Object;Ljava/lang/String;)V",body,count=1)
+                        counts["native offline comments cache"]=counts.get("native offline comments cache",0)+1
+                    return body
+                text=re.sub(r"(?ms)^\.method public static LIZ\(Lcom/ss/android/ugc/aweme/feed/model/Aweme;Ljava/lang/String;\)V.*?^\.end method",offline_saved,text)
+            if "Lcom/ss/android/ugc/aweme/offlinemode/ui/OfflineModeContentComponent;" in declaration:
+                def offline_content(match):
+                    body=match.group(0)
+                    if "OfflineComments;->content" not in body:
+                        body=re.sub(r"(?m)^    \.registers \d+",lambda m:m.group(0)+"\n    invoke-static/range {p0 .. p0}, Lcat/narezany/margyt/OfflineComments;->content(Ljava/lang/Object;)V",body,count=1)
+                        counts["native offline comments current video"]=counts.get("native offline comments current video",0)+1
+                    return body
+                text=re.sub(r"(?ms)^\.method public final onParentViewCreated\(\)V.*?^\.end method",offline_content,text)
+                def offline_closed(match):
+                    body=match.group(0)
+                    if "OfflineComments;->closed" not in body:
+                        body=re.sub(r"(?m)^    return-void","    invoke-static/range {p0 .. p0}, Lcat/narezany/margyt/OfflineComments;->closed(Ljava/lang/Object;)V\n    return-void",body)
+                    return body
+                text=re.sub(r"(?ms)^\.method public final onDestroy\(\)V.*?^\.end method",offline_closed,text)
+            if "Lcom/ss/android/ugc/aweme/offlinemode/ui/bottom/OfflineModeDetailBottomComponent;" in declaration:
+                def offline_bottom(match):
+                    body=match.group(0)
+                    if "OfflineComments;->bottom" not in body and "    return-object v4" in body:
+                        body=body.replace("    return-object v4","    invoke-static {v4}, Lcat/narezany/margyt/OfflineComments;->bottom(Landroid/view/View;)Landroid/view/View;\n    move-result-object v4\n    return-object v4")
+                        counts["native offline comments viewer"]=counts.get("native offline comments viewer",0)+1
+                    return body
+                text=re.sub(r"(?ms)^\.method public final MR2\(Landroid/view/ViewGroup;\)Landroid/view/View;.*?^\.end method",offline_bottom,text)
+            if "Lcom/ss/android/ugc/aweme/offlinemode/viewmodel/OfflineModeManagerVM;" in declaration:
+                def offline_valid(match):
+                    body=match.group(0)
+                    needle="invoke-interface {v1, v0}, Ljava/util/List;->contains(Ljava/lang/Object;)Z"
+                    if needle in body:
+                        body=body.replace(needle,"invoke-static {v1, v0}, Lcat/narezany/margyt/OfflineChoices;->validCount(Ljava/util/List;Ljava/lang/Object;)Z")
+                        counts["native offline custom persistence"]=counts.get("native offline custom persistence",0)+1
+                    return body
+                text=re.sub(r"(?ms)^\.method public final d43\(\)Z.*?^\.end method",offline_valid,text)
+            if "LX/0wjq;" in declaration:
+                def offline_native_count(match):
+                    body=match.group(0)
+                    needle="invoke-interface {v1, v0}, Ljava/util/List;->contains(Ljava/lang/Object;)Z"
+                    if needle in body:
+                        body=body.replace(needle,"invoke-static {v1, v0}, Lcat/narezany/margyt/OfflineChoices;->validCount(Ljava/util/List;Ljava/lang/Object;)Z",1)
+                        counts["native offline count accepted"]=counts.get("native offline count accepted",0)+1
+                    return body
+                text=re.sub(r"(?ms)^\.method public static LIZ\(\)I.*?^\.end method",offline_native_count,text)
+            if "Lkotlin/jvm/internal/AwS704S0100000_26;" in declaration:
+                def offline_list(match):
+                    body=match.group(0)
+                    hook="\n    invoke-static {v1}, Lcat/narezany/margyt/OfflineChoices;->counts(Ljava/util/List;)Ljava/util/List;\n    move-result-object v1"
+                    needle=re.search(r"invoke-static \{\}, LX/0wj1;->LJFF\(\)Ljava/util/List;(?:(?:\s*\.line \d+)*)\s*move-result-object v1",body)
+                    if "OfflineChoices;->counts" not in body and needle:
+                        body=body[:needle.end()]+hook+body[needle.end():]
+                        counts["native offline choices"]=counts.get("native offline choices",0)+1
+                    return body
+                text=re.sub(r"(?ms)^\.method public static final invoke\$3208\(Lkotlin/jvm/internal/AwS704S0100000_26;\)Ljava/lang/Object;.*?^\.end method",offline_list,text)
+            if "LX/0wiL;" in declaration:
+                def offline_row(match):
+                    body=match.group(0)
+                    if "OfflineChoices;->row" not in body:
+                        body=body.replace("    return-object v10","    invoke-static {v3, v10}, Lcat/narezany/margyt/OfflineChoices;->row(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;\n    move-result-object v10\n    check-cast v10, LX/0ldB;\n    return-object v10")
+                        counts["native offline row"]=counts.get("native offline row",0)+1
+                    return body
+                text=re.sub(r"(?ms)^\.method public final LIZLLL\(\)LX/0ldB;.*?^\.end method",offline_row,text)
+            def add_exit(pattern,hook,label):
+                nonlocal text
+                def patch(match):
+                    body=match.group(0)
+                    if hook.strip() in body:return body
+                    changed,hits=re.subn(r"(?m)^([ \t]*)return-void",lambda m:hook+m.group(0),body)
+                    if hits:counts[label]=counts.get(label,0)+1
+                    return changed
+                text=re.sub(pattern,patch,text)
+            if "Lcom/ss/android/ugc/aweme/feed/assem/share/VideoShareAssem;" in declaration:
+                def capture_share(match):
+                    body=match.group(0)
+                    if "VideoActions;->captureShare" in body:return body
+                    body=re.sub(r"(?m)^    \.registers \d+",lambda m:m.group(0)+"\n    invoke-static/range {p0 .. p0}, Lcat/narezany/margyt/VideoActions;->captureShare(Ljava/lang/Object;)V",body,count=1)
+                    counts["native share capture"]=counts.get("native share capture",0)+1
+                    return body
+                text=re.sub(r"(?ms)^\.method public final onClick\(Landroid/view/View;\)V.*?^\.end method",capture_share,text)
+            if REPOST_CLASS in declaration:
+                add_exit(r"(?ms)^\.method public final (?:onViewCreated\(Landroid/view/View;\)|s4\(Ljava/lang/Object;\))V.*?^\.end method","    invoke-static/range {p0 .. p0}, Lcat/narezany/margyt/Repost;->bind(Ljava/lang/Object;)V\n","native repost")
+            if AVATAR_CLASS in declaration:
+                add_exit(r"(?ms)^\.method public final (?:onViewCreated\(Landroid/view/View;\)|s4\(Ljava/lang/Object;\))V.*?^\.end method","    invoke-static/range {p0 .. p0}, Lcat/narezany/margyt/Repost;->anchor(Ljava/lang/Object;)V\n","native repost avatar")
+            if PROFILE_CONTAINER in declaration:
+                add_exit(r"(?ms)^\.method public onViewCreated\(Landroid/view/View;\)V.*?^\.end method","    invoke-static/range {p0 .. p1}, Lcat/narezany/margyt/ProfileLayout;->bind(Ljava/lang/Object;Landroid/view/View;)V\n","native profile layout")
+            if any(owner in declaration for owner in MESSAGE_CLASSES):
+                def message_bind(match):
+                    body=match.group(0)
+                    if "MessageTimes;->bind" in body:return body
+                    body=re.sub(r"(?m)^    \.registers \d+",lambda m:m.group(0)+"\n    invoke-static/range {p0 .. p0}, Lcat/narezany/margyt/MessageTimes;->before(Ljava/lang/Object;)V",body,count=1)
+                    body=re.sub(r"(?m)^    return-void","    invoke-static/range {p0 .. p1}, Lcat/narezany/margyt/MessageTimes;->bind(Ljava/lang/Object;Ljava/lang/Object;)V\n    return-void",body)
+                    counts["native message timestamps"]=counts.get("native message timestamps",0)+1
+                    return body
+                message_pattern=(r"(?ms)^\.method public Bq\(LX/0Qfl;\)V.*?^\.end method" if MESSAGE_CLASSES[0] in declaration else r"(?ms)^\.method public final s4\(Ljava/lang/Object;\)V.*?^\.end method")
+                text=re.sub(message_pattern,message_bind,text)
+            if PUSH_GUIDE in declaration:
+                def push_guide(match):
+                    body=match.group(0)
+                    if "ModNotifications;->noPrompts" in body:return body
+                    hook="\n    invoke-static {}, Lcat/narezany/margyt/ModNotifications;->noPrompts()Z\n    move-result v0\n    if-eqz v0, :margyt_notification_guide\n    const/4 v0, 0x0\n    return v0\n    :margyt_notification_guide"
+                    body=re.sub(r"(?m)^    \.registers \d+",lambda m:m.group(0)+hook,body,count=1)
+                    counts["native notification guide"]=counts.get("native notification guide",0)+1
+                    return body
+                text=re.sub(r"(?ms)^\.method public final LIZ\(\)Z.*?^\.end method",push_guide,text)
+            if PLAYER_CONTROLLER in declaration:
+                def resumed_player(match):
+                    body=match.group(0)
+                    if "PlayerTools;->resumed" in body:return body
+                    changed,hits=re.subn(r"(?m)^([ \t]*)return-void",lambda m:"    invoke-static/range {p0 .. p1}, Lcat/narezany/margyt/PlayerTools;->resumed(Ljava/lang/Object;Ljava/lang/String;)V\n"+m.group(0),body)
+                    if hits:counts["native player resume"]=counts.get("native player resume",0)+1
+                    return changed
+                text=re.sub(r"(?ms)^\.method public final onResumePlay\(Ljava/lang/String;\)V.*?^\.end method",resumed_player,text)
+            if any(owner in declaration for owner in RAIL_CLASSES):
+                def rail_slot(match):
+                    body=match.group(0)
+                    if "FeedRail;->bindNative" in body:return body
+                    hook="    invoke-static/range {p0 .. p0}, "+RAIL+"->bindNative(Ljava/lang/Object;)V\n"
+                    changed,hits=re.subn(r"(?m)^([ \t]*)return-void",lambda m:hook+m.group(0),body)
+                    if hits:counts["native right-area slots"]=counts.get("native right-area slots",0)+1
+                    return changed
+                text=re.sub(r"(?ms)^\.method public final (?:onViewCreated\(Landroid/view/View;\)|s4\(Ljava/lang/Object;\))V.*?^\.end method",rail_slot,text)
             for anchor, label, pattern, target in prepared:
                 if anchor not in text:
                     continue
+                if anchor in CLASS_ANCHORED_SOURCES:
+                    declaration = text.split("\n", 1)[0]
+                    if anchor not in declaration:
+                        continue
                 text, hits = pattern.subn(target, text)
                 if hits:
                     counts[label] = counts.get(label, 0) + hits
+            if "LX/0dQx;" in text.split("\n",1)[0]:
+                def repost_texture(match):
+                    body=match.group(0)
+                    if "Repost;->textureChanged" in body:return body
+                    body,hits=re.subn(r"(?m)^([ \t]*return-void)","    invoke-static/range {p0 .. p0}, Lcat/narezany/margyt/Repost;->textureChanged(Landroid/view/View;)V\n"+r"\1",body)
+                    if hits:counts["native repost texture state"]=counts.get("native repost texture state",0)+hits
+                    return body
+                text=re.sub(r"(?ms)^\.method public final (?:LJ|LJFF)\(\)V.*?^\.end method",repost_texture,text)
+            if "LX/0oYe;" in text.split("\n",1)[0]:
+                def selected_dislike(match):
+                    body=match.group(0)
+                    if "Accent;->dislike" in body:return body
+                    body,hits=re.subn(r"(?m)^([ \t]*return-void)","    invoke-static/range {p0 .. p0}, Lcat/narezany/margyt/Accent;->dislike(Ljava/lang/Object;)V\n"+r"\1",body)
+                    if hits:counts["selected dislike accent"]=counts.get("selected dislike accent",0)+hits
+                    return body
+                text=re.sub(r"(?ms)^\.method public final LJIIIZ\(Ljava/lang/Boolean;\)V.*?^\.end method",selected_dislike,text)
+            if "Lcom/ss/android/ugc/aweme/commentv2/commentlist/powercell/BaseCommentCell;" in text.split("\n",1)[0]:
+                def bind_comment_body(match):
+                    body=match.group(0)
+                    if "Comments;->bindCell" in body:return body
+                    body,hits=re.subn(r"(?m)^([ \t]*return-void)","    invoke-static/range {p0 .. p0}, "+COMMENTS+"->bindCell(Ljava/lang/Object;)V\n"+r"\1",body)
+                    if hits:counts["native comment body actions"]=counts.get("native comment body actions",0)+hits
+                    return body
+                text=re.sub(r"(?ms)^\.method public bridge synthetic onBindItemView\([^\n]*\n.*?^\.end method",bind_comment_body,text)
+                def native_comment_actions(match):
+                    method=match.group(0)
+                    if "CommentActionMenuVM;->h43" not in method or "Comments;->openNativeActions" in method:return method
+                    hook=("\n    invoke-static/range {p0 .. p0}, "+COMMENTS+"->openNativeActions(Ljava/lang/Object;)Z\n"
+                          "    move-result v0\n    if-eqz v0, :margyt_native_comment_menu\n    return-void\n    :margyt_native_comment_menu\n")
+                    result,hits=re.subn(r"(?m)^(    \.registers [0-9]+)",lambda m:m.group(0)+hook,method,count=1)
+                    if hits:counts["native comment text actions"]=counts.get("native comment text actions",0)+hits
+                    return result
+                text=re.sub(r"(?ms)^\.method public k8\(\)V.*?^\.end method",native_comment_actions,text)
+                pattern = (r"(?m)^([ \t]*iget-object ([vp]\d+), [vp]\d+, "
+                    r"Landroidx/recyclerview/widget/RecyclerView\$ViewHolder;->itemView:Landroid/view/View;)"
+                    r"(?!\n[ \t]*invoke-static/range \{\2 \.\. \2\}, Lcat/narezany/margyt/Comments;->mark)")
+                text,hits=re.subn(pattern,lambda m:m.group(1)+"\n    invoke-static/range {"+m.group(2)+" .. "+m.group(2)+"}, "
+                    +COMMENTS+"->mark(Landroid/view/View;)V",text)
+                if hits:counts["native comment cell protection"]=counts.get("native comment cell protection",0)+hits
+            if "Lcom/ss/android/ugc/aweme/feed/assem/videoauthorinfo/VideoAuthorInfoRelationAssem;" in text.split("\n",1)[0]:
+                def author_date(match):
+                    method=match.group(0)
+                    if "Dates;->bindAuthor" in method:return method
+                    changed,hits=re.subn(r"(?m)^([ \t]*return-void)","    invoke-static/range {p0 .. p0}, "+DATES+"->bindAuthor(Ljava/lang/Object;)V\n"+r"\1",method)
+                    if hits:counts["native author date slot"]=counts.get("native author date slot",0)+hits
+                    return changed
+                text=re.sub(r"(?ms)^\.method public final (?:onViewCreated\(Landroid/view/View;\)V|s4\(Ljava/lang/Object;\)V).*?^\.end method",author_date,text)
+            if "Lcom/ss/android/ugc/aweme/feed/assem/desc/VideoDescAssem;" in text.split("\n",1)[0]:
+                def selected_date(match):
+                    method=match.group(0)
+                    if "onHolderSelected: awemeId=" not in method or "Dates;->bindPost" in method:return method
+                    registers=re.search(r"\.registers (\d+)",method)
+                    if not registers or int(registers.group(1))>16:return method
+                    aid=re.search(r"invoke-virtual \{([vp]\d+)\}, Lcom/ss/android/ugc/aweme/feed/model/Aweme;->getAid\(\)Ljava/lang/String;",method)
+                    if not aid:return method
+                    register=aid.group(1)
+                    pattern=r"(?m)^([ \t]*if-eqz "+register+r", :[^\n]+)"
+                    def bind(m):return "    invoke-static {p0, "+register+"}, "+DATES+"->bindPost(Ljava/lang/Object;Ljava/lang/Object;)V\n"+m.group(1)
+                    changed,hits=re.subn(pattern,bind,method,count=1)
+                    if hits:counts["visible publication date"]=counts.get("visible publication date",0)+hits
+                    return changed
+                text=re.sub(r"(?ms)^\.method public final a2\(ILcom/ss/android/ugc/aweme/feed/model/Aweme;\)V.*?^\.end method",selected_date,text)
             if text != before:
                 with open(path, "w", encoding="utf-8") as handle:
                     handle.write(text)
     return counts
 
 
+
+#: TikTok's own "swipe down while holding to keep the speed". It is an
+#: experiment, on for some accounts; the mod answers for it, and says yes.
+NATIVE_SPEED_LOCK = "long_press_speed_up_lock"
+
+
+def rewrite_native_flags(root: str, dex: Optional[bytes] = None) -> Dict[str, int]:
+    counts = {}
+    keys = ('"audio_comment_publish"','"profile_bg_in_allow_list"','"profile_bg_enable_consumption_group"')
+    lock = '"%s"' % NATIVE_SPEED_LOCK
+    # the class that asks about the lock has no name to know it by, so it is
+    # known by asking -- and looked for only in the dex that spells the key
+    anywhere = dex is None or NATIVE_SPEED_LOCK.encode() in dex
+    pattern = re.compile(r"invoke-virtual(?P<range>/range)? (?P<registers>\{[^}]+\}), LX/09tK;->LJIIJJI\(IILjava/lang/String;Z\)I")
+    for directory, _, files in os.walk(root):
+        for name in files:
+            # On Windows, baksmali disambiguates class files whose descriptors
+            # differ only by case by appending a numeric suffix (for example,
+            # ``0A7j.1.smali``). Keep the exact class allow-list, but include
+            # those deterministic collision suffixes so the profile banner
+            # gate is not silently skipped.
+            listed = name == 'AFwS227S0000000_3.smali' or re.fullmatch(r'0A7j(?:\.\d+)?\.smali', name)
+            if not listed and not (anywhere and name.endswith(".smali")): continue
+            path=os.path.join(directory,name)
+            with open(path,encoding="utf-8") as handle: text=handle.read()
+            if not listed and lock not in text: continue
+            def edit(match):
+                method=match.group(0)
+                asks = lock in method
+                if not asks and not (listed and any(key in method for key in keys)): return method
+                method,hits=pattern.subn(lambda m:"invoke-static"+(m.group('range') or '')+" "+m.group('registers')+", "+FLAGS+"->nativeInt(Ljava/lang/Object;IILjava/lang/String;Z)I",method)
+                label = 'native speed lock' if asks else 'native experiment overrides'
+                if hits: counts[label]=counts.get(label,0)+hits
+                return method
+            changed=re.sub(r"(?ms)^\.method .*?^\.end method",edit,text)
+            if changed!=text:
+                with open(path,"w",encoding="utf-8") as handle:handle.write(changed)
+    return counts
+
 def carries_an_anchor(dex: bytes) -> bool:
-    return any(anchor.encode() in dex for anchor, *_rest in ANCHORED_SOURCES)
+    return (any(anchor.encode() in dex for anchor, *_rest in ANCHORED_SOURCES)
+            or FEED_ITEM_LIST.encode() in dex
+            or b"Lcom/ss/android/ugc/aweme/comment/longpresspanel/ui/CommentLongPressFragment;" in dex
+            or b"LX/0wiL;" in dex or b"Lkotlin/jvm/internal/AwS704S0100000_26;" in dex
+            or b"Lcom/ss/android/ugc/aweme/offlinemode/viewmodel/OfflineModeManagerVM;" in dex
+            or b"Lcom/ss/android/ugc/aweme/comment/commentlist/api/CommentApi;" in dex
+            or b"Lcom/ss/android/ugc/aweme/commentv2/commentlist/CommentApiV2;" in dex
+            or b"Lcom/ss/android/ugc/aweme/commentv2/commentlist/CommentApiV2SplitJson;" in dex
+            or b"LX/0oah;" in dex
+            or b"LX/0wjq;" in dex
+            or b"Lcom/ss/android/ugc/aweme/comment/commentlist/api/CommentApi;" in dex
+            or b"LX/0oah;" in dex
+            or b"Lcom/ss/android/ugc/aweme/commentv2/commentlist/CommentApiV2;" in dex
+            or b"Lcom/ss/android/ugc/aweme/commentv2/commentlist/CommentApiV2SplitJson;" in dex
+            or b"LX/0wk3;" in dex or b"Lcom/ss/android/ugc/aweme/offlinemode/ui/OfflineModeContentComponent;" in dex
+            or b"Lcom/ss/android/ugc/aweme/offlinemode/ui/bottom/OfflineModeDetailBottomComponent;" in dex
+            or b"Lcom/ss/android/ugc/aweme/offlinemode/ui/sheet/OfflineModeSheetPageAssem;" in dex
+            or b"audio_comment_publish" in dex or b"profile_bg_in_allow_list" in dex
+            or NATIVE_SPEED_LOCK.encode() in dex
+            or b"Lcom/ss/android/ugc/aweme/feed/assem/videoauthorinfo/VideoAuthorInfoRelationAssem;" in dex
+            or any(owner.encode() in dex for owner in RAIL_CLASSES)
+            or PLAYER_CONTROLLER.encode() in dex
+            or any(owner.encode() in dex for owner in (REPOST_CLASS,AVATAR_CLASS,PROFILE_CONTAINER,PUSH_GUIDE)+MESSAGE_CLASSES)
+            or SPEED_TOUCH_CLASS.encode() in dex or SPEED_EDGE_CLASS.encode() in dex)
+
+
+def rewrite_speed_touch(root: str) -> Dict[str, int]:
+    """Hear the touch that may start TikTok's hold-to-speed-up, for the rate the mod sets."""
+    counts: Dict[str, int] = {}
+    found_class = False
+    for dirpath, _dirs, files in os.walk(root):
+        for name in files:
+            if not name.endswith(".smali"):
+                continue
+            path = os.path.join(dirpath, name)
+            with open(path, encoding="utf-8") as handle:
+                text = handle.read()
+            if not text.startswith(".class "):
+                continue
+            declaration = text.split("\n", 1)[0]
+            edge = SPEED_EDGE_CLASS in declaration
+            if not edge and SPEED_TOUCH_CLASS not in declaration:
+                continue
+            label = "hold speed, edge touch" if edge else "hold speed, feed touch"
+            found_class = True
+            start = text.find(SPEED_EDGE_METHOD if edge else SPEED_TOUCH_METHOD)
+            if start < 0:
+                raise RuntimeError("TikTok feed touch callback has changed")
+            end = text.find(".end method", start)
+            if end < 0:
+                raise RuntimeError("TikTok feed touch callback is incomplete")
+            method = text[start:end]
+            if SPEED_TOUCH_TARGET in method:
+                counts[label] = 1
+                continue
+            anchor = "    :cond_9\n" if edge else "    :cond_27\n"
+            if method.count(anchor) != 1:
+                raise RuntimeError("TikTok feed touch callback anchor has changed")
+            replacement = method.replace(anchor, anchor + SPEED_TOUCH_HOOK, 1)
+            text = text[:start] + replacement + text[end:]
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write(text)
+            counts[label] = 1
+    return counts
+
+
+LOADING = "Lcat/narezany/margyt/Loading;"
+LOADING_DRAW = re.compile(
+    r"\.method public (?:final )?onDraw\(Landroid/graphics/Canvas;\)V\n"
+    r"[ \t]*\.registers (\d+)\n(?:[ \t]*\n)*(?:[ \t]*\.prologue\n)?")
+LOADING_HOOK = """\
+    invoke-static/range {p0 .. p1}, %s->draw(Landroid/view/View;Landroid/graphics/Canvas;)Z
+
+    move-result v0
+
+    if-eqz v0, :margyt_loading_native
+
+    return-void
+
+    :margyt_loading_native
+""" % LOADING
+
+
+def draws_the_loader(dex: bytes) -> bool:
+    return b"setProgressBarInfo" in dex
+
+
+def rewrite_loading(root: str) -> Dict[str, int]:
+    """Give the two circles that mean "loading" to the mod to draw.
+
+    The views that draw them have no names left, so they are known by what
+    they are: a plain View, with a `setProgressBarInfo` of its own and a
+    PorterDuffXfermode for where the circles cross. There are two, an old one
+    and its Tux replacement, and both are still used.
+
+    One call goes at the very top of `onDraw`, before the method has put
+    anything in a register, so the register its answer lands in is free by
+    definition. If the mod drew, the method ends there; if not it runs on as
+    though nothing had been added.
+    """
+    counts: Dict[str, int] = {}
+    for dirpath, _dirs, files in os.walk(root):
+        for name in files:
+            if not name.endswith(".smali"):
+                continue
+            path = os.path.join(dirpath, name)
+            with open(path, encoding="utf-8") as handle:
+                text = handle.read()
+            if "setProgressBarInfo(I)V" not in text:
+                continue
+            if ("\n.super Landroid/view/View;\n" not in text
+                    or "Landroid/graphics/PorterDuffXfermode;" not in text
+                    or not re.search(r"(?m)^\.method [^\n]*setProgressBarInfo\(I\)V$", text)):
+                continue
+            if LOADING in text:
+                counts["native loading indicator"] = counts.get("native loading indicator", 0) + 1
+                continue
+            found = LOADING_DRAW.search(text)
+            # the receiver and the canvas are two, and the answer needs a third
+            if found is None or int(found.group(1)) < 3:
+                continue
+            text = text[:found.end()] + LOADING_HOOK + text[found.end():]
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write(text)
+            counts["native loading indicator"] = counts.get("native loading indicator", 0) + 1
+    return counts
 
 
 def touches_a_model(dex: bytes) -> bool:
@@ -786,10 +1335,59 @@ def holds_the_pink(dex: bytes) -> bool:
     return False
 
 
+def _required(pattern) -> str:
+    """The longest plain text every match of a rule has to contain, or "".
+
+    Read off the rule itself rather than written down beside it: a regex is a
+    sequence, each piece of the sequence has to be matched in turn, and the
+    pieces that are plain characters are in every match exactly as written.
+    A run of them is therefore something the file must spell.
+    """
+    try:
+        from re import _parser as parser
+    except ImportError:  # before 3.11
+        import sre_parse as parser
+    if pattern.flags & re.IGNORECASE:
+        return ""
+    best = run = ""
+    try:
+        pieces = list(parser.parse(pattern.pattern, pattern.flags))
+    except Exception:
+        return ""
+    for kind, value in pieces + [(None, None)]:
+        if str(kind) == "LITERAL":
+            run += chr(value)
+            continue
+        if len(run) > len(best):
+            best = run
+        run = ""
+    return best
+
+
+def _literal_of(pattern) -> str:
+    """The plain text a rule cannot match without, or "" if there is none.
+
+    Every rule looks for one method or one constant, so a file that does not
+    spell it cannot match -- and checking that is a substring search, where
+    running the rule is a regex over the whole file.
+    """
+    source = pattern.pattern
+    for head in (r"(\{[^}]*\}), ", r"^(\s*)const ([vp]\d+), "):
+        at = source.find(head)
+        if at != -1:
+            tail = source[at + len(head):]
+            if tail.endswith("$"):
+                tail = tail[:-1]
+            return re.sub(r"\\(.)", r"\1", tail)
+    return ""
+
+
 def rewrite_accent(root: str) -> Dict[str, int]:
     """Rewrite everywhere the pink is written down, counting as it goes."""
     counts: Dict[str, int] = {}
     prepared = accent_rules()
+    markers = [_literal_of(pattern) for _label, pattern, _target in prepared]
+    feed_animation = "LX/1HkT;->setAnimation(Ljava/lang/String;)V"
     for dirpath, _dirs, files in os.walk(root):
         for name in files:
             if not name.endswith(".smali"):
@@ -798,7 +1396,11 @@ def rewrite_accent(root: str) -> Dict[str, int]:
             with open(path, encoding="utf-8") as handle:
                 text = handle.read()
             before = text
-            for label, pattern, target in prepared:
+            for (label, pattern, target), marker in zip(prepared, markers):
+                if marker and marker not in text:
+                    continue
+                if label == "feed Lottie setAnimation" and feed_animation not in text:
+                    continue
                 text, hits = pattern.subn(target, text)
                 if hits:
                     counts[label] = counts.get(label, 0) + hits
@@ -848,8 +1450,12 @@ def interesting(dex: bytes, literals: Optional[Dict[str, str]] = None) -> bool:
     for old in (literals or {}):
         if old.encode() in dex:
             return True
+    if (b"tt_feed_like_tap_tux_lottie.json" in dex
+            or b"tt_feed_like_tap_quick_tux_lottie.json" in dex
+            or b"feed_fill_like/feed_fill_like_add_lottie.json" in dex):
+        return True
     if (holds_the_pink(dex) or reads_a_colour(dex) or touches_a_model(dex)
-            or carries_an_anchor(dex)):
+            or carries_an_anchor(dex) or draws_the_loader(dex)):
         return True
     for class_name, _signature in FORCED_FALSE:
         if ("L%s;" % class_name).encode() in dex:
@@ -919,8 +1525,8 @@ class Smali:
     def __init__(self, jar: str, api: int, jobs: int = 0, heap: str = "4g"):
         self.jar = jar
         self.api = api
-        self.jobs = jobs or (os.cpu_count() or 2)
-        self.heap = heap
+        self.jobs = jobs or int(os.environ.get("MARGYT_JOBS") or 0) or (os.cpu_count() or 2)
+        self.heap = os.environ.get("MARGYT_HEAP") or heap
 
     def _run(self, main: str, args: List[str]) -> None:
         command = ["java", "-Xmx" + self.heap, "-cp", self.jar, main] + args
@@ -962,6 +1568,7 @@ def dex_format(dex: bytes) -> str:
 def rewrite_targets() -> List[str]:
     """Every static the rewrites point at, as `Lowner;->name(descriptor)`."""
     out = ["%s->accent()I" % ACCENT]
+    out.append("%s->setAnimation(Ljava/lang/Object;Ljava/lang/String;)V" % ACCENT)
     for name, _original, replacement in TARGETS:
         out.append("%s->%s%s" % (REGION, name, replacement))
     for _owner, name, _original, replacement in COLOUR_SOURCES:
@@ -975,6 +1582,24 @@ def rewrite_targets() -> List[str]:
         out.append("%s->%s(%s)%s" % (target, name, owner, kind))
     for _anchor, _owner, name, _original, replacement, target in ANCHORED_SOURCES:
         out.append("%s->%s%s" % (target, name, replacement))
+    out.append("Lcat/narezany/margyt/VideoActions;->captureShare(Ljava/lang/Object;)V")
+    out.extend(["Lcat/narezany/margyt/OfflineComments;->closed(Ljava/lang/Object;)V", "Lcat/narezany/margyt/OfflineComments;->nativeTask(Ljava/lang/String;)Ljava/lang/Object;", "Lcat/narezany/margyt/OfflineComments;->nativeObservable(Ljava/lang/String;)Ljava/lang/Object;"])
+    out.extend(["Lcat/narezany/margyt/OfflineComments;->closed(Ljava/lang/Object;)V", "Lcat/narezany/margyt/OfflineComments;->nativeTask(Ljava/lang/String;)Ljava/lang/Object;", "Lcat/narezany/margyt/OfflineComments;->nativeObservable(Ljava/lang/String;)Ljava/lang/Object;"])
+    out.extend(["Lcat/narezany/margyt/OfflineChoices;->counts(Ljava/util/List;)Ljava/util/List;", "Lcat/narezany/margyt/OfflineChoices;->row(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;", "Lcat/narezany/margyt/OfflineChoices;->validCount(Ljava/util/List;Ljava/lang/Object;)Z", "Lcat/narezany/margyt/OfflineChoices;->legacy(Ljava/lang/Object;)V", "Lcat/narezany/margyt/OfflineComments;->cached(Ljava/lang/Object;Ljava/lang/String;)V", "Lcat/narezany/margyt/OfflineComments;->content(Ljava/lang/Object;)V", "Lcat/narezany/margyt/OfflineComments;->bottom(Landroid/view/View;)Landroid/view/View;"])
+    out.append(SPEED_TOUCH_TARGET)
+    out.append(COMMENTS+"->mark(Landroid/view/View;)V")
+    out.append(COMMENTS+"->openNativeActions(Ljava/lang/Object;)Z")
+    out.append(COMMENTS+"->nativeItems(Ljava/lang/Object;Ljava/util/List;)Ljava/util/List;")
+    out.append(FEED+"->withoutAds(Ljava/util/List;)Ljava/util/List;")
+    out.append("Lcat/narezany/margyt/Repost;->textureChanged(Landroid/view/View;)V")
+    out.append("Lcat/narezany/margyt/Accent;->dislike(Ljava/lang/Object;)V")
+    out.append(COMMENTS+"->bindCell(Ljava/lang/Object;)V")
+    out.append(RAIL+"->bindNative(Ljava/lang/Object;)V")
+    out.append("Lcat/narezany/margyt/PlayerTools;->resumed(Ljava/lang/Object;Ljava/lang/String;)V")
+    out.extend(["Lcat/narezany/margyt/Repost;->bind(Ljava/lang/Object;)V","Lcat/narezany/margyt/Repost;->anchor(Ljava/lang/Object;)V","Lcat/narezany/margyt/ProfileLayout;->bind(Ljava/lang/Object;Landroid/view/View;)V","Lcat/narezany/margyt/MessageTimes;->before(Ljava/lang/Object;)V","Lcat/narezany/margyt/MessageTimes;->bind(Ljava/lang/Object;Ljava/lang/Object;)V","Lcat/narezany/margyt/ModNotifications;->noPrompts()Z"])
+    out.append(FLAGS+"->nativeInt(Ljava/lang/Object;IILjava/lang/String;Z)I")
+    out.append(DATES+"->bindAuthor(Ljava/lang/Object;)V")
+    out.append(DATES+"->bindPost(Ljava/lang/Object;Ljava/lang/Object;)V")
     for name, _original, replacement, target in WILD_SOURCES:
         out.append("%s->%s%s" % (target, name, replacement))
     for label, descriptor, ours, target in DISCOVERED_STATICS:
@@ -1119,43 +1744,30 @@ def missing_targets(dex: bytes) -> List[str]:
     return [target for target in rewrite_targets() if target not in defined]
 
 
-def patch(dex: bytes, name: str, smali: Smali, workspace: str,
-          literals: Optional[Dict[str, str]] = None) -> Tuple[bytes, Dict[str, int]]:
-    """Take one dex apart, rewrite what is in it, put it back together."""
-    # a room of its own per dex, and never under a name something else uses:
-    # the mod's own dex is called classes.dex too
-    room = os.path.join(workspace, name.replace(".dex", ""))
-    shutil.rmtree(room, ignore_errors=True)
-    os.makedirs(room, exist_ok=True)
+def rewrite_everything(root: str, literals: Optional[Dict[str, str]] = None,
+                       dex: Optional[bytes] = None) -> Dict[str, int]:
+    """Every rule there is, over a dex that has been taken apart.
 
-    dex_in = os.path.join(room, "in.dex")
-    dex_out = os.path.join(room, "out.dex")
-    with open(dex_in, "wb") as handle:
-        handle.write(dex)
-
-    smali.disassemble(dex_in, os.path.join(room, "smali"))
-    counts = rewrite_smali(os.path.join(room, "smali"))
-    counts.update(rewrite_literals(os.path.join(room, "smali"), literals or {}))
-    counts.update(force_false(os.path.join(room, "smali")))
-    counts.update(rewrite_accent(os.path.join(room, "smali")))
-    counts.update(rewrite_models(os.path.join(room, "smali")))
-    counts.update(rewrite_anchored(os.path.join(room, "smali")))
-    if not counts:
-        shutil.rmtree(room, ignore_errors=True)
-        return dex, counts
-
-    smali.assemble(os.path.join(room, "smali"), dex_out)
-    with open(dex_out, "rb") as handle:
-        patched = handle.read()
-    shutil.rmtree(room, ignore_errors=True)
-
-    if dex_format(patched) != dex_format(dex):
-        raise RuntimeError(
-            "%s came back as dex %s, it went in as dex %s -- an Android old "
-            "enough to be in the apk's minSdk would refuse to load it"
-            % (name, dex_format(patched), dex_format(dex))
-        )
-    return patched, counts
+    In this order and no other, and in one place so that the build and
+    anything that checks the build cannot run them differently. Given the dex
+    itself as well, a pass that could not find anything in it is not sent to
+    read ten thousand files to learn that.
+    """
+    counts = rewrite_smali(root)
+    counts.update(rewrite_literals(root, literals or {}))
+    counts.update(force_false(root))
+    counts.update(rewrite_models(root))
+    counts.update(rewrite_native_flags(root, dex))
+    # Class-specific heart hooks must claim the feed heart's Tux tint calls
+    # before the generic accent pass rewrites every TuxIconView tint. The
+    # latter would otherwise swallow the exact native heart hook and leave
+    # the build gate reporting a missing heart-tint patch.
+    counts.update(rewrite_anchored(root))
+    counts.update(rewrite_accent(root))
+    counts.update(rewrite_speed_touch(root))
+    if dex is None or draws_the_loader(dex):
+        counts.update(rewrite_loading(root))
+    return counts
 
 
 def next_dex_name(names: List[str]) -> str:

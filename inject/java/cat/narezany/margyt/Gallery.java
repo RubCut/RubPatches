@@ -55,18 +55,13 @@ public final class Gallery {
         Uri item = resolver.insert(collection, values);
         if (item == null) return null;
 
-        OutputStream out = resolver.openOutputStream(item);
-        if (out == null) return null;
+        boolean published=false;
         try {
-            out.write(data);
-        } finally {
-            out.close();
-        }
-
-        values.clear();
-        values.put(MediaStore.MediaColumns.IS_PENDING, 0);
-        resolver.update(item, values, null, null);
-        return Environment.DIRECTORY_PICTURES + "/" + FOLDER + "/" + name;
+            try(OutputStream out=resolver.openOutputStream(item)) {if(out==null)throw new java.io.IOException("Gallery output unavailable");out.write(data);}
+            values.clear();values.put(MediaStore.MediaColumns.IS_PENDING,0);
+            if(resolver.update(item,values,null,null)<=0)throw new java.io.IOException("Gallery publish failed");
+            published=true;return Environment.DIRECTORY_PICTURES+"/"+FOLDER+"/"+name;
+        } finally {if(!published)try{resolver.delete(item,null,null);}catch(Throwable ignored){}}
     }
 
     private static String older(byte[] data, String name) throws Exception {
