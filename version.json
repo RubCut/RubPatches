@@ -1,8 +1,8 @@
 {
   "_comment": "What the app checks to know whether it is out of date. It reads this from the project's own git server at startup and every five minutes; the badges come from the same box.",
-  "version": "1.24",
-  "url": "https://git.narez.xyz/narezany/MargyT/releases/download/v1.24/margyt.apk",
-  "notes": "Off GitHub and off a bare IP address. The mod now talks to margy.narez.xyz over https and takes its updates from git.narez.xyz. The licence is GPL-3.0 with a term that keeps the author's notices where people can see them.",
-  "notes_ru": "Уход с гитхаба и с голого айпи. Мод ходит на margy.narez.xyz по https, обновления берёт с git.narez.xyz. Лицензия сменилась на GPL-3.0 с условием, что блок с автором и поддержкой из мода не убирают.",
-  "notes_uk": "Відхід з гітхабу і з голої IP-адреси. Мод ходить на margy.narez.xyz по https, оновлення бере з git.narez.xyz. Ліцензія змінилася на GPL-3.0 з умовою, що блок з автором і підтримкою з мода не прибирають."
+  "version": "2.0",
+  "url": "https://git.narez.xyz/narezany/MargyT/releases/download/v2.0/margyt.apk",
+  "notes": "TikTok 47.2.41 and a new settings screen in Material 3. The phone's own colours as the theme, TikTok's speed lock for everybody, a save button in the sticker's own sheet, and much less stutter. Texture packs, profile banners and patches are gone.",
+  "notes_ru": "TikTok 47.2.41 и новые настройки в стиле Material 3. Тема в цветах своего телефона, родная фиксация скорости у всех, скачивание стикера прямо из его шторки и намного меньше лагов. Текстурпаки, баннеры профиля и заплатки убраны.",
+  "notes_uk": "TikTok 47.2.41 і нові налаштування у стилі Material 3. Тема в кольорах свого телефона, рідна фіксація швидкості в усіх, завантаження стікера просто з його шторки і набагато менше лагів. Текстурпаки, банери профілю та латки прибрано."
 }
