@@ -64,7 +64,7 @@ public final class DownloadQuality {
  static java.util.List<Choice> choices(Object video,Object bestAddress){
   java.util.ArrayList<Choice> result=new java.util.ArrayList<>();
   if(bestAddress==null)bestAddress=first(NativeRead.get(video,"getPlayAddr"));
-  if(bestAddress!=null){Choice top=new Choice("Лучшее",(String)bestAddress,Long.MAX_VALUE);top.best=true;result.add(top);}
+  if(bestAddress!=null){Choice top=new Choice(Local.of("Лучшее"),(String)bestAddress,Long.MAX_VALUE);top.best=true;result.add(top);}
   java.util.ArrayList<Choice> found=new java.util.ArrayList<>();java.util.HashSet<String> seen=new java.util.HashSet<>();
   java.util.ArrayList<Object> sources=new java.util.ArrayList<>();
   for(String name:new String[]{"getRawBitRate","getBitRate","getBitrateInfo"}){Object list=NativeRead.get(video,name);if(list instanceof List)sources.add(list);}
@@ -81,7 +81,7 @@ public final class DownloadQuality {
    if(shown<=0&&rate>0)shown=Math.max(144,Math.min(4320,(int)Math.round(Math.sqrt(rate/1800.0))));
    if(shown<=0&&rate<=0)continue;
    String key=(real>0?"h"+real:"r"+rate)+(hevc?"x":"a");
-   String label=shown>0?shown+"p":Math.round(rate/1000.0)+" кбит/с";
+   String label=shown>0?shown+"p":Math.round(rate/1000.0)+Local.of(" кбит/с");
    Choice quality=new Choice(hevc?label+" · HEVC":label,url,rate);quality.height=shown;quality.hevc=hevc;quality.alts=all(addr);
    Choice earlier=null;for(Choice f:found)if(key.equals(f.key)){earlier=f;break;}
    quality.key=key;
@@ -141,7 +141,7 @@ public final class DownloadQuality {
    java.util.ArrayList<String> urls=new java.util.ArrayList<>();
    for(Object model:models)if(model!=null)for(String address:all(model))if(!urls.contains(address))urls.add(address);
    if(urls.isEmpty()){index++;continue;}
-   Choice photo=new Choice("Фото "+(index+1),urls.get(0),index);photo.alts=urls;result.add(photo);
+   Choice photo=new Choice(Local.of("Фото ")+(index+1),urls.get(0),index);photo.alts=urls;result.add(photo);
    index++;
   }
   return result;

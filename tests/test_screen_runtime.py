@@ -83,6 +83,7 @@ class ScreenRuntimeTest(unittest.TestCase):
    for name in ('Screen','ProgressJobs','DownloadMorph'):
     sources['cat/narezany/margyt/'+name+'.java']=(ROOT/('inject/java/cat/narezany/margyt/'+name+'.java')).read_text(encoding='utf-8')
    sources['cat/narezany/margyt/ScreenHarness.java']=HARNESS
+   __import__("android_doubles").with_mod(sources)
    for name,content in sources.items():
     target=work/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_text(content,encoding='utf-8')
    built=subprocess.run(['javac','-source','8','-target','8','-encoding','UTF-8','-d',str(work)]+[str(work/name) for name in sources],capture_output=True,text=True)

@@ -27,6 +27,7 @@ class ArchivePlayerTest(unittest.TestCase):
   sources['cat/narezany/margyt/Test.java']=HARNESS
   with tempfile.TemporaryDirectory() as folder:
    root=pathlib.Path(folder)
+   __import__("android_doubles").with_mod(sources)
    for name,source in sources.items():p=root/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(source,encoding='utf-8')
    result=subprocess.run(['javac','-encoding','UTF-8','-source','8','-target','8','-d',str(root)]+[str(p) for p in root.rglob('*.java')],capture_output=True,text=True);self.assertEqual(0,result.returncode,result.stderr)
    result=subprocess.run(['java','-cp',str(root),'cat.narezany.margyt.Test'],capture_output=True,text=True);self.assertEqual(0,result.returncode,result.stderr)

@@ -43,6 +43,7 @@ class RepostHarness {
   sources['cat/narezany/margyt/NativeRead.java']=native.replace(method('NativeRead.java','static Object item('),'static Object item(Object c){return field(c,"item");}')
   with tempfile.TemporaryDirectory() as directory:
    work=pathlib.Path(directory)
+   __import__("android_doubles").with_mod(sources)
    for name,source in sources.items():p=work/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(source,encoding='utf-8')
    result=subprocess.run(['javac','-source','8','-target','8','-encoding','UTF-8','-d',directory]+[str(work/n) for n in sources],capture_output=True,text=True);self.assertEqual(0,result.returncode,result.stderr)
    result=subprocess.run(['java','-cp',directory,'cat.narezany.margyt.RepostHarness'],capture_output=True,text=True);self.assertEqual(0,result.returncode,result.stderr)

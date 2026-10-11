@@ -4,7 +4,7 @@ import android.app.Dialog;import android.view.View;import android.view.ViewGroup
 public final class DownloadChoice {
  
  public static void show(Dialog dialog){dialog.show();if(dialog.getClass().getName().startsWith("cat.narezany.margyt.")||dialog.getWindow()==null)return;
-  Object post=VideoActions.downloadPost();if(post==null)return;guard(dialog,post);View root=dialog.getWindow().getDecorView();root.post(()->bind(root,dialog,post,0,new int[]{512}));for(int delay:new int[]{150,500})root.postDelayed(()->{if(dialog.isShowing())bind(root,dialog,post,0,new int[]{512});},delay);
+  Object post=VideoActions.downloadPost(dialog.getContext());if(post==null)return;guard(dialog,post);View root=dialog.getWindow().getDecorView();root.post(()->bind(root,dialog,post,0,new int[]{512}));for(int delay:new int[]{150,500})root.postDelayed(()->{if(dialog.isShowing())bind(root,dialog,post,0,new int[]{512});},delay);
  }
  static boolean saveLabel(CharSequence value){if(value==null)return false;String text=value.toString().trim().toLowerCase(java.util.Locale.ROOT);return text.equals("скачать")||text.equals("download")||text.equals("завантажити")||text.equals("сохранить видео")||text.equals("save video")||text.equals("скачать видео")||text.equals("завантажити відео")||text.equals("зберегти відео")||text.equals("download video")||text.equals("скачать фото")||text.equals("сохранить фото")||text.equals("download photo")||text.equals("save photo")||text.equals("завантажити фото")||text.equals("зберегти фото");}
  private static void bind(View view,Dialog dialog,Object post,int depth,int[] budget){if(post==null||depth>20||budget[0]--<=0)return;

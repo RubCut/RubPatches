@@ -95,7 +95,7 @@ public final class StreakAlarm extends BroadcastReceiver {
             // High importance, because this notification exists for the case where
             // everything else failed and the streak is about to be lost.
             manager.createNotificationChannel(new NotificationChannel(
-                    CHANNEL, "Серии", NotificationManager.IMPORTANCE_HIGH));
+                    CHANNEL, Local.of("Серии"), NotificationManager.IMPORTANCE_HIGH));
         } catch (Throwable error) {
             Diary.note("streak channel: " + error);
         }
@@ -319,8 +319,8 @@ public final class StreakAlarm extends BroadcastReceiver {
             Notification.Builder b = Build.VERSION.SDK_INT >= 26
                     ? new Notification.Builder(app, CHANNEL) : new Notification.Builder(app);
             b.setSmallIcon(android.R.drawable.stat_notify_chat)
-                    .setContentTitle("Серия ждёт продления")
-                    .setContentText("Откройте TikTok: автопродление сработает сразу")
+                    .setContentTitle(Local.of("Серия ждёт продления"))
+                    .setContentText(Local.of("Откройте TikTok: автопродление сработает сразу"))
                     .setContentIntent(tap)
                     .setAutoCancel(true)
                     .setPriority(Notification.PRIORITY_HIGH);
@@ -341,32 +341,32 @@ public final class StreakAlarm extends BroadcastReceiver {
      */
     static String status(Context c) {
         try {
-            if (!Streaks.isEnabled()) return "Автопродление выключено";
+            if (!Streaks.isEnabled()) return Local.of("Автопродление выключено");
             List<String> problems = new ArrayList<String>();
             if (!exactAllowed(c)) {
-                problems.add("точный будильник не разрешён (Android 12+: «Будильники и напоминания»)");
+                problems.add(Local.of("точный будильник не разрешён (Android 12+: «Будильники и напоминания»)"));
             }
             try {
                 PowerManager power = (PowerManager) c.getSystemService(Context.POWER_SERVICE);
                 if (power != null && !power.isIgnoringBatteryOptimizations(c.getPackageName())) {
-                    problems.add("экономия батареи не отключена для приложения");
+                    problems.add(Local.of("экономия батареи не отключена для приложения"));
                 }
             } catch (Throwable ignored) {
             }
-            if (!notificationsAllowed(c)) problems.add("уведомления приложения выключены");
+            if (!notificationsAllowed(c)) problems.add(Local.of("уведомления приложения выключены"));
             int minute = StreakSchedule.minute();
-            if (minute < 0) problems.add("время не выбрано");
+            if (minute < 0) problems.add(Local.of("время не выбрано"));
             if (problems.isEmpty()) {
-                return "Готово: отправка в " + String.format(java.util.Locale.ROOT, "%02d:%02d", minute / 60, minute % 60);
+                return Local.of("Готово: отправка в ") + String.format(java.util.Locale.ROOT, "%02d:%02d", minute / 60, minute % 60);
             }
-            StringBuilder out = new StringBuilder("Проверьте: ");
+            StringBuilder out = new StringBuilder(Local.of("Проверьте: "));
             for (int i = 0; i < problems.size(); i++) {
                 if (i > 0) out.append("; ");
                 out.append(problems.get(i));
             }
             return out.toString();
         } catch (Throwable error) {
-            return "Состояние неизвестно";
+            return Local.of("Состояние неизвестно");
         }
     }
 }

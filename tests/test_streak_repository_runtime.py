@@ -53,6 +53,9 @@ public class StreakHarness{
   Method worker=Streaks.class.getDeclaredMethod("roundWorker",android.content.Context.class,boolean.class);worker.setAccessible(true);
   check((Boolean)worker.invoke(null,Margy.ctx,false),"Unreadable streak schedules another attempt");
   service.missing=false;
+  // two days of talking is not a streak yet: nothing to read, nothing to send, nothing to come back for
+  service.data.streak=2;check(!(Boolean)worker.invoke(null,Margy.ctx,false),"A conversation with no flame is left alone");
+  service.data.streak=5;
   check((Boolean)worker.invoke(null,Margy.ctx,false),"Unreadable status schedules another attempt");
   Field asked=Streaks.class.getDeclaredField("asked");asked.setAccessible(true);((Map<?,?>)asked.get(null)).clear();
   check((Boolean)worker.invoke(null,Margy.ctx,false),"Loading conversations schedule another attempt even with initialized service");
@@ -99,6 +102,7 @@ class StreakRepositoryRuntimeTest(unittest.TestCase):
    for name in ('StreakData','IStreakService'):
     path='com/ss/android/ugc/aweme/im/streak/api/'+name+'.java';sources[path]=(ROOT/'inject/stubs'/path).read_text(encoding='utf-8')
    sources['cat/narezany/margyt/StreakHarness.java']=HARNESS
+   __import__("android_doubles").with_mod(sources)
    for name,s in sources.items():
     path=work/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(s,encoding='utf-8')
    built=subprocess.run(['javac','-source','8','-target','8','-encoding','UTF-8','-d',str(work)]+[str(work/n) for n in sources],capture_output=True,text=True);self.assertEqual(0,built.returncode,built.stderr)

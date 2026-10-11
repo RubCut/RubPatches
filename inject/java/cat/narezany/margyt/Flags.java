@@ -41,6 +41,10 @@ public final class Flags {
 
     public static final String KEY_VOICE = "flag_voice";
     public static final String KEY_BANNER = "flag_profile_banner";
+    public static final String KEY_SPEED_LOCK = "flag_speed_lock";
+
+    /** TikTok's name for "swipe down while holding to keep the speed". */
+    private static final String SPEED_LOCK = "long_press_speed_up_lock";
 
     private static final class Override {
         final int group;
@@ -68,11 +72,6 @@ public final class Flags {
 
         put(VOICE, Integer.valueOf(1), "audio_comment_publish");
         put(BANNER,Integer.valueOf(1),"profile_bg_in_allow_list","profile_bg_enable_consumption_group");
-        // Holding a video speeds it up for everybody; swiping down while
-        // holding, to keep it sped up with the finger off, TikTok gives to
-        // some accounts and not others. The mod used to draw a lock of its
-        // own over the top. This is TikTok's, for everyone.
-        put(ALWAYS, Integer.valueOf(1), "long_press_speed_up_lock");
     }
 
     // ------------------------------------------------------------ the switches
@@ -102,7 +101,8 @@ public final class Flags {
     private static boolean bool(String key) {
         try {
             SharedPreferences prefs = prefs();
-            return prefs != null && prefs.getBoolean(key, key.equals(KEY_VOICE) || key.equals(KEY_BANNER));
+            return prefs != null && prefs.getBoolean(key, key.equals(KEY_VOICE) || key.equals(KEY_BANNER)
+                    || key.equals(KEY_SPEED_LOCK));
         } catch (Throwable ignored) {
             return false;
         }
@@ -116,6 +116,12 @@ public final class Flags {
 
     /** The override for a flag, or null when the mod has nothing to say. */
     private static Object of(String key) {
+        // Holding a video speeds it up for everybody; swiping down while
+        // holding, to keep it sped up with the finger off, TikTok gives to
+        // some accounts and not others. Here it is the person's to decide,
+        // both ways: on gives it to those TikTok left out, and off takes it
+        // from those TikTok gave it to and who keep setting it off by accident.
+        if (SPEED_LOCK.equals(key)) return Integer.valueOf(bool(KEY_SPEED_LOCK) ? 1 : 0);
         Override override = OVERRIDES.get(key);
         if (override == null) return null;
         return isOn(override.group) ? override.value : null;

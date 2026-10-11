@@ -25,7 +25,7 @@ final class DownloadMark extends android.widget.LinearLayout {
         startAmplitude=amplitude;startCycle=cycle;
         lineY=progress.getTop()+progress.getHeight()/2f-startHeight/2f;label=text;progress.setAlpha(0f);
         text.setImportantForAccessibility(android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        setContentDescription("Загрузка завершена");setAccessibilityLiveRegion(android.view.View.ACCESSIBILITY_LIVE_REGION_POLITE);morph(0);
+        setContentDescription(Local.of("Загрузка завершена"));setAccessibilityLiveRegion(android.view.View.ACCESSIBILITY_LIVE_REGION_POLITE);morph(0);
     }
     int initialHeight(){return Math.round(startHeight);}
     void morph(float value){phase=Math.max(0,Math.min(1,value));if(label!=null)label.setAlpha(Math.max(0,1-phase/0.28f));invalidate();}

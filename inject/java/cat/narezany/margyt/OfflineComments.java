@@ -43,7 +43,7 @@ public final class OfflineComments {
      if(!prefs().getBoolean(ENABLED,false)||!user.equals(account()))return;
      OfflineCommentArchive.write(file,aid,title,new File(videoPath).getName(),count,rows);
      prefs().edit().putString("offline_title_"+key,title).apply();errors.remove(key);
-    }catch(Throwable e){if(errors.size()>256)errors.clear();errors.put(key,"Не удалось сохранить комментарии. Повторите загрузку при подключении к интернету.");Diary.note("offline comments: "+e.getClass().getSimpleName());}
+    }catch(Throwable e){if(errors.size()>256)errors.clear();errors.put(key,Local.of("Не удалось сохранить комментарии. Повторите загрузку при подключении к интернету."));Diary.note("offline comments: "+e.getClass().getSimpleName());}
     finally{pending.remove(key);}
    });}catch(RejectedExecutionException e){pending.remove(key);Diary.note("offline comments queue full");}
   }catch(Throwable e){Diary.note("offline comments capture: "+e.getClass().getSimpleName());}
@@ -88,12 +88,12 @@ public final class OfflineComments {
  public static void settings(Activity activity){
   try{
    LinearLayout body=new LinearLayout(activity);body.setOrientation(1);int pad=dp(activity,20);body.setPadding(pad,0,pad,0);
-   Switch enabled=new Switch(activity);enabled.setText("Сохранять комментарии");enabled.setChecked(prefs().getBoolean(ENABLED,false));body.addView(enabled);
-   EditText count=new EditText(activity);count.setInputType(InputType.TYPE_CLASS_NUMBER);count.setSingleLine(true);count.setHint("Количество комментариев: 1–1000");count.setText(String.valueOf(prefs().getInt(COUNT,10)));body.addView(count);
+   Switch enabled=new Switch(activity);enabled.setText(Local.of("Сохранять комментарии"));enabled.setChecked(prefs().getBoolean(ENABLED,false));body.addView(enabled);
+   EditText count=new EditText(activity);count.setInputType(InputType.TYPE_CLASS_NUMBER);count.setSingleLine(true);count.setHint(Local.of("Количество комментариев: 1–1000"));count.setText(String.valueOf(prefs().getInt(COUNT,10)));body.addView(count);
    LinearLayout presets=new LinearLayout(activity);for(int n:new int[]{5,10}){Button b=new Button(activity);b.setText(String.valueOf(n));b.setOnClickListener(v->count.setText(String.valueOf(n)));presets.addView(b,new LinearLayout.LayoutParams(0,dp(activity,44),1));}body.addView(presets);
-   TextView warning=new TextView(activity);warning.setText("Больше комментариев — дольше загрузка и больше места. Популярные в приоритете. Лайки сохраняются на момент загрузки. Применяется к следующим офлайн-загрузкам.");warning.setTextSize(13);body.addView(warning);
-   AlertDialog dialog=new AlertDialog.Builder(activity).setTitle("Комментарии офлайн").setView(body).setNegativeButton("Отмена",null).setPositiveButton("Сохранить",null).create();
-   dialog.setOnShowListener(d->dialog.getButton(-1).setOnClickListener(v->{int n=OfflineCommentArchive.count(count.getText().toString());if(n<1){count.setError("Введите число от 1 до 1000");return;}prefs().edit().putBoolean(ENABLED,enabled.isChecked()).putInt(COUNT,n).apply();dialog.dismiss();}));dialog.show();
+   TextView warning=new TextView(activity);warning.setText(Local.of("Больше комментариев — дольше загрузка и больше места. Популярные в приоритете. Лайки сохраняются на момент загрузки. Применяется к следующим офлайн-загрузкам."));warning.setTextSize(13);body.addView(warning);
+   AlertDialog dialog=new AlertDialog.Builder(activity).setTitle(Local.of("Комментарии офлайн")).setView(body).setNegativeButton(Local.of("Отмена"),null).setPositiveButton(Local.of("Сохранить"),null).create();
+   dialog.setOnShowListener(d->dialog.getButton(-1).setOnClickListener(v->{int n=OfflineCommentArchive.count(count.getText().toString());if(n<1){count.setError(Local.of("Введите число от 1 до 1000"));return;}prefs().edit().putBoolean(ENABLED,enabled.isChecked()).putInt(COUNT,n).apply();dialog.dismiss();}));dialog.show();
   }catch(Throwable e){Diary.note("offline settings: "+e.getClass().getSimpleName());}
  }
  public static void content(Object component){active=new WeakReference<Object>(component);}
@@ -145,39 +145,39 @@ public final class OfflineComments {
   try{
    LinearLayout wrapper=new LinearLayout(nativeView.getContext());wrapper.setOrientation(1);wrapper.setLayoutParams(nativeView.getLayoutParams());
    wrapper.addView(nativeView,new LinearLayout.LayoutParams(-1,-2));
-   TextView button=new TextView(nativeView.getContext());button.setText("Сохранённые комментарии");button.setTextSize(13);button.setTextColor(Skin.of(nativeView).text);button.setGravity(Gravity.CENTER);button.setPadding(0,dp(nativeView.getContext(),8),0,dp(nativeView.getContext(),8));
+   TextView button=new TextView(nativeView.getContext());button.setText(Local.of("Сохранённые комментарии"));button.setTextSize(13);button.setTextColor(Skin.of(nativeView).text);button.setGravity(Gravity.CENTER);button.setPadding(0,dp(nativeView.getContext(),8),0,dp(nativeView.getContext(),8));
    button.setOnClickListener(v->{Activity activity=activity(v.getContext());if(activity==null)return;Object component=active.get();Object pager=NativeRead.get(component,"Bc");String aid=NativeRead.aid(NativeRead.get(pager,"LJII"));if(aid.matches("[0-9]{1,24}"))show(activity,account(),aid);else library(activity);});wrapper.addView(button,new LinearLayout.LayoutParams(-1,dp(nativeView.getContext(),40)));return wrapper;
   }catch(Throwable e){return nativeView;}
  }
  private static Activity activity(Context context){for(int i=0;i<10;i++){if(context instanceof Activity)return (Activity)context;if(!(context instanceof ContextWrapper))break;Context next=((ContextWrapper)context).getBaseContext();if(next==context)break;context=next;}return null;}
  private static int dp(Context context,int n){return (int)(n*context.getResources().getDisplayMetrics().density+.5f);}
- private static void message(Activity activity,String text){if(!activity.isFinishing())new AlertDialog.Builder(activity).setTitle("Комментарии офлайн").setMessage(text).setPositiveButton("ОК",null).show();}
+ private static void message(Activity activity,String text){if(!activity.isFinishing())new AlertDialog.Builder(activity).setTitle(Local.of("Комментарии офлайн")).setMessage(text).setPositiveButton(Local.of("ОК"),null).show();}
  public static void library(Activity activity){
   String user=account();
   if(!MediaQueue.add(()->{
    File dir=new File(Margy.context().getFilesDir(),"margyt");String prefix="offline-comments-"+user+"-";
    File[] files=dir.listFiles((d,name)->name.startsWith(prefix)&&name.endsWith(".zip"));
    if(files==null)files=new File[0];Arrays.sort(files,(a,b)->Long.compare(b.lastModified(),a.lastModified()));
-   String[] ids=new String[files.length],titles=new String[files.length];for(int i=0;i<files.length;i++){ids[i]=files[i].getName().substring(prefix.length(),files[i].getName().length()-4);String title=prefs().getString("offline_title_"+user+":"+ids[i],"");titles[i]=title.isEmpty()?"Видео "+ids[i]:title.substring(0,Math.min(80,title.length()));}
-   MAIN.post(()->{if(activity.isFinishing())return;if(ids.length==0){message(activity,"Сохранённых комментариев пока нет. Включите сохранение перед загрузкой офлайн-видео.");return;}new AlertDialog.Builder(activity).setTitle("Сохранённые комментарии").setItems(titles,(d,index)->show(activity,user,ids[index])).setNegativeButton("Закрыть",null).show();});
-  }))message(activity,"Очередь занята. Повторите чуть позже.");
+   String[] ids=new String[files.length],titles=new String[files.length];for(int i=0;i<files.length;i++){ids[i]=files[i].getName().substring(prefix.length(),files[i].getName().length()-4);String title=prefs().getString("offline_title_"+user+":"+ids[i],"");titles[i]=title.isEmpty()?Local.of("Видео ")+ids[i]:title.substring(0,Math.min(80,title.length()));}
+   MAIN.post(()->{if(activity.isFinishing())return;if(ids.length==0){message(activity,Local.of("Сохранённых комментариев пока нет. Включите сохранение перед загрузкой офлайн-видео."));return;}new AlertDialog.Builder(activity).setTitle(Local.of("Сохранённые комментарии")).setItems(titles,(d,index)->show(activity,user,ids[index])).setNegativeButton(Local.of("Закрыть"),null).show();});
+  }))message(activity,Local.of("Очередь занята. Повторите чуть позже."));
  }
  private static void show(Activity activity,String user,String aid){
   File file=archive(user,aid);String key=user+":"+aid;
-  if(!file.isFile()){message(activity,pending.contains(key)?"Комментарии ещё загружаются.":errors.containsKey(key)?errors.get(key):"Для этого видео комментарии не сохранены. Включите сохранение перед его офлайн-загрузкой.");return;}
+  if(!file.isFile()){message(activity,pending.contains(key)?Local.of("Комментарии ещё загружаются."):errors.containsKey(key)?errors.get(key):Local.of("Для этого видео комментарии не сохранены. Включите сохранение перед его офлайн-загрузкой."));return;}
   if(!MediaQueue.add(()->{try{
    JSONObject data=new JSONObject(OfflineCommentArchive.read(file));JSONArray rows=data.getJSONArray("comments");
    MAIN.post(()->{
     if(activity.isFinishing())return;LinearLayout body=new LinearLayout(activity);body.setOrientation(1);int pad=dp(activity,16);body.setPadding(pad,0,pad,pad);
-    TextView caption=new TextView(activity);caption.setText("Сохранено: "+rows.length()+" · лайки на момент загрузки");caption.setTextSize(12);body.addView(caption);
-    if(rows.length()==0){TextView empty=new TextView(activity);empty.setText("У видео нет доступных комментариев.");body.addView(empty);}
+    TextView caption=new TextView(activity);caption.setText(Local.of("Сохранено: ")+rows.length()+Local.of(" · лайки на момент загрузки"));caption.setTextSize(12);body.addView(caption);
+    if(rows.length()==0){TextView empty=new TextView(activity);empty.setText(Local.of("У видео нет доступных комментариев."));body.addView(empty);}
     ListView list=new ListView(activity);list.setDivider(null);list.setAdapter(new BaseAdapter(){
      public int getCount(){return rows.length();}public Object getItem(int index){return rows.optJSONObject(index);}public long getItemId(int index){return index;}
      public View getView(int index,View reused,ViewGroup parent){TextView text=reused instanceof TextView?(TextView)reused:new TextView(activity);JSONObject row=rows.optJSONObject(index);text.setText(row==null?"":row.optString("author")+" · @"+row.optString("handle")+" · ♥ "+row.optLong("likes")+"\n"+row.optString("text"));text.setTextSize(14);text.setPadding(0,pad,0,pad);return text;}
     });body.addView(list,new LinearLayout.LayoutParams(-1,Math.min(dp(activity,440),(int)(activity.getResources().getDisplayMetrics().heightPixels*.55f))));
-    new AlertDialog.Builder(activity).setTitle("Комментарии офлайн").setView(body).setPositiveButton("Закрыть",null).setNeutralButton("Поделиться ZIP",(d,w)->share(activity,file)).show();
+    new AlertDialog.Builder(activity).setTitle(Local.of("Комментарии офлайн")).setView(body).setPositiveButton(Local.of("Закрыть"),null).setNeutralButton(Local.of("Поделиться ZIP"),(d,w)->share(activity,file)).show();
    });
-  }catch(Exception e){MAIN.post(()->message(activity,"Не удалось прочитать архив комментариев."));}}))message(activity,"Очередь занята. Повторите чуть позже.");
+  }catch(Exception e){MAIN.post(()->message(activity,Local.of("Не удалось прочитать архив комментариев.")));}}))message(activity,Local.of("Очередь занята. Повторите чуть позже."));
  }
- private static void share(Activity activity,File file){try{android.net.Uri uri=MargyProvider.share(activity,file);if(uri==null)return;Intent intent=new Intent(Intent.ACTION_SEND).setType("application/zip").putExtra(Intent.EXTRA_STREAM,uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);activity.startActivity(Intent.createChooser(intent,"Архив комментариев"));}catch(Exception e){message(activity,"Не удалось открыть приложение для передачи ZIP.");}}
+ private static void share(Activity activity,File file){try{android.net.Uri uri=MargyProvider.share(activity,file);if(uri==null)return;Intent intent=new Intent(Intent.ACTION_SEND).setType("application/zip").putExtra(Intent.EXTRA_STREAM,uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);activity.startActivity(Intent.createChooser(intent,Local.of("Архив комментариев")));}catch(Exception e){message(activity,Local.of("Не удалось открыть приложение для передачи ZIP."));}}
 }

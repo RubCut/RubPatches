@@ -335,8 +335,6 @@ public final class Plugins {
             }
             PluginAudit.Report inspection=PluginAudit.folder(info.folder);
             info.safety=inspection.summary();
-            if(inspection.blocked){info.trouble=info.safety;return false;}
-            if(!inspection.findings.isEmpty()&&!inspection.digest.equals(prefs(context).getString("approved:"+info.id,""))){info.trouble="Нужно подтвердить возможности плагина";prefs(context).edit().putBoolean(info.id,false).apply();return false;}
             // Android 14 refuses to load a dex anyone could still write to
             if (dex.canWrite()) dex.setReadOnly();
 
@@ -618,12 +616,12 @@ public final class Plugins {
      */
     public static synchronized PluginAudit.Report inspectInstalled(String id)throws Exception{
         for(Info info:list())if(info.id.equals(id))return PluginAudit.folder(info.folder);
-        throw new Exception("Плагин не найден");
+        throw new Exception(Local.of("Плагин не найден"));
     }
     public static void approve(Context context,String id,String digest){prefs(context).edit().putString("approved:"+id,digest).apply();}
     public static PluginAudit.Report inspect(Context context,Uri source)throws Exception {
         File staging=new File(context.getCacheDir(),"mtp-review-"+java.util.UUID.randomUUID());
-        try {unpack(context,source,staging);Info info=readManifest(staging);if(info==null)throw new Exception("Некорректный manifest.json");PluginAudit.Report report=PluginAudit.folder(staging);report.pluginId=info.id;return report;}finally{remove(staging);}
+        try {unpack(context,source,staging);Info info=readManifest(staging);if(info==null)throw new Exception(Local.of("Некорректный manifest.json"));PluginAudit.Report report=PluginAudit.folder(staging);report.pluginId=info.id;return report;}finally{remove(staging);}
     }
     public static synchronized String install(Context context, Uri source) throws Exception {return install(context,source,null);}
     public static synchronized String install(Context context, Uri source,String expectedDigest) throws Exception {
@@ -646,12 +644,12 @@ public final class Plugins {
 
             PluginAudit.Report report=PluginAudit.folder(staging);
             if(report.blocked)throw new Exception(report.summary());
-            if(expectedDigest!=null && !expectedDigest.equals(report.digest))throw new Exception("Плагин изменился после проверки");
+            if(expectedDigest!=null && !expectedDigest.equals(report.digest))throw new Exception(Local.of("Плагин изменился после проверки"));
             setEnabled(info.id,false);
             File home = new File(home(context), safe(info.id));
             File backup=new File(context.getCacheDir(),"mtp-old-"+java.util.UUID.randomUUID());
             boolean had=home.exists();
-            if(had&&!home.renameTo(backup))throw new Exception("Не удалось сохранить предыдущий плагин");
+            if(had&&!home.renameTo(backup))throw new Exception(Local.of("Не удалось сохранить предыдущий плагин"));
             try {
                 if(!staging.renameTo(home)){copyFolder(staging,home);remove(staging);}
             }catch(Exception failed){remove(home);if(had&&!backup.renameTo(home))Diary.note("plugin rollback failed: "+info.id);throw failed;}
@@ -675,7 +673,7 @@ public final class Plugins {
 
     private static void unpack(Context context, Uri source, File into) throws Exception {
         InputStream raw=context.getContentResolver().openInputStream(source);
-        if(raw==null)throw new Exception("Невозможно прочитать плагин");
+        if(raw==null)throw new Exception(Local.of("Невозможно прочитать плагин"));
         PluginPackage.unpack(raw,into);
     }
 

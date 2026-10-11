@@ -761,6 +761,7 @@ class Build:
         feature_hits["native comment text actions"]=0
         feature_hits["native loading indicator"]=0
         feature_hits["native speed lock"]=0
+        feature_hits["native card corners"]=0
         feature_hits["native right-area slots"]=0
         feature_hits["native player resume"]=0
         feature_hits["native offline choices"]=0
@@ -794,6 +795,7 @@ class Build:
             feature_hits["native comment text actions"] += counts.get("native comment text actions",0)
             feature_hits["native loading indicator"] += counts.get("native loading indicator",0)
             feature_hits["native speed lock"] += counts.get("native speed lock",0)
+            feature_hits["native card corners"] += counts.get("native card corners",0)
             feature_hits["native right-area slots"] += counts.get("native right-area slots",0)
             feature_hits["native player resume"] += counts.get("native player resume",0)
             feature_hits["native offline choices"] += counts.get("native offline choices",0)

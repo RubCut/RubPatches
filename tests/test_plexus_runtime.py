@@ -40,6 +40,7 @@ class PlexusRuntimeTest(unittest.TestCase):
    work=pathlib.Path(d);sources=dict(SOURCES)
    for name in ('PlexusField','PlexusBackground'):
     sources['cat/narezany/margyt/'+name+'.java']=(ROOT/('inject/java/cat/narezany/margyt/'+name+'.java')).read_text(encoding='utf-8')
+   __import__("android_doubles").with_mod(sources)
    for name,s in sources.items():
     p=work/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(s,encoding='utf-8')
    run=subprocess.run(['javac','-source','8','-target','8','-encoding','UTF-8','-d',d]+[str(work/n) for n in sources],capture_output=True,text=True);self.assertEqual(0,run.returncode,run.stderr)

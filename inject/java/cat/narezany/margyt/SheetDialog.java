@@ -58,7 +58,7 @@ final class SheetDialog extends Dialog {
         if(card.findViewWithTag(Integer.valueOf(tag))!=null)return;
         android.widget.FrameLayout grip=new android.widget.FrameLayout(owner);grip.setTag(Integer.valueOf(tag));
         card.addView(grip,0,new android.widget.LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT,dp(16)));
-        grip.setContentDescription("Потяните вниз, чтобы закрыть");grip.setClickable(true);grip.setFocusable(true);grip.setOnClickListener(v->{if(dragAllowed)cancel();});
+        grip.setContentDescription(Local.of("Потяните вниз, чтобы закрыть"));grip.setClickable(true);grip.setFocusable(true);grip.setOnClickListener(v->{if(dragAllowed)cancel();});
         grip.setOnTouchListener((v,event)->{
             if(!dragAllowed || closing || surface==null)return false;
             switch(event.getActionMasked()){

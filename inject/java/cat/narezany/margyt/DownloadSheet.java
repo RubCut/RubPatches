@@ -30,7 +30,7 @@ final class DownloadSheet {
    for(int i=0;i<list.size();i++){
     final DownloadQuality.Choice item=list.get(i);
     String chip=list.size()<2?null:i==0?Text.SHEET_BEST:i==list.size()-1?Text.SHEET_WORST:null;
-    String title=item.best?(item.height>0?item.height+"p":"Лучшее"):item.label;
+    String title=item.best?(item.height>0?item.height+"p":Local.of("Лучшее")):item.label;
     String icon=item.height>0&&item.height<720?"sd":(item.height<=0&&!item.best?"sd":"hd");
     if(i==0)panel.hero(icon,title,chip,"download",()->video.on(item));
     else panel.item(icon,title,chip,"download",()->video.on(item));

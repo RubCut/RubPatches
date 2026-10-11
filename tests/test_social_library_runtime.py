@@ -26,6 +26,7 @@ class SocialLibraryTest(unittest.TestCase):
    'cat/narezany/margyt/Test.java':"""package cat.narezany.margyt;public class Test{public static void main(String[] a)throws Exception{SocialLibrary.load("1",null);if(mock.Api.calls!=2||PinnedFriends.all.size()!=2)throw new AssertionError("both immediate and suspended pages");PinnedFriends.all.clear();mock.Api.stale=true;SocialLibrary.load("1",null);if(!PinnedFriends.all.isEmpty())throw new AssertionError("stale account accepted");System.out.println("pagination and account guards passed");}}"""}
   with tempfile.TemporaryDirectory() as directory:
    work=pathlib.Path(directory)
+   __import__("android_doubles").with_mod(files)
    for name,text in files.items():p=work/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(text,encoding='utf8')
    out=subprocess.run(['javac','-source','8','-target','8','-encoding','UTF-8','-d',str(work)]+[str(work/name) for name in files],capture_output=True,text=True);self.assertEqual(0,out.returncode,out.stderr)
    out=subprocess.run(['java','-cp',str(work),'cat.narezany.margyt.Test'],capture_output=True,text=True,timeout=30);self.assertEqual(0,out.returncode,out.stderr)

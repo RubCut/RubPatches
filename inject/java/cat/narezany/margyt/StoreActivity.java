@@ -87,7 +87,7 @@ public class StoreActivity extends Activity {
         final int token=++generation;
         icons.getQueue().clear();
         final String catalog=endpoint;
-        if(catalog.isEmpty()){offered.clear();trouble="Каталог ещё не подключён";loading=false;rebuild();return;}
+        if(catalog.isEmpty()){offered.clear();trouble=Local.of("Каталог ещё не подключён");loading=false;rebuild();return;}
         loading=true;
         Net.away("store", new Runnable() {
             @Override
@@ -146,12 +146,12 @@ public class StoreActivity extends Activity {
         column.removeAllViews();
         column.addView(back());
         column.addView(title(Text.STORE));
-        TextView connect=new TextView(this);connect.setText(endpoint.isEmpty()?"Подключить каталог":"Каталог · изменить адрес");connect.setTextColor(Accent.colour());connect.setTextSize(14);connect.setPadding(skin.margin,dp(8),skin.margin,dp(16));Fonts.apply(connect);Motion.press(connect);connect.setOnClickListener(v->configureCatalog());column.addView(connect);
-        if(!endpoint.isEmpty()){TextView refresh=new TextView(this);refresh.setText(loading?"Обновление…":"Обновить");refresh.setTextColor(skin.text);refresh.setPadding(skin.margin,dp(8),skin.margin,dp(12));Fonts.apply(refresh);refresh.setOnClickListener(v->{if(!loading){fetch();rebuild();}});column.addView(refresh);}
+        TextView connect=new TextView(this);connect.setText(endpoint.isEmpty()?Local.of("Подключить каталог"):Local.of("Каталог · изменить адрес"));connect.setTextColor(Accent.colour());connect.setTextSize(14);connect.setPadding(skin.margin,dp(8),skin.margin,dp(16));Fonts.apply(connect);Motion.press(connect);connect.setOnClickListener(v->configureCatalog());column.addView(connect);
+        if(!endpoint.isEmpty()){TextView refresh=new TextView(this);refresh.setText(loading?Local.of("Обновление…"):Local.of("Обновить"));refresh.setTextColor(skin.text);refresh.setPadding(skin.margin,dp(8),skin.margin,dp(12));Fonts.apply(refresh);refresh.setOnClickListener(v->{if(!loading){fetch();rebuild();}});column.addView(refresh);}
 
         LinearLayout card = card();
         if (offered.isEmpty()) {
-            card.addView(quiet(trouble.length() > 0 ? trouble : loading?Text.STORE_WAIT:"В каталоге нет совместимых записей с SHA-256"));
+            card.addView(quiet(trouble.length() > 0 ? trouble : loading?Text.STORE_WAIT:Local.of("В каталоге пока пусто")));
         } else {
             for (int i = 0; i < offered.size(); i++) {
                 if (i > 0) card.addView(line());
@@ -159,7 +159,7 @@ public class StoreActivity extends Activity {
             }
         }
         column.addView(wrap(card));
-        column.addView(quiet("Скачанные плагины проверяются и остаются выключенными. Проверка не гарантирует безопасность."));
+        column.addView(quiet(Local.of("Скачанные плагины остаются выключенными, пока вы их не включите.")));
     }
 
     private View row(final Plugin plugin) {
@@ -268,7 +268,7 @@ public class StoreActivity extends Activity {
     private static void installTask(final android.content.Context app,final Plugin plugin){
         final String job="plugin:"+plugin.id;
         synchronized(activeDownloads){if(!activeDownloads.add(plugin.id))return;}
-        final DownloadTasks.Control control=DownloadTasks.begin(job,plugin.name.isEmpty()?plugin.id:plugin.name,"Магазин плагинов",()->installTask(app,plugin));
+        final DownloadTasks.Control control=DownloadTasks.begin(job,plugin.name.isEmpty()?plugin.id:plugin.name,Local.of("Магазин плагинов"),()->installTask(app,plugin));
         control.limit=18L*1024*1024;
         Screen.progress(job,Text.STORE_GETTING, 0);
         Net.away("store: " + plugin.id, new Runnable() {
@@ -296,9 +296,9 @@ public class StoreActivity extends Activity {
     private static final java.util.Set<String> activeDownloads=new java.util.HashSet<String>();
     private static boolean put(android.content.Context app,File file,Plugin expected) {
         try {
-            if(expected.sha256.length()>0&&!PluginAudit.sha256(PluginAudit.read(file,18*1024*1024)).equalsIgnoreCase(expected.sha256))throw new Exception("SHA-256 файла не совпадает с каталогом");
+            if(expected.sha256.length()>0&&!PluginAudit.sha256(PluginAudit.read(file,18*1024*1024)).equalsIgnoreCase(expected.sha256))throw new Exception(Local.of("SHA-256 файла не совпадает с каталогом"));
             PluginAudit.Report report=Plugins.inspect(app,android.net.Uri.fromFile(file));
-            if(!expected.id.equals(report.pluginId))throw new Exception("ID плагина отличается от каталога");
+            if(!expected.id.equals(report.pluginId))throw new Exception(Local.of("ID плагина отличается от каталога"));
             if(report.blocked)throw new Exception(report.summary());
             Plugins.install(app, android.net.Uri.fromFile(file),report.digest);
             return true;
@@ -310,9 +310,9 @@ public class StoreActivity extends Activity {
 
     private void configureCatalog(){
         android.widget.EditText field=new android.widget.EditText(this);field.setText(PluginCatalog.endpoint(this));field.setHint("https://…/catalog.json");field.setTextColor(skin.text);field.setSingleLine(true);Fonts.apply(field);
-        Panel.with(this,skin,"Каталог плагинов").text("Каталог MargyT подключён по умолчанию. Можно указать другой HTTPS JSON-каталог; пустой адрес отключает магазин.").view(field).primary("Сохранить",()->{
+        Panel.with(this,skin,Local.of("Каталог плагинов")).text(Local.of("Каталог MargyT подключён по умолчанию. Можно указать другой HTTPS JSON-каталог; пустой адрес отключает магазин.")).view(field).primary(Local.of("Сохранить"),()->{
             try{PluginCatalog.endpoint(this,field.getText().toString());fetch();rebuild();}catch(Exception invalid){Screen.say(invalid.getMessage());}
-        }).quiet("Назад",null).show();
+        }).quiet(Local.of("Назад"),null).show();
     }
     private static String shortText(String value,int max){return value.length()>max?value.substring(0,max):value;}
     @Override protected void onDestroy(){generation++;icons.shutdownNow();super.onDestroy();}

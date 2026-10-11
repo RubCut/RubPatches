@@ -42,7 +42,7 @@ public final class Repost {
    int x=left-dp(this,8),y=top+3*gap-dp(this,8);if(position()==1)y=top-target-dp(this,12);if(position()==2)x-=target+dp(this,6);
    if(generation!=NativeRepostVisual.generation()){repost=NativeRepostVisual.icon(getContext(),null);generation=NativeRepostVisual.generation();}
    if(repost!=null){int inset=dp(this,8);repost.setBounds(x+inset,y+inset,x+target-inset,y+target-inset);repost.draw(c);}
-   paint.setColor(0xffeeeeee);paint.setTextSize(dp(this,14));c.drawText("@profile",dp(this,24),h-dp(this,38),paint);paint.setColor(0xffaaaaaa);paint.setTextSize(dp(this,11));c.drawText("Предпросмотр",dp(this,24),dp(this,34),paint);
+   paint.setColor(0xffeeeeee);paint.setTextSize(dp(this,14));c.drawText("@profile",dp(this,24),h-dp(this,38),paint);paint.setColor(0xffaaaaaa);paint.setTextSize(dp(this,11));c.drawText(Local.of("Предпросмотр"),dp(this,24),dp(this,34),paint);
   }
  };NativeRepostVisual.watch(preview);return preview;}
 }

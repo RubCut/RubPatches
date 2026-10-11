@@ -1283,6 +1283,47 @@ def rewrite_loading(root: str) -> Dict[str, int]:
     return counts
 
 
+CORNERS = "Lcat/narezany/margyt/Corners;"
+CARD_CELL = "com/ss/android/ugc/aweme/base/widget/FixedRatioFrameLayout"
+CARD_HOOK = "    invoke-static/range {p0 .. p0}, %s->cell(Landroid/view/View;)V\n\n" % CORNERS
+
+
+def holds_a_card(dex: bytes) -> bool:
+    return ("L%s;" % CARD_CELL).encode() in dex
+
+
+def rewrite_cards(root: str) -> Dict[str, int]:
+    """Send every video card through the mod as it is built, to have its corners rounded.
+
+    The cell a cover sits in kept its name, so there is no looking for it: it
+    is one file, and each of its constructors gets a call before it returns.
+    """
+    counts: Dict[str, int] = {}
+    path = os.path.join(root, *CARD_CELL.split("/")) + ".smali"
+    if not os.path.isfile(path):
+        return counts
+    with open(path, encoding="utf-8") as handle:
+        text = handle.read()
+    if not text.startswith(".class") or ("L%s;" % CARD_CELL) not in text.split("\n", 1)[0]:
+        return counts
+
+    def build(match):
+        body = match.group(0)
+        if CORNERS in body:
+            counts["native card corners"] = counts.get("native card corners", 0) + 1
+            return body
+        changed, hits = re.subn(r"(?m)^[ \t]*return-void", lambda m: CARD_HOOK + m.group(0), body)
+        if hits:
+            counts["native card corners"] = counts.get("native card corners", 0) + 1
+        return changed
+
+    changed = re.sub(r"(?ms)^\.method public constructor <init>\(.*?^\.end method", build, text)
+    if changed != text:
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(changed)
+    return counts
+
+
 def touches_a_model(dex: bytes) -> bool:
     """Whether a dex names one of TikTok's models and something we want on it."""
     for owner, name, _original, _replacement, _target in MODEL_SOURCES + MODEL_STATICS:
@@ -1455,7 +1496,7 @@ def interesting(dex: bytes, literals: Optional[Dict[str, str]] = None) -> bool:
             or b"feed_fill_like/feed_fill_like_add_lottie.json" in dex):
         return True
     if (holds_the_pink(dex) or reads_a_colour(dex) or touches_a_model(dex)
-            or carries_an_anchor(dex) or draws_the_loader(dex)):
+            or carries_an_anchor(dex) or draws_the_loader(dex) or holds_a_card(dex)):
         return True
     for class_name, _signature in FORCED_FALSE:
         if ("L%s;" % class_name).encode() in dex:
@@ -1598,6 +1639,8 @@ def rewrite_targets() -> List[str]:
     out.append("Lcat/narezany/margyt/PlayerTools;->resumed(Ljava/lang/Object;Ljava/lang/String;)V")
     out.extend(["Lcat/narezany/margyt/Repost;->bind(Ljava/lang/Object;)V","Lcat/narezany/margyt/Repost;->anchor(Ljava/lang/Object;)V","Lcat/narezany/margyt/ProfileLayout;->bind(Ljava/lang/Object;Landroid/view/View;)V","Lcat/narezany/margyt/MessageTimes;->before(Ljava/lang/Object;)V","Lcat/narezany/margyt/MessageTimes;->bind(Ljava/lang/Object;Ljava/lang/Object;)V","Lcat/narezany/margyt/ModNotifications;->noPrompts()Z"])
     out.append(FLAGS+"->nativeInt(Ljava/lang/Object;IILjava/lang/String;Z)I")
+    out.append(CORNERS + "->cell(Landroid/view/View;)V")
+    out.append(LOADING + "->draw(Landroid/view/View;Landroid/graphics/Canvas;)Z")
     out.append(DATES+"->bindAuthor(Ljava/lang/Object;)V")
     out.append(DATES+"->bindPost(Ljava/lang/Object;Ljava/lang/Object;)V")
     for name, _original, replacement, target in WILD_SOURCES:
@@ -1767,6 +1810,7 @@ def rewrite_everything(root: str, literals: Optional[Dict[str, str]] = None,
     counts.update(rewrite_speed_touch(root))
     if dex is None or draws_the_loader(dex):
         counts.update(rewrite_loading(root))
+    counts.update(rewrite_cards(root))
     return counts
 
 

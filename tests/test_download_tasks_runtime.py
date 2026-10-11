@@ -26,6 +26,7 @@ class DownloadTasksRuntimeTest(unittest.TestCase):
      for(int n=0;n<40;n++){String key="task"+n;DownloadTasks.begin(key,key,"API",null);DownloadTasks.finish(key,true);}check(DownloadTasks.snapshot().size()<=16,"finished history bounded");
     }
    }'''
+   __import__("android_doubles").with_mod(sources)
    for n,s in sources.items():p=w/n;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(s,encoding='utf-8')
    run=subprocess.run(['javac','-source','8','-target','8','-encoding','UTF-8','-d',d]+[str(w/n) for n in sources],capture_output=True,text=True);self.assertEqual(0,run.returncode,run.stderr)
    run=subprocess.run(['java','-cp',d,'cat.narezany.margyt.TasksHarness',d],capture_output=True,text=True);self.assertEqual(0,run.returncode,run.stderr)

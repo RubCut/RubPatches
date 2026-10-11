@@ -36,8 +36,8 @@ final class DownloadIsland {
     private static final class Row {TextView state,action;ProgressBar progress;}
     private void update(){if(rows==null)return;java.util.List<DownloadTasks.Task> tasks=DownloadTasks.snapshot();StringBuilder fingerprint=new StringBuilder();for(DownloadTasks.Task t:tasks)fingerprint.append(t.key).append((char)10);
         String next=fingerprint.toString();if(!next.equals(keys)){keys=next;rows.removeAllViews();rendered.clear();
-            TextView close=text("Задачи  ·  Свернуть",13);close.setGravity(Gravity.CENTER);close.setMinHeight(dp(48));close.setTextColor(Accent.colour());close.setOnClickListener(v->collapse(null));rows.addView(close);
-            if(tasks.isEmpty())rows.addView(text("Нет сетевых задач",13));
+            TextView close=text(Local.of("Задачи  ·  Свернуть"),13);close.setGravity(Gravity.CENTER);close.setMinHeight(dp(48));close.setTextColor(Accent.colour());close.setOnClickListener(v->collapse(null));rows.addView(close);
+            if(tasks.isEmpty())rows.addView(text(Local.of("Нет сетевых задач"),13));
             for(DownloadTasks.Task t:tasks){Row row=new Row();LinearLayout block=new LinearLayout(owner);block.setOrientation(LinearLayout.VERTICAL);block.setPadding(0,dp(8),0,dp(8));
                 TextView title=text(t.label,14);title.setMaxLines(1);title.setEllipsize(android.text.TextUtils.TruncateAt.END);block.addView(title);
                 TextView who=text(t.origin+" · "+t.owner,11);who.setAlpha(0.6f);who.setMaxLines(1);who.setEllipsize(android.text.TextUtils.TruncateAt.END);block.addView(who);
@@ -46,6 +46,6 @@ final class DownloadIsland {
                 row.action=text("",12);row.action.setTextColor(Accent.colour());row.action.setMinHeight(dp(48));row.action.setGravity(Gravity.CENTER);row.action.setPadding(dp(12),0,0,0);bottom.addView(row.action);block.addView(bottom);rows.addView(block);rendered.put(t.key,row);
             }
         }
-        for(DownloadTasks.Task t:tasks){Row row=rendered.get(t.key);if(row==null)continue;String state=t.state+(t.percent>=0&&t.state.equals("Загрузка")?" · "+t.percent+"%":"");if(!state.contentEquals(row.state.getText()))row.state.setText(state);if(row.progress.isIndeterminate()!=(t.percent<0))row.progress.setIndeterminate(t.percent<0);if(t.percent>=0)row.progress.setProgress(t.percent);row.action.setVisibility(t.cancel||t.retry?View.VISIBLE:View.GONE);String action=t.cancel?"Отменить":"Повторить";if(!action.contentEquals(row.action.getText()))row.action.setText(action);row.action.setOnClickListener(v->{if(t.cancel)DownloadTasks.cancel(t.key);else DownloadTasks.retry(t.key);update();});}
+        for(DownloadTasks.Task t:tasks){Row row=rendered.get(t.key);if(row==null)continue;String state=t.state+(t.percent>=0&&t.state.equals(Local.of("Загрузка"))?" · "+t.percent+"%":"");if(!state.contentEquals(row.state.getText()))row.state.setText(state);if(row.progress.isIndeterminate()!=(t.percent<0))row.progress.setIndeterminate(t.percent<0);if(t.percent>=0)row.progress.setProgress(t.percent);row.action.setVisibility(t.cancel||t.retry?View.VISIBLE:View.GONE);String action=t.cancel?Local.of("Отменить"):Local.of("Повторить");if(!action.contentEquals(row.action.getText()))row.action.setText(action);row.action.setOnClickListener(v->{if(t.cancel)DownloadTasks.cancel(t.key);else DownloadTasks.retry(t.key);update();});}
     }
 }

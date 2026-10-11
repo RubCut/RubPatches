@@ -46,6 +46,7 @@ class NativeFlagsTests(unittest.TestCase):
   }
   with tempfile.TemporaryDirectory() as folder:
    room=pathlib.Path(folder)
+   __import__("android_doubles").with_mod(sources)
    for name,source in sources.items():
     file=room/name;file.parent.mkdir(parents=True,exist_ok=True);file.write_text(source,encoding='utf-8')
    built=subprocess.run(['javac','-source','8','-target','8','-encoding','UTF-8','-d',folder]+[str(room/name) for name in sources],capture_output=True,text=True);self.assertEqual(0,built.returncode,built.stderr)

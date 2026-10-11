@@ -31,12 +31,14 @@ class AuditHarness {
  static void denied(byte[] zip,File dir)throws Exception {try{PluginPackage.unpack(new ByteArrayInputStream(zip),dir);throw new AssertionError("archive accepted");}catch(IOException expected){}}
  public static void main(String[] args)throws Exception{
   check(!scan(args[0]).blocked&&scan(args[0]).findings.isEmpty(),"ordinary strings must not flag literal exec");
-  check(scan(args[1]).blocked,"Runtime.exec blocked");check(scan(args[2]).blocked,"dynamic loader blocked");
+  // what it finds is said and nothing is refused: a plugin is code running as TikTok whatever it calls
+  check(!scan(args[1]).blocked&&!scan(args[1]).findings.isEmpty(),"Runtime.exec said, not refused");check(!scan(args[2]).blocked&&!scan(args[2]).findings.isEmpty(),"dynamic loader said, not refused");
   check(!scan(args[3]).blocked&&!scan(args[3]).findings.isEmpty(),"network reported, not automatically malicious");
   check(!scan(args[4]).findings.isEmpty(),"reflection needs review");check(!scan(args[5]).findings.isEmpty(),"host API network reported");
   byte[] broken=PluginAudit.read(new File(args[0]),PluginAudit.MAX_DEX);broken[broken.length-2]^=1;
   try{PluginAudit.dex(broken);throw new AssertionError("damaged DEX accepted");}catch(IOException expected){}
-  check(!scan(args[7]).blocked,"readable owned class accepted");check(scan(args[8]).blocked,"renamed class rejected");check(scan(args[9]).blocked,"stripped sources rejected");check(scan(args[10]).blocked,"renamed method rejected");check(scan(args[11]).blocked,"encoded payload rejected");
+  for(int i=7;i<=11;i++)check(!scan(args[i]).blocked,"short names, missing sources and long strings are nobody's business");
+  check(scan(args[1]).summary().contains("What the plugin"),"the summary is written in the phone's language");
   File dir=new File(args[6]);denied(pack("../classes.dex",1),new File(dir,"path"));denied(pack("lib.so",1),new File(dir,"native"));denied(pack("manifest.json",65537),new File(dir,"bomb"));denied(pack("classes.dex",1),new File(dir,"missing"));
   ByteArrayOutputStream bytes=new ByteArrayOutputStream();try(ZipOutputStream zip=new ZipOutputStream(bytes)){
    for(String name:new String[]{"manifest.json","classes.dex"}){zip.putNextEntry(new ZipEntry(name));zip.write(name.equals("classes.dex")?PluginAudit.read(new File(args[0]),PluginAudit.MAX_DEX):"{}".getBytes("UTF-8"));zip.closeEntry();}}
@@ -58,7 +60,9 @@ class PluginAuditRuntimeTest(unittest.TestCase):
    sources.update({'cat/narezany/margyt/AuditHarness.java':HARNESS,
     'android/content/Context.java':'package android.content;public class Context {public SharedPreferences getSharedPreferences(String n,int m){return null;}}',
     'android/content/SharedPreferences.java':'package android.content;public interface SharedPreferences {String getString(String k,String d);boolean getBoolean(String k,boolean d);boolean contains(String k);Editor edit();interface Editor {Editor putString(String k,String v);Editor putBoolean(String k,boolean v);void apply();}}',
+    'cat/narezany/margyt/Text.java':'package cat.narezany.margyt;final class Text{static final String PLUGIN_AUDIT_HEAD="What the plugin\'s code does:",PLUGIN_AUDIT_CLEAN="Nothing.",PLUGIN_AUDIT_NOTE="Runs as TikTok.";}',
     'cat/narezany/margyt/Badges.java':'package cat.narezany.margyt;final class Badges {static final String SERVER="https://example.com/api";} '})
+   __import__("android_doubles").with_mod(sources)
    for name,code in sources.items():p=work/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(code,encoding='utf-8')
    built=subprocess.run(['javac','-source','8','-target','8','-encoding','UTF-8','-d',directory]+[str(work/name) for name in sources],capture_output=True,text=True);self.assertEqual(0,built.returncode,built.stderr)
    cases=[dex(literal='Runtime.exec is documentation'),dex('Ljava/lang/Runtime;','exec'),dex('Ldalvik/system/DexClassLoader;','loadClass'),dex('Ljava/net/URL;','openConnection'),dex('Ljava/lang/reflect/Method;','invoke'),dex('Lcat/narezany/margyt/plugin/PluginContext;','fetch')]

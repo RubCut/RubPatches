@@ -75,6 +75,9 @@ public final class Streaks {
      */
     private static final String GREY = "SECONDARY_ACTIVE";
 
+    /** The day a streak gets its flame. Before it there is nothing on screen to keep. */
+    private static final int SHOWN_FROM = 3;
+
     private static final long EVERY = 15 * 60 * 1000L;
 
     /** A conversation that is still grey after this many sends is left alone until tomorrow. */
@@ -495,7 +498,7 @@ public final class Streaks {
 
         final String owner=Account.liveId();
         final List<String> due = new ArrayList<String>();
-        int grey = 0, lit = 0, gone = 0, unknown = 0, already = 0, waiting = 0;
+        int grey = 0, lit = 0, gone = 0, unknown = 0, already = 0, waiting = 0, none = 0;
         boolean again = false;
         long now = System.currentTimeMillis();
         for (String conversation : all) {
@@ -507,6 +510,11 @@ public final class Streaks {
                 continue;
             }
             if(data.convId!=null && !conversation.equals(data.convId)){unknown++;again=true;continue;}
+            // TikTok counts days from the first message two people exchange, and
+            // shows a flame from the third. Until then there is no streak to
+            // keep -- and this used to write to every one of those, which is
+            // everybody a person had spoken to in the last couple of days.
+            if(data.streak<SHOWN_FROM){none++;continue;}
             String state = statusOf(data);
             if (GREY.equals(state)) {
                 grey++;
@@ -534,7 +542,8 @@ public final class Streaks {
         }
 
         Diary.note("streaks: " + all.size() + " looked at -- " + grey + " grey, "
-                + lit + " lit, " + gone + " over, " + unknown + " unreadable; "
+                + lit + " lit, " + gone + " over, " + none + " with no flame yet, "
+                + unknown + " unreadable; "
                 + already + " gave up for today, " + waiting + " waiting to be re-checked, "
                 + due.size() + " to send");
         if (due.isEmpty()) return service == null || again;

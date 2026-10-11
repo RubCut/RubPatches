@@ -211,6 +211,7 @@ class CrashConsentRuntimeTest(unittest.TestCase):
             sources = dict(STUBS)
             sources['cat/narezany/margyt/CrashConsent.java'] = (SRC / 'CrashConsent.java').read_text(encoding='utf-8')
             sources['cat/narezany/margyt/ConsentHarness.java'] = HARNESS
+            __import__("android_doubles").with_mod(sources)
             for name, content in sources.items():
                 path = work / name
                 path.parent.mkdir(parents=True, exist_ok=True)

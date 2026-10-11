@@ -50,13 +50,13 @@ public final class PluginEditorActivity extends Activity {
  @Override public void onCreate(Bundle state){super.onCreate(state);skin=Skin.remembered(this);
   try{
    if(getIntent().getBooleanExtra("pick",false)){
-    if(!AdminAccess.current())throw new Exception("Нужен аккаунт создателя");
+    if(!AdminAccess.current())throw new Exception(Local.of("Нужен аккаунт создателя"));
     file=true;
     startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE),PICK_FILE);
     return;
    }
    String wanted=getIntent().getStringExtra("binary");
-   if(wanted!=null){for(Plugins.Info info:Plugins.list())if(info.id.equals(wanted))binary=info;if(binary==null)throw new Exception("Плагин не установлен");
+   if(wanted!=null){for(Plugins.Info info:Plugins.list())if(info.id.equals(wanted))binary=info;if(binary==null)throw new Exception(Local.of("Плагин не установлен"));
     source=new JSONObject(new String(PluginAudit.read(new File(binary.folder,"manifest.json"),65536),"UTF-8"));
     File picture=new File(binary.folder,"icon.png");if(picture.isFile())icon=PluginAudit.read(picture,1048576);
    }else{String raw=getIntent().getStringExtra("source");source=new JSONObject(raw==null||raw.isEmpty()?ScriptPlugins.SAMPLE:raw);if(source.has("icon"))icon=android.util.Base64.decode(source.getString("icon"),android.util.Base64.DEFAULT);}
@@ -96,7 +96,7 @@ public final class PluginEditorActivity extends Activity {
   LinearLayout h=new LinearLayout(this);h.setOrientation(0);h.setGravity(Gravity.CENTER_VERTICAL);h.setPadding(dp(4),dp(14),0,dp(4));
   LinearLayout t=new LinearLayout(this);t.setOrientation(1);TextView a=text(title,17);a.setPadding(0,0,0,0);t.addView(a);t.addView(small(about));h.addView(t,new LinearLayout.LayoutParams(0,-2,1f));
   TextView p=pill("+",false,add);p.setMinHeight(dp(40));p.setMinWidth(dp(56));p.setTextSize(22);h.addView(p);body.addView(h);
-  LinearLayout c=card(body);TextView e=small("Пока пусто — нажмите +");e.setPadding(dp(4),dp(4),0,dp(10));c.addView(e);return c;
+  LinearLayout c=card(body);TextView e=small(Local.of("Пока пусто — нажмите +"));e.setPadding(dp(4),dp(4),0,dp(10));c.addView(e);return c;
  }
  private static void sync(LinearLayout c){c.getChildAt(0).setVisibility(c.getChildCount()>1?View.GONE:View.VISIBLE);}
 
@@ -110,37 +110,37 @@ public final class PluginEditorActivity extends Activity {
 
   LinearLayout top=new LinearLayout(this);top.setOrientation(0);top.setGravity(Gravity.CENTER_VERTICAL);
   TextView back=text("\u2190",24);back.setPadding(dp(4),dp(8),dp(16),dp(8));back.setOnClickListener(v->finish());Motion.press(back);top.addView(back);
-  top.addView(text(file?"Добавить в магазин":binary!=null?"Данные плагина":"Новый плагин",20));body.addView(top);
+  top.addView(text(file?Local.of("Добавить в магазин"):binary!=null?Local.of("Данные плагина"):Local.of("Новый плагин"),20));body.addView(top);
   if(file&&note!=null){TextView n=small(note);n.setPadding(dp(4),0,0,dp(8));body.addView(n);}
-  else if(binary!=null){TextView n=small("Код сохраняется. После изменения плагин нужно включить заново.");n.setPadding(dp(4),0,0,dp(8));body.addView(n);}
+  else if(binary!=null){TextView n=small(Local.of("Код сохраняется. После изменения плагин нужно включить заново."));n.setPadding(dp(4),0,0,dp(8));body.addView(n);}
 
   // icon on the left, the essentials on the right
   LinearLayout head=card(body);LinearLayout row=new LinearLayout(this);row.setOrientation(0);head.addView(row);
   LinearLayout.LayoutParams ip=new LinearLayout.LayoutParams(dp(92),dp(92));ip.rightMargin=dp(10);row.addView(iconBox(),ip);
   LinearLayout right=new LinearLayout(this);right.setOrientation(1);row.addView(right,new LinearLayout.LayoutParams(0,-2,1f));
-  name=field(right,"Название",binary==null?source.optString("name"):binary.name,80,false);
-  LinearLayout vr=line(right);version=input("Версия",source.optString("version"),32,false);cell(vr,version);author=input("Автор",source.optString("author"),80,false);cell(vr,author);
-  id=field(head,"ID: латиница, например my.plugin",source.optString("id"),80,false);if(binary!=null||file)id.setEnabled(false);
-  if(binary!=null||file)description=field(head,"Описание, до 240 символов",binary!=null?binary.description:source.optString("description"),240,true);
-  if(file)tiktok=field(head,"Версия TikTok (необязательно)","",32,false);
+  name=field(right,Local.of("Название"),binary==null?source.optString("name"):binary.name,80,false);
+  LinearLayout vr=line(right);version=input(Local.of("Версия"),source.optString("version"),32,false);cell(vr,version);author=input(Local.of("Автор"),source.optString("author"),80,false);cell(vr,author);
+  id=field(head,Local.of("ID: латиница, например my.plugin"),source.optString("id"),80,false);if(binary!=null||file)id.setEnabled(false);
+  if(binary!=null||file)description=field(head,Local.of("Описание, до 240 символов"),binary!=null?binary.description:source.optString("description"),240,true);
+  if(file)tiktok=field(head,Local.of("Версия TikTok (необязательно)"),"",32,false);
   paintIcon();
 
   if(binary==null&&!file){
-   commands=section("Кнопки","Сообщение, копирование текста или окно. До 16.",()->{if(rows.size()>=16){Screen.say("Не больше 16 кнопок");return;}addCommand(null);});
+   commands=section(Local.of("Кнопки"),Local.of("Сообщение, копирование текста или окно. До 16."),()->{if(rows.size()>=16){Screen.say(Local.of("Не больше 16 кнопок"));return;}addCommand(null);});
    JSONArray list=source.optJSONArray("rows");if(list!=null)for(int i=0;i<list.length();i++)addCommand(list.optJSONObject(i));
-   namesBox=section("Имена","Другое имя у аккаунта. UID — число из ссылки на профиль.",()->{if(names.size()>=16){Screen.say("Не больше 16 имён");return;}addPair(namesBox,names,null,true);});
+   namesBox=section(Local.of("Имена"),Local.of("Другое имя у аккаунта. UID — число из ссылки на профиль."),()->{if(names.size()>=16){Screen.say(Local.of("Не больше 16 имён"));return;}addPair(namesBox,names,null,true);});
    list=source.optJSONArray("names");if(list!=null)for(int i=0;i<list.length();i++)addPair(namesBox,names,list.optJSONObject(i),true);
-   coloursBox=section("Цвета","Один цвет заменяется другим по всему приложению.",()->{if(colours.size()>=16){Screen.say("Не больше 16 цветов");return;}addPair(coloursBox,colours,null,false);});
+   coloursBox=section(Local.of("Цвета"),Local.of("Один цвет заменяется другим по всему приложению."),()->{if(colours.size()>=16){Screen.say(Local.of("Не больше 16 цветов"));return;}addPair(coloursBox,colours,null,false);});
    list=source.optJSONArray("colours");if(list!=null)for(int i=0;i<list.length();i++)addPair(coloursBox,colours,list.optJSONObject(i),false);
    sync(commands);sync(namesBox);sync(coloursBox);
-   TextView json=text("Показать JSON",14);json.setTextColor(skin.muted());json.setPadding(dp(4),dp(16),0,dp(8));Motion.press(json);
-   json.setOnClickListener(w->{try{String value=value().toString(2);Panel p=Panel.with(this,skin,"Исходник");EditText code=p.field("JSON");code.setSingleLine(false);code.setMaxLines(10);code.setText(value);p.primaryKeepOpen("Применить",()->{try{ScriptPlugins.Program checked=ScriptPlugins.check(code.getText().toString());script(this,checked.source.toString());p.close();finish();}catch(Exception e){code.setError(e.getMessage());}});p.quiet(Text.CLOSE,null);p.show();}catch(Exception e){Screen.say(e.getMessage());}});
+   TextView json=text(Local.of("Показать JSON"),14);json.setTextColor(skin.muted());json.setPadding(dp(4),dp(16),0,dp(8));Motion.press(json);
+   json.setOnClickListener(w->{try{String value=value().toString(2);Panel p=Panel.with(this,skin,Local.of("Исходник"));EditText code=p.field("JSON");code.setSingleLine(false);code.setMaxLines(10);code.setText(value);p.primaryKeepOpen(Local.of("Применить"),()->{try{ScriptPlugins.Program checked=ScriptPlugins.check(code.getText().toString());script(this,checked.source.toString());p.close();finish();}catch(Exception e){code.setError(e.getMessage());}});p.quiet(Text.CLOSE,null);p.show();}catch(Exception e){Screen.say(e.getMessage());}});
    body.addView(json);
   }
-  if(!AdminAccess.current()&&!file){TextView n=small("Публикация в магазине доступна только аккаунту создателя.");n.setPadding(dp(4),dp(8),0,0);body.addView(n);}
+  if(!AdminAccess.current()&&!file){TextView n=small(Local.of("Публикация в магазине доступна только аккаунту создателя."));n.setPadding(dp(4),dp(8),0,0);body.addView(n);}
 
-  if(file)addPill(bar,pill("Опубликовать в магазине",true,()->save(true)));
-  else{addPill(bar,pill("Сохранить",!AdminAccess.current(),()->save(false)));if(AdminAccess.current())addPill(bar,pill("В магазин",true,()->save(true)));}
+  if(file)addPill(bar,pill(Local.of("Опубликовать в магазине"),true,()->save(true)));
+  else{addPill(bar,pill(Local.of("Сохранить"),!AdminAccess.current(),()->save(false)));if(AdminAccess.current())addPill(bar,pill(Local.of("В магазин"),true,()->save(true)));}
  }
 
  /** Grey rounded square with a plus; shows the picture once there is one. */
@@ -148,21 +148,21 @@ public final class PluginEditorActivity extends Activity {
   FrameLayout f=new FrameLayout(this);GradientDrawable g=new GradientDrawable();g.setColor(0x33888888);g.setCornerRadius(dp(20));f.setBackground(g);
   image=new ImageView(this);image.setScaleType(ImageView.ScaleType.FIT_CENTER);image.setPadding(dp(10),dp(10),dp(10),dp(10));f.addView(image,new FrameLayout.LayoutParams(-1,-1));
   plus=new TextView(this);plus.setText("+");plus.setTextSize(40);plus.setTextColor(skin.muted());plus.setGravity(Gravity.CENTER);f.addView(plus,new FrameLayout.LayoutParams(-1,-1));
-  f.setContentDescription("Иконка плагина");Motion.press(f);
+  f.setContentDescription(Local.of("Иконка плагина"));Motion.press(f);
   f.setOnClickListener(v->{if(busy)return;if(icon==null){pickIcon();return;}
-   Panel.with(this,skin,"Иконка").primary("Выбрать другую",()->pickIcon()).quiet("Убрать",()->{icon=null;paintIcon();}).quiet(Text.CLOSE,null).show();});
+   Panel.with(this,skin,Local.of("Иконка")).primary(Local.of("Выбрать другую"),()->pickIcon()).quiet(Local.of("Убрать"),()->{icon=null;paintIcon();}).quiet(Text.CLOSE,null).show();});
   return f;
  }
- private void pickIcon(){try{startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("image/*").addCategory(Intent.CATEGORY_OPENABLE),PICK_ICON);}catch(ActivityNotFoundException e){Screen.say("На устройстве нет выбора файлов");}}
+ private void pickIcon(){try{startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("image/*").addCategory(Intent.CATEGORY_OPENABLE),PICK_ICON);}catch(ActivityNotFoundException e){Screen.say(Local.of("На устройстве нет выбора файлов"));}}
 
  private void addCommand(JSONObject row){
   Command c=new Command();c.box=new LinearLayout(this);c.box.setOrientation(1);c.box.setPadding(0,0,0,dp(6));commands.addView(c.box);
   LinearLayout r=line(c.box);
-  c.title=input("Название кнопки",row==null?"":row.optString("title"),80,false);cell(r,c.title);
-  c.action=new Spinner(this);String[] options={"Сообщение","Копировать","Окно"};c.action.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,options));String action=row==null?"message":row.optString("action");c.action.setSelection(action.equals("window")?2:action.equals("copy")?1:0);
+  c.title=input(Local.of("Название кнопки"),row==null?"":row.optString("title"),80,false);cell(r,c.title);
+  c.action=new Spinner(this);String[] options={Local.of("Сообщение"),Local.of("Копировать"),Local.of("Окно")};c.action.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,options));String action=row==null?"message":row.optString("action");c.action.setSelection(action.equals("window")?2:action.equals("copy")?1:0);
   r.addView(c.action,new LinearLayout.LayoutParams(dp(130),-2));
   r.addView(x(()->{rows.remove(c);commands.removeView(c.box);sync(commands);}));
-  c.value=field(c.box,"Текст",row==null?"":row.optString("value"),1024,true);
+  c.value=field(c.box,Local.of("Текст"),row==null?"":row.optString("value"),1024,true);
   rows.add(c);sync(commands);
  }
 
@@ -170,8 +170,8 @@ public final class PluginEditorActivity extends Activity {
  private void addPair(LinearLayout parent,List<Two> list,JSONObject row,boolean isName){
   Two t=new Two();t.box=line(parent);
   if(isName){
-   t.a=input("UID аккаунта",row==null?"":row.optString("uid"),32,false);t.a.setInputType(InputType.TYPE_CLASS_NUMBER);cell(t.box,t.a);
-   t.b=input("Показывать как",row==null?"":row.optString("value"),80,false);cell(t.box,t.b);
+   t.a=input(Local.of("UID аккаунта"),row==null?"":row.optString("uid"),32,false);t.a.setInputType(InputType.TYPE_CLASS_NUMBER);cell(t.box,t.a);
+   t.b=input(Local.of("Показывать как"),row==null?"":row.optString("value"),80,false);cell(t.box,t.b);
   }else{
    View s1=new View(this),s2=new View(this);
    LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(dp(22),dp(22));sp.rightMargin=dp(6);t.box.addView(s1,sp);
@@ -197,47 +197,47 @@ public final class PluginEditorActivity extends Activity {
    JSONArray k=new JSONArray();for(Two t:colours){String f=t.a.getText().toString().trim(),o=t.b.getText().toString().trim();if((f.isEmpty()||f.equals("#"))&&(o.isEmpty()||o.equals("#")))continue;k.put(new JSONObject().put("from",hex(f)).put("to",hex(o)));}value.put("colours",k);
    if(icon==null)value.remove("icon");else value.put("icon",android.util.Base64.encodeToString(icon,android.util.Base64.NO_WRAP));
    ScriptPlugins.check(value.toString());
-  }else{value.put("description",description.getText().toString().trim());if(value.optString("name").isEmpty()||value.optString("version").isEmpty()||value.optString("author").isEmpty())throw new Exception("Заполните название, версию и автора");}
+  }else{value.put("description",description.getText().toString().trim());if(value.optString("name").isEmpty()||value.optString("version").isEmpty()||value.optString("author").isEmpty())throw new Exception(Local.of("Заполните название, версию и автора"));}
   return value;
  }
  private static String b64(byte[] b){return android.util.Base64.encodeToString(b,android.util.Base64.NO_WRAP);}
  private static void entry(ZipOutputStream zip,String name,byte[] value)throws Exception{zip.putNextEntry(new ZipEntry(name));zip.write(value);zip.closeEntry();}
  private void save(boolean publish){
-  if(publish&&!AdminAccess.current()){Screen.say("Нужен аккаунт создателя");return;}
+  if(publish&&!AdminAccess.current()){Screen.say(Local.of("Нужен аккаунт создателя"));return;}
   try{
    JSONObject value=value();byte[] art=icon;String store=tiktok==null?"":tiktok.getText().toString().trim();busy=true;
    Net.away("plugin editor",()->{File temporary=null;try{
     if(file){
      ByteArrayOutputStream bytes=new ByteArrayOutputStream();
      try(ZipOutputStream zip=new ZipOutputStream(bytes)){entry(zip,"manifest.json",value.toString().getBytes("UTF-8"));entry(zip,"classes.dex",dex);if(art!=null)entry(zip,"icon.png",art);}
-     byte[] archive=bytes.toByteArray();if(archive.length>1048576)throw new Exception("Для магазина размер .mtp должен быть не больше 1 МБ");
+     byte[] archive=bytes.toByteArray();if(archive.length>1048576)throw new Exception(Local.of("Для магазина размер .mtp должен быть не больше 1 МБ"));
      JSONObject metadata=new JSONObject().put("id",value.getString("id")).put("name",value.getString("name")).put("version",value.getString("version")).put("author",value.getString("author")).put("about",value.optString("description")).put("tiktok",store);
      JSONObject request=new JSONObject().put("action","publish-package").put("metadata",metadata).put("archive",b64(archive));if(art!=null)request.put("icon",b64(art));PluginAdmin.call(this,request);
     }else if(binary==null){ScriptPlugins.save(this,value.toString(),true);if(publish)PluginAdmin.call(this,new JSONObject().put("action","publish-script").put("source",value));}
     else{
-     byte[] archive=PluginAdmin.pack(binary,value,art);if(publish && archive.length>1048576)throw new Exception("Для магазина размер .mtp должен быть не больше 1 МБ");temporary=File.createTempFile("plugin-edit-",".mtp",getCacheDir());try(FileOutputStream out=new FileOutputStream(temporary)){out.write(archive);}
+     byte[] archive=PluginAdmin.pack(binary,value,art);if(publish && archive.length>1048576)throw new Exception(Local.of("Для магазина размер .mtp должен быть не больше 1 МБ"));temporary=File.createTempFile("plugin-edit-",".mtp",getCacheDir());try(FileOutputStream out=new FileOutputStream(temporary)){out.write(archive);}
      Plugins.install(this,Uri.fromFile(temporary));
      if(publish){JSONObject metadata=new JSONObject().put("id",binary.id).put("name",value.getString("name")).put("version",value.getString("version")).put("author",value.getString("author")).put("about",value.optString("description")).put("tiktok",value.optString("tiktok"));JSONObject request=new JSONObject().put("action","publish-package").put("metadata",metadata).put("archive",b64(archive));if(art!=null)request.put("icon",b64(art));PluginAdmin.call(this,request);}
     }
-    runOnUiThread(()->{busy=false;Screen.say(publish?"Опубликовано в магазине":"Сохранено");finish();});
-   }catch(Exception e){runOnUiThread(()->{busy=false;Popup.show(this,"Не сохранено",e.getMessage());});}finally{if(temporary!=null)temporary.delete();}});
-  }catch(Exception e){Popup.show(this,"Проверьте поля",e.getMessage());}
+    runOnUiThread(()->{busy=false;Screen.say(publish?Local.of("Опубликовано в магазине"):Local.of("Сохранено"));finish();});
+   }catch(Exception e){runOnUiThread(()->{busy=false;Popup.show(this,Local.of("Не сохранено"),e.getMessage());});}finally{if(temporary!=null)temporary.delete();}});
+  }catch(Exception e){Popup.show(this,Local.of("Проверьте поля"),e.getMessage());}
  }
 
  // ---------------------------------------------------------------- icon and file
  private void paintIcon(){image.setImageBitmap(icon==null?null:BitmapFactory.decodeByteArray(icon,0,icon.length));plus.setVisibility(icon==null?View.VISIBLE:View.GONE);}
  private static byte[] smallIcon(byte[] raw)throws Exception{
   BitmapFactory.Options bounds=new BitmapFactory.Options();bounds.inJustDecodeBounds=true;BitmapFactory.decodeByteArray(raw,0,raw.length,bounds);
-  if(bounds.outWidth<=0||bounds.outHeight<=0)throw new Exception("Не удалось прочитать иконку");
+  if(bounds.outWidth<=0||bounds.outHeight<=0)throw new Exception(Local.of("Не удалось прочитать иконку"));
   BitmapFactory.Options options=new BitmapFactory.Options();options.inSampleSize=Math.max(1,Math.max(bounds.outWidth,bounds.outHeight)/128);
-  Bitmap original=BitmapFactory.decodeByteArray(raw,0,raw.length,options);if(original==null)throw new Exception("Не удалось прочитать иконку");
+  Bitmap original=BitmapFactory.decodeByteArray(raw,0,raw.length,options);if(original==null)throw new Exception(Local.of("Не удалось прочитать иконку"));
   float scale=64f/Math.max(original.getWidth(),original.getHeight());Bitmap resized=Bitmap.createScaledBitmap(original,Math.max(1,Math.round(original.getWidth()*scale)),Math.max(1,Math.round(original.getHeight()*scale)),true);
   ByteArrayOutputStream out=new ByteArrayOutputStream();resized.compress(Bitmap.CompressFormat.PNG,100,out);if(resized!=original)resized.recycle();original.recycle();
-  if(out.size()>32768)throw new Exception("Иконка слишком большая");return out.toByteArray();
+  if(out.size()>32768)throw new Exception(Local.of("Иконка слишком большая"));return out.toByteArray();
  }
  private static byte[] readStream(InputStream in,int max)throws Exception{
   ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] buffer=new byte[8192];int n;
-  while((n=in.read(buffer))!=-1){if(out.size()+n>max)throw new Exception("Файл больше "+(max>=1048576?(max/1048576)+" МБ":(max/1024)+" КБ")+" — магазин такой не примет");out.write(buffer,0,n);}
+  while((n=in.read(buffer))!=-1){if(out.size()+n>max)throw new Exception(Local.of("Файл больше ")+(max>=1048576?(max/1048576)+Local.of(" МБ"):(max/1024)+Local.of(" КБ"))+Local.of(" — магазин такой не примет"));out.write(buffer,0,n);}
   return out.toByteArray();
  }
  @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);
@@ -248,15 +248,15 @@ public final class PluginEditorActivity extends Activity {
     byte[] raw;try(InputStream in=getContentResolver().openInputStream(uri)){raw=readStream(in,1048576);}
     Map<String,byte[]> files=new HashMap<>();
     try(ZipInputStream in=new ZipInputStream(new ByteArrayInputStream(raw))){ZipEntry e;while((e=in.getNextEntry())!=null){String n=e.getName();
-     if(!(n.equals("manifest.json")||n.equals("classes.dex")||n.equals("icon.png")))throw new Exception("В файле лишнее: "+n+". Нужны только manifest.json, classes.dex и icon.png");
-     if(files.containsKey(n))throw new Exception("Файл повреждён");files.put(n,readStream(in,1048576));}}
-    if(!files.containsKey("manifest.json")||!files.containsKey("classes.dex"))throw new Exception("Это не плагин: нет manifest.json или classes.dex");
+     if(!(n.equals("manifest.json")||n.equals("classes.dex")||n.equals("icon.png")))throw new Exception(Local.of("В файле лишнее: ")+n+Local.of(". Нужны только manifest.json, classes.dex и icon.png"));
+     if(files.containsKey(n))throw new Exception(Local.of("Файл повреждён"));files.put(n,readStream(in,1048576));}}
+    if(!files.containsKey("manifest.json")||!files.containsKey("classes.dex"))throw new Exception(Local.of("Это не плагин: нет manifest.json или classes.dex"));
     JSONObject manifest=new JSONObject(new String(files.get("manifest.json"),"UTF-8"));
-    if(!PluginCatalog.id(manifest.optString("id")))throw new Exception("В manifest.json неверный ID");
+    if(!PluginCatalog.id(manifest.optString("id")))throw new Exception(Local.of("В manifest.json неверный ID"));
     temporary=File.createTempFile("plugin-publish-",".mtp",getCacheDir());try(FileOutputStream out=new FileOutputStream(temporary)){out.write(raw);}
     PluginAudit.Report report=Plugins.inspect(this,Uri.fromFile(temporary));if(report.blocked)throw new Exception(report.summary());
     byte[] pic=files.get("icon.png");byte[] small=pic==null?null:smallIcon(pic);
-    String found=report.findings.isEmpty()?"Проверка безопасности пройдена.":report.summary();
+    String found=report.findings.isEmpty()?Local.of("Ничего особенного не найдено."):report.summary();
     runOnUiThread(()->{busy=false;source=manifest;dex=files.get("classes.dex");icon=small;note=found;build();});
    }catch(Exception e){runOnUiThread(()->{busy=false;Screen.say(e.getMessage());finish();});}finally{if(temporary!=null)temporary.delete();}});
    return;

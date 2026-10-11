@@ -78,5 +78,62 @@ class LoadingHookTest(unittest.TestCase):
             self.assertIn(needle, re.sub(r"\\(.)", r"\1", pattern.pattern))
 
 
+CELL = """.class public Lcom/ss/android/ugc/aweme/base/widget/FixedRatioFrameLayout;
+.super Landroid/widget/FrameLayout;
+
+.method public constructor <init>(Landroid/content/Context;)V
+    .registers 3
+
+    invoke-direct {p0, p1}, Landroid/widget/FrameLayout;-><init>(Landroid/content/Context;)V
+
+    return-void
+.end method
+
+.method public constructor <init>(Landroid/content/Context;Landroid/util/AttributeSet;)V
+    .registers 6
+
+    if-eqz p2, :cond_4
+
+    return-void
+
+    :cond_4
+    return-void
+.end method
+
+.method public final onMeasure(II)V
+    .registers 4
+
+    return-void
+.end method
+"""
+
+
+class CardCornersTest(unittest.TestCase):
+    def test_every_constructor_ends_in_the_mod_and_nothing_else_does(self):
+        with tempfile.TemporaryDirectory() as root:
+            folder = os.path.join(root, "com/ss/android/ugc/aweme/base/widget")
+            os.makedirs(folder)
+            path = os.path.join(folder, "FixedRatioFrameLayout.smali")
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write(CELL)
+            self.assertEqual(dexpatch.rewrite_cards(root), {"native card corners": 2})
+            with open(path, encoding="utf-8") as handle:
+                out = handle.read()
+            call = "invoke-static/range {p0 .. p0}, Lcat/narezany/margyt/Corners;->cell(Landroid/view/View;)V"
+            # one before each way out of each constructor, none in onMeasure
+            self.assertEqual(out.count(call), 3)
+            self.assertNotIn(call, out[out.index(".method public final onMeasure"):])
+            self.assertEqual(dexpatch.rewrite_cards(root), {"native card corners": 2})
+            with open(path, encoding="utf-8") as handle:
+                self.assertEqual(handle.read(), out)
+        self.assertIn("Lcat/narezany/margyt/Corners;->cell(Landroid/view/View;)V", dexpatch.rewrite_targets())
+
+    def test_a_dex_without_the_cell_is_left_alone(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.assertEqual(dexpatch.rewrite_cards(root), {})
+        self.assertTrue(dexpatch.holds_a_card(b"..Lcom/ss/android/ugc/aweme/base/widget/FixedRatioFrameLayout;.."))
+        self.assertFalse(dexpatch.holds_a_card(b"nothing"))
+
+
 if __name__ == "__main__":
     unittest.main()

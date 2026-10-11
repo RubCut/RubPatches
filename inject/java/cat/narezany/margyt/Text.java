@@ -278,6 +278,9 @@ final class Text {
             "Замість двох кружечків TikTok крутяться фігури Material 3 у кольорі акценту.",
             "Material 3 shapes in the accent colour, in place of TikTok's two circles.");
 
+    static final String ROUND_CARDS = pick(
+            "Скруглённые карточки видео", "Заокруглені картки відео", "Rounded video cards");
+
     static final String THEME_MATERIAL = pick(
             "Цвета своего телефона", "Кольори свого телефона", "Your phone's own colours");
 
@@ -620,6 +623,35 @@ final class Text {
     static final String DONATE_BANNER_WRITE = pick(
             "Сообщения каналу", "Повідомлення каналу", "Message the channel");
 
+    static final String DONATE_STEP_PAY = pick(
+            "1. Переведите от 250 ₽", "1. Переказати від 250 ₽", "1. Send 250 ₽ or more");
+
+    static final String DONATE_STEP_ID = pick(
+            "2. Скопируйте свой ID", "2. Скопіюйте свій ID", "2. Copy your ID");
+
+    static final String DONATE_ID_NOTE = pick(
+            "Нажмите на ID, он скопируется. По нему выдаётся значок.",
+            "Натисніть на ID, він скопіюється. За ним видається значок.",
+            "Tap the ID to copy it. The badge is given to this account.");
+
+    static final String DONATE_STEP_WRITE = pick(
+            "3. Напишите в канал", "3. Напишіть у канал", "3. Write to the channel");
+
+    static final String DONATE_WRITE_NOTE = pick(
+            "Пришлите чек и ID", "Надішліть чек і ID", "Send the receipt and the ID");
+
+    static final String DONATE_AFTER = pick(
+            "Значок выдаётся вручную, обычно в течение дня. Градиент на ник и "
+                    + "ссылка в закрытый чат придут вместе с ним.",
+            "Значок видається вручну, зазвичай протягом дня. Градієнт на нік і "
+                    + "посилання в закритий чат прийдуть разом із ним.",
+            "The badge is given by hand, usually within a day. The gradient on "
+                    + "your name and the link to the closed chat come with it.");
+
+    static final String SPEED_LOCK = pick(
+            "Фиксация скорости свайпом вниз", "Фіксація швидкості свайпом униз",
+            "Lock the speed by swiping down");
+
     static final String REMIND_TITLE = pick(
             "Нравится MargyT?", "Подобається MargyT?", "Enjoying MargyT?");
 
@@ -909,6 +941,20 @@ final class Text {
             "В магазин плагины выкладывает автор мода. Пришлите файл в канал.",
             "У магазин плагіни викладає автор мода. Надішліть файл у канал.",
             "The store is filled by the mod's author. Send the file to the channel.");
+
+    static final String PLUGIN_AUDIT_HEAD = pick(
+            "Что делает код плагина:", "Що робить код плагіна:", "What the plugin's code does:");
+
+    static final String PLUGIN_AUDIT_CLEAN = pick(
+            "Ничего особенного не найдено.", "Нічого особливого не знайдено.",
+            "Nothing out of the ordinary.");
+
+    static final String PLUGIN_AUDIT_NOTE = pick(
+            "Плагин работает с правами TikTok. Ставьте только то, чему доверяете.",
+            "Плагін працює з правами TikTok. Ставте лише те, чому довіряєте.",
+            "A plugin runs with TikTok's own rights. Install only what you trust.");
+
+    static final String PLUGIN_REVIEW = pick("Плагин", "Плагін", "Plugin");
 
     static final String PLUGIN_INSTALLED = pick(
             "Плагин установлен", "Плагін встановлено", "Plugin installed");
@@ -1223,6 +1269,11 @@ final class Text {
             pick("Прозрачность меняется сразу. Если другой настройке нужен перезапуск, снизу появится кнопка. Отчёты о сбоях включаются в «Диагностике». Это обучение можно открыть снова в MargyT.",
                     "Прозорість змінюється одразу. Якщо іншому налаштуванню потрібен перезапуск, знизу з’явиться кнопка. Звіти про збої вмикаються в «Діагностиці». Це навчання можна відкрити знову в MargyT.",
                     "Transparency changes at once. When another setting needs a restart, a button appears at the bottom. Crash reports are switched in Diagnostics. You can reopen this tour in MargyT.")};
+
+    /** 0 for Russian, 1 for Ukrainian, 2 for everything else: for {@link Local}. */
+    static int language3() {
+        return RU ? 0 : UK ? 1 : 2;
+    }
 
     private static String pick(String russian, String ukrainian, String english) {
         if (RU) return russian;

@@ -13,6 +13,25 @@ public final class VideoActions {
  public static long currentPublishedTime(){Object post=downloadPost();return post==null?0:NativeRead.number(NativeRead.get(post,"getCreateTime"));}
  public static void captureShare(Object component){Object content=NativeRead.get(component,"getContentView"),post=NativeRead.get(NativeRead.item(component),"getAweme");if(content instanceof View&&post!=null){selected=post;selectedView=new WeakReference<View>((View)content);}}
  static Object downloadPost(){View row=selectedView.get();return row!=null&&row.isShown()&&row.isAttachedToWindow()?selected:null;}
+ /**
+  * The post a dialog's "save" is about, or nothing when the dialog belongs to another screen.
+  *
+  * A photo in a comment opens on a screen of its own, with the video still alive underneath it, and that
+  * screen's menu has a "save photo" too. Taking that one over offered the video behind instead of the photo.
+  */
+ static Object downloadPost(Context from){
+  Object post=downloadPost();if(post==null)return null;
+  View row=selectedView.get();android.app.Activity asked=activity(from),shown=row==null?null:activity(row.getContext());
+  return asked!=null&&shown!=null&&asked!=shown?null:post;
+ }
+ private static android.app.Activity activity(Context context){
+  for(int i=0;i<12&&context!=null;i++){
+   if(context instanceof android.app.Activity)return (android.app.Activity)context;
+   if(!(context instanceof android.content.ContextWrapper))return null;
+   context=((android.content.ContextWrapper)context).getBaseContext();
+  }
+  return null;
+ }
  public static void bindNative(Object component){
   Object content=NativeRead.get(component,"getContentView");
   if(content instanceof View){View root=(View)content;View.OnLongClickListener hold=v->{Object post=NativeRead.get(NativeRead.item(component),"getAweme");show(v,post);return true;};
@@ -37,8 +56,8 @@ public final class VideoActions {
  }
  static void playback(Context c){Panel panel=Panel.with(c,Skin.remembered(c),Text.ACT_PLAYBACK);
   panel.item("speed",Text.PLAYER_SPEED,null,()->PlayerTools.choose(c));
-  panel.item("fast_rewind",Text.SEEK_BACK,PlayerTools.step()+" с",null,()->PlayerTools.seek(false,false));
-  panel.item("fast_forward",Text.SEEK_FORWARD,PlayerTools.step()+" с",null,()->PlayerTools.seek(true,false));
+  panel.item("fast_rewind",Text.SEEK_BACK,PlayerTools.step()+Local.of(" с"),null,()->PlayerTools.seek(false,false));
+  panel.item("fast_forward",Text.SEEK_FORWARD,PlayerTools.step()+Local.of(" с"),null,()->PlayerTools.seek(true,false));
   panel.item("timeline",Text.SEEK_SMOOTH,null,null,()->PlayerTools.seek(false,true));panel.quiet(Text.CLOSE,null).show();
  }
  static void chooseDownload(Context c,Object post){

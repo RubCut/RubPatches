@@ -64,6 +64,7 @@ public static void main(String[] a){
 '''}
   with tempfile.TemporaryDirectory() as folder:
    files=[]
+   __import__("android_doubles").with_mod(sources)
    for name,source in sources.items():
     file=pathlib.Path(folder)/name;file.parent.mkdir(parents=True,exist_ok=True);file.write_text(source,encoding='utf-8');files.append(str(file))
    result=subprocess.run(['javac','-source','8','-target','8','-encoding','UTF-8','-d',folder,*files],capture_output=True,text=True)

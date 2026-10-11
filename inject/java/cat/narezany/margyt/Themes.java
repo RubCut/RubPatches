@@ -441,7 +441,10 @@ public final class Themes {
                         (android.graphics.drawable.GradientDrawable) drawable;
                 android.content.res.ColorStateList held =
                         Build.VERSION.SDK_INT >= 24 ? shape.getColor() : null;
-                if (held == null) return;
+                if (held == null) {
+                    fade(shape, view);
+                    return;
+                }
                 int was = held.getDefaultColor();
                 int now = recolour(was, true);
                 if (now != was) {
@@ -485,6 +488,38 @@ public final class Themes {
             }
             other(drawable);
         } catch (Throwable ignored) {
+        }
+    }
+
+    /**
+     * A fade from one colour to another, rather than one colour.
+     *
+     * The strip under a profile's banner is one: the picture at the top, the
+     * page at the bottom, and between them a fade into the page's colour so
+     * the picture has no edge. The page was repainted and the fade was not,
+     * which left a band of plain black or plain white across a themed
+     * profile. Each stop of it is a theme colour at some transparency -- the
+     * clear end is the same colour with nothing of it showing -- so each is
+     * moved as the solid colour would be and given its transparency back.
+     */
+    private static void fade(android.graphics.drawable.GradientDrawable shape, View view) {
+        if (Build.VERSION.SDK_INT < 24) return;
+        int[] stops = shape.getColors();
+        if (stops == null || stops.length == 0) return;
+        int[] moved = null;
+        for (int i = 0; i < stops.length; i++) {
+            int solid = recolour(stops[i] | 0xFF000000, true);
+            int now = (stops[i] & 0xFF000000) | (solid & 0x00FFFFFF);
+            if (now == stops[i]) continue;
+            if (moved == null) moved = stops.clone();
+            moved[i] = now;
+        }
+        if (moved == null) return;
+        android.graphics.drawable.Drawable copy = shape.mutate();
+        ((android.graphics.drawable.GradientDrawable) copy).setColors(moved);
+        if (view != null) {
+            view.setBackground(copy);
+            view.invalidate();
         }
     }
 

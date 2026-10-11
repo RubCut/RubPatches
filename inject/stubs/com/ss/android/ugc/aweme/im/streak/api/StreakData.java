@@ -14,4 +14,7 @@ public class StreakData {
     public long activeBefore;
     public long endAt;
     public Integer level;
+
+    /** How many days in a row. A flame is shown from the third. */
+    public int streak;
 }

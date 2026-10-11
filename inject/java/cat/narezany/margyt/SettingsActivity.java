@@ -219,9 +219,16 @@ public class SettingsActivity extends Activity {
         disclosureBodies.clear();disclosureArrows.clear();renderDisclosureKey=null;
         column.removeAllViews();
         column.addView(backArrow());
+        if (settingsGroup == DONATE_PAGE) {
+            column.addView(title(Text.DONATE_BANNER));
+            donatePage();
+            showRestartBar();
+            restoreScroll(0);
+            return;
+        }
         column.addView(title(settingsGroup == 0 ? "MargyT" : groupName(settingsGroup)));
         if(settingsGroup==0 || searchQuery.length()>0)column.addView(searchBox());
-        if (settingsGroup != 0) column.addView(wrap(actionRow("info","Подсказки",null,this::showSectionHelp)));
+        if (settingsGroup != 0) column.addView(wrap(actionRow("info",Local.of("Подсказки"),null,this::showSectionHelp)));
         if (searchQuery.length() > 0) {
             searchResults();
             restoreScroll(previousScroll);
@@ -232,7 +239,7 @@ public class SettingsActivity extends Activity {
             if (Badges.freeStillOpen() && !Mine.hasFree()) column.addView(freeBanner());
             column.addView(donateBanner());
             column.addView(groupNavigation());
-            column.addView(wrap(actionRow("info","Обучение",null,() -> Tutorial.show(this))));
+            column.addView(wrap(actionRow("info",Local.of("Обучение"),null,() -> Tutorial.show(this))));
             column.addView(versions());
             showRestartBar();
             restoreScroll(0);
@@ -265,6 +272,9 @@ public class SettingsActivity extends Activity {
         loading.addView(liveToggleRow("palette", Text.LOADING_SHAPES, Loading.isEnabled(),
                 Loading::setEnabled));
         loading.addView(quiet(Text.LOADING_NOTE));
+        loading.addView(line());
+        loading.addView(toggleRow("image", Text.ROUND_CARDS, Corners.isEnabled(),
+                Corners::setEnabled));
         column.addView(wrap(loading));
 
         column.addView(section(Text.THEME));
@@ -394,6 +404,8 @@ public class SettingsActivity extends Activity {
         column.addView(section(Text.VIDEO));
         LinearLayout video = card();
         video.addView(actionRow("speed",Text.PLAYER_SPEED,Float.toString(PlayerTools.speed())+"×",()->PlayerTools.choose(this,this::rebuild)));
+        video.addView(toggleRow("lock", Text.SPEED_LOCK, Flags.isOn(Flags.KEY_SPEED_LOCK),
+                on -> Flags.set(Flags.KEY_SPEED_LOCK, on)));
         video.addView(toggleRow("volume_up", Text.SOUND, Sound.isEnabled(), Sound::setEnabled));
         video.addView(line());
         video.addView(liveToggleRow("timeline", Text.SEEKBAR, Seekbar.isEnabled(),
@@ -441,7 +453,7 @@ public class SettingsActivity extends Activity {
             burn.addView(line());
             burn.addView(slider("contrast", Text.DIM_HOW, Dim.strength(), 90, 0, "%", value -> Dim.setStrength(value)));
         }
-        burn.addView(quiet("Глаз в ленте и на видео включает и выключает затемнение на лету. Поле ввода комментария не затемняется."));
+        burn.addView(quiet(Local.of("Глаз в ленте и на видео включает и выключает затемнение на лету. Поле ввода комментария не затемняется.")));
         column.addView(wrap(burn));
 
         column.addView(section(Text.DOWNLOADS));
@@ -476,13 +488,13 @@ public class SettingsActivity extends Activity {
 
         column.addView(section(Text.PLUGINS));
         LinearLayout plugins = card();
-        plugins.addView(actionRow("add", "Добавить плагин", null, this::showPluginAdd));
+        plugins.addView(actionRow("add", Local.of("Добавить плагин"), null, this::showPluginAdd));
         List<Plugins.Info> installed = Plugins.list();
         List<ScriptPlugins.Program> commands=ScriptPlugins.list(this);
-        if(installed.isEmpty()&&commands.isEmpty())plugins.addView(quiet("Пока нет установленных плагинов"));
+        if(installed.isEmpty()&&commands.isEmpty())plugins.addView(quiet(Local.of("Пока нет установленных плагинов")));
         for(ScriptPlugins.Program program:commands){
             boolean enabled=getSharedPreferences(ScriptPlugins.STORE,0).getBoolean("on:"+program.id,false);
-            plugins.addView(actionRow("extension",program.name,enabled?"Включён":"Выключен",()->ScriptPlugins.details(this,program,this::rebuild)));
+            plugins.addView(actionRow("extension",program.name,enabled?Local.of("Включён"):Local.of("Выключен"),()->ScriptPlugins.details(this,program,this::rebuild)));
         }
         for(Plugins.Info info:installed)plugins.addView(pluginRow(info));
         column.addView(wrap(plugins));
@@ -504,7 +516,7 @@ public class SettingsActivity extends Activity {
             Toast.makeText(this, StreakAlarm.status(this), Toast.LENGTH_LONG).show();
         }));
         streaks.addView(line());
-        streaks.addView(actionRow("schedule", "Время отправки",StreakSchedule.label(),()->StreakSchedule.choose(this,this::rebuild)));
+        streaks.addView(actionRow("schedule", Local.of("Время отправки"),StreakSchedule.label(),()->StreakSchedule.choose(this,this::rebuild)));
         streaks.addView(stickerHead());
         if (streakOpen) {
             streaks.addView(line());
@@ -559,8 +571,8 @@ public class SettingsActivity extends Activity {
 
         column.addView(section(Text.DIAGNOSTICS));
         LinearLayout diagnostics = card();
-        diagnostics.addView(liveToggleRow("bug_report", "Отчёты о сбоях",CrashReports.enabled(this),on->CrashReports.set(this,on)));
-        diagnostics.addView(quiet("Отправлять разработчику технический стек сбоя. Без сообщений, аккаунта и текста ошибки."));
+        diagnostics.addView(liveToggleRow("bug_report", Local.of("Отчёты о сбоях"),CrashReports.enabled(this),on->CrashReports.set(this,on)));
+        diagnostics.addView(quiet(Local.of("Отправлять разработчику технический стек сбоя. Без сообщений, аккаунта и текста ошибки.")));
         diagnostics.addView(quiet(Diagnostics.report()));
         diagnostics.addView(line());
         diagnostics.addView(actionRow("article", Text.COPY_DIAGNOSTICS, null,
@@ -1011,19 +1023,58 @@ public class SettingsActivity extends Activity {
     }
 
     /** Open the thanks, on the shelf they live on, and take the screen down to them. */
+    /** Not one of the shelves: the page the "donate" button opens, and nothing else does. */
+    private static final int DONATE_PAGE = 99;
+
     private void showDonations() {
-        settingsGroup = 5;
+        settingsGroup = DONATE_PAGE;
         searchQuery = "";
-        thanksOpen = true;
         rebuild();
-        if (page == null) return;
-        page.post(() -> {
-            try {
-                View anchor = donateAnchor;
-                if (anchor != null) page.smoothScrollTo(0, anchor.getTop());
-            } catch (Throwable ignored) {
-            }
-        });
+    }
+
+    /**
+     * How to get the badge, as three things to do in order.
+     *
+     * The button used to open the list of thanks and scroll to the card number
+     * at the bottom of it, and people who had just decided to pay were left
+     * looking at credits, wondering what to do next. This says it: pay here,
+     * copy this, write there.
+     */
+    private void donatePage() {
+        LinearLayout what = card();
+        what.addView(quiet(Text.DONATE_BANNER_TEXT));
+        column.addView(wrap(what));
+
+        column.addView(section(Text.DONATE_STEP_PAY));
+        LinearLayout pay = card();
+        pay.addView(linkRow("star", Text.YOOMONEY, Text.YOOMONEY_NOTE, YOOMONEY));
+        pay.addView(line());
+        pay.addView(cardRow());
+        column.addView(wrap(pay));
+
+        column.addView(section(Text.DONATE_STEP_ID));
+        LinearLayout mine = card();
+        mine.addView(idRow(Text.ACCOUNT_ID, Account.id()));
+        mine.addView(quiet(Text.DONATE_ID_NOTE));
+        column.addView(wrap(mine));
+
+        column.addView(section(Text.DONATE_STEP_WRITE));
+        LinearLayout write = card();
+        write.addView(actionRow("chat", Text.DONATE_BANNER_WRITE, Text.DONATE_WRITE_NOTE,
+                () -> open(CHANNEL_WRITE)));
+        write.addView(quiet(Text.DONATE_AFTER));
+        column.addView(wrap(write));
+    }
+
+    private View cardRow() {
+        LinearLayout card = row();
+        LinearLayout cardText = new LinearLayout(this);
+        cardText.setOrientation(LinearLayout.VERTICAL);
+        cardText.addView(label(spaced(CARD_NUMBER)));
+        cardText.addView(detail(Text.CARD + "  ·  " + Text.TAP_TO_COPY));
+        card.addView(cardText, grow());
+        card.setOnClickListener(v -> copy(Text.CARD, CARD_NUMBER));
+        return sized(card, 64);
     }
 
     private void rebuildAfterSwitchAnimation() {
@@ -1303,7 +1354,7 @@ public class SettingsActivity extends Activity {
         android.widget.FrameLayout.LayoutParams image=new android.widget.FrameLayout.LayoutParams(dp(24),dp(24),Gravity.CENTER);
         target.addView(arrow,image);
         target.setLayoutParams(new LinearLayout.LayoutParams(dp(48),dp(48)));
-        target.setContentDescription(up ? "Выше" : "Ниже");
+        target.setContentDescription(up ? Local.of("Выше") : Local.of("Ниже"));
         target.setEnabled(can);
         if (can) {Motion.press(target);target.setOnClickListener(v -> action.run());}
         return target;
@@ -1861,7 +1912,7 @@ public class SettingsActivity extends Activity {
                         picked.set(colour);
                         panel.close();
                     } catch (IllegalArgumentException error) {
-                        input.setError("Укажите цвет в формате #RRGGBB");
+                        input.setError(Local.of("Укажите цвет в формате #RRGGBB"));
                     }
                 });
         panel.quiet(Text.CANCEL,null); panel.show();
@@ -2238,12 +2289,12 @@ public class SettingsActivity extends Activity {
     // ----------------------------------------------------------- the plugins
 
     private void showPluginAdd(){
-        Panel panel=Panel.with(this,skin,"Добавить плагин");
-        panel.primary("Создать из кнопок",()->ScriptPlugins.edit(this,ScriptPlugins.SAMPLE,this::rebuild));
-        panel.quiet("Вставить JSON",()->ScriptPlugins.edit(this,"",this::rebuild));
-        panel.quiet("Установить файл .mtp",this::pickPlugin);
-        panel.quiet("Магазин",()->startActivity(new Intent(this,StoreActivity.class)));
-        panel.quiet("Документация",()->startActivity(new Intent(Intent.ACTION_VIEW,android.net.Uri.parse(DOCS_PLUGINS))));
+        Panel panel=Panel.with(this,skin,Local.of("Добавить плагин"));
+        panel.primary(Local.of("Создать из кнопок"),()->ScriptPlugins.edit(this,ScriptPlugins.SAMPLE,this::rebuild));
+        panel.quiet(Local.of("Вставить JSON"),()->ScriptPlugins.edit(this,"",this::rebuild));
+        panel.quiet(Local.of("Установить файл .mtp"),this::pickPlugin);
+        panel.quiet(Local.of("Магазин"),()->startActivity(new Intent(this,StoreActivity.class)));
+        panel.quiet(Local.of("Документация"),()->startActivity(new Intent(Intent.ACTION_VIEW,android.net.Uri.parse(DOCS_PLUGINS))));
         panel.quiet(Text.CLOSE,null);panel.show();
     }
 
@@ -2363,13 +2414,14 @@ public class SettingsActivity extends Activity {
         if (!info.description.isEmpty()) by = by + "  ·  " + info.description;
         text.addView(detail(by));
         if (info.trouble != null) text.addView(detail(info.trouble));
-        if(info.safety!=null&&!info.safety.isEmpty())text.addView(detail("Статическая проверка · удерживайте для действий"));
+        if(info.safety!=null&&!info.safety.isEmpty())text.addView(detail(Local.of("Удерживайте для действий")));
         row.addView(text, grow());
 
         final M3Switch toggle = new M3Switch(this);
         toggle.colours(Accent.colour(), skin.muted(), skin.card);
         toggle.setChecked(Plugins.isEnabled(info.id));
-        toggle.setEnabled(info.trouble == null || "Нужно подтвердить возможности плагина".equals(info.trouble) || Plugins.isEnabled(info.id));
+        // a plugin that failed to start can still be switched off, and tried again
+        toggle.setEnabled(true);
         toggle.setOnChanged(checked -> {
             activatePlugin(info,checked);
         });
@@ -2379,9 +2431,9 @@ public class SettingsActivity extends Activity {
         Motion.press(row);
         row.setOnLongClickListener(v -> {
             Panel actions=Panel.with(this,skin,info.name).compact();
-            actions.primary("Редактировать",()->PluginEditorActivity.binary(this,info.id));
-            actions.quiet("Удалить с устройства",()->askToRemove(info));
-            if(AdminAccess.current())actions.quiet("Управление магазином",()->PluginAdmin.show(this));
+            actions.primary(Local.of("Редактировать"),()->PluginEditorActivity.binary(this,info.id));
+            actions.quiet(Local.of("Удалить с устройства"),()->askToRemove(info));
+            if(AdminAccess.current())actions.quiet(Local.of("Управление магазином"),()->PluginAdmin.show(this));
             actions.quiet(Text.CLOSE,null);actions.show();
             return true;
         });
@@ -2390,15 +2442,8 @@ public class SettingsActivity extends Activity {
 
     private void activatePlugin(final Plugins.Info info,boolean enabled){
         if(!enabled){Net.away("plugin stop",()->{Plugins.setEnabled(info.id,false);runOnUiThread(()->{if(!isFinishing())rebuild();});});return;}
-        Net.away("plugin check",()->{
-            try{final PluginAudit.Report report=Plugins.inspectInstalled(info.id);
-                runOnUiThread(()->{if(isFinishing())return;
-                    if(report.blocked){Panel.with(this,skin,"Плагин заблокирован").text(report.summary()).quiet("Назад",null).show();rebuild();return;}
-                    Runnable enable=()->Net.away("plugin activation",()->{Plugins.approve(this,info.id,report.digest);Plugins.setEnabled(info.id,true);runOnUiThread(()->{if(!isFinishing())rebuild();});});
-                    if(report.findings.isEmpty())enable.run();else Panel.with(this,skin,"Возможности плагина").text(report.summary()).primary("Разрешить и включить",()->enable.run()).quiet("Назад",()->rebuild()).show();
-                });
-            }catch(Throwable error){Screen.say(String.valueOf(error.getMessage()));runOnUiThread(()->{if(!isFinishing())rebuild();});}
-        });
+        // on is on: what the plugin reaches for was shown when it was installed, and is one tap away
+        Net.away("plugin start",()->{Plugins.setEnabled(info.id,true);runOnUiThread(()->{if(!isFinishing())rebuild();});});
     }
 
     private void openPluginSettings(final Plugins.Info info) {
@@ -2415,18 +2460,18 @@ public class SettingsActivity extends Activity {
             catch(Throwable error){Diary.note("plugin settings "+info.id+": "+error);}
         }
         if(count==0){
-            if(!Plugins.isEnabled(info.id))panel.text("Включите плагин, чтобы открыть его настройки.");
-            else if(Plugins.isRunning(info.id))panel.text("Плагин не предоставил настройки. Версия "+info.version);
+            if(!Plugins.isEnabled(info.id))panel.text(Local.of("Включите плагин, чтобы открыть его настройки."));
+            else if(Plugins.isRunning(info.id))panel.text(Local.of("Плагин не предоставил настройки. Версия ")+info.version);
             else{
                 String why=Plugins.problem(info.id);
-                panel.text(why!=null?"Плагин включён, но не запущен: "+why:"Плагин включён, но ещё не запущен в этом сеансе.");
-                panel.primary("Запустить заново",()->Net.away("plugin revive",()->{
+                panel.text(why!=null?Local.of("Плагин включён, но не запущен: ")+why:Local.of("Плагин включён, но ещё не запущен в этом сеансе."));
+                panel.primary(Local.of("Запустить заново"),()->Net.away("plugin revive",()->{
                     final boolean ok=Plugins.revive(info.id);
                     runOnUiThread(()->{if(isFinishing())return;rebuild();if(ok)openPluginSettings(info);});
                 }));
             }
         }else panel.view(body);
-        panel.quiet("Назад",null).show();
+        panel.quiet(Local.of("Назад"),null).show();
     }
 
     private void pickPlugin() {
@@ -2476,14 +2521,14 @@ public class SettingsActivity extends Activity {
             try {final PluginAudit.Report report=Plugins.inspect(this,source);
                 runOnUiThread(()->{
                     if(isFinishing())return;
-                    Panel panel=Panel.with(this,skin,"Проверка плагина").text(report.summary());
-                    if(!report.blocked)panel.primary("Установить выключенным",()->Net.away("plugin install",()->{
+                    Panel panel=Panel.with(this,skin,Text.PLUGIN_REVIEW).text(report.summary());
+                    panel.primary(Text.PLUGIN_INSTALL,()->Net.away("plugin install",()->{
                         try {Plugins.install(this,source,report.digest);runOnUiThread(()->{if(!isFinishing())rebuild();});Screen.say(Text.PLUGIN_INSTALLED);}
                         catch(Throwable error){Screen.say(String.valueOf(error.getMessage()));}
                     }));
-                    panel.quiet("Назад",null).show();
+                    panel.quiet(Local.of("Назад"),null).show();
                 });
-            }catch(Throwable error){runOnUiThread(()->{if(!isFinishing())Panel.with(this,skin,"Плагин не принят").text(String.valueOf(error.getMessage())).quiet("Назад",null).show();});}
+            }catch(Throwable error){runOnUiThread(()->{if(!isFinishing())Panel.with(this,skin,Local.of("Плагин не принят")).text(String.valueOf(error.getMessage())).quiet(Local.of("Назад"),null).show();});}
         });
     }
 
@@ -2570,14 +2615,7 @@ public class SettingsActivity extends Activity {
 
         rows.addView(quiet(Text.DONATE_NOTE));
 
-        LinearLayout card = row();
-        LinearLayout cardText = new LinearLayout(this);
-        cardText.setOrientation(LinearLayout.VERTICAL);
-        cardText.addView(label(spaced(CARD_NUMBER)));
-        cardText.addView(detail(Text.CARD + "  ·  " + Text.TAP_TO_COPY));
-        card.addView(cardText, grow());
-        card.setOnClickListener(v -> copy(Text.CARD, CARD_NUMBER));
-        rows.addView(sized(card, 64));
+        rows.addView(cardRow());
 
         rows.addView(linkRow("star", Text.YOOMONEY, Text.YOOMONEY_NOTE, YOOMONEY));
         return rows;
@@ -2862,13 +2900,13 @@ public class SettingsActivity extends Activity {
         ((ViewGroup) button).getChildAt(0).setScaleX(-1f);
         bar.addView(button);
         TextView name = new TextView(this);
-        name.setText(settingsGroup == 0 ? "TikTok" : "Настройки");
+        name.setText(settingsGroup == 0 ? "TikTok" : Local.of("Настройки"));
         name.setTextColor(skin.muted());
         name.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
         name.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         name.setPadding(dp(12), 0, 0, 0);
         bar.addView(name);
-        bar.setContentDescription(settingsGroup == 0 ? "TikTok" : "Настройки");
+        bar.setContentDescription(settingsGroup == 0 ? "TikTok" : Local.of("Настройки"));
         bar.setOnClickListener(v -> goBack());
         return bar;
     }
@@ -3052,7 +3090,7 @@ public class SettingsActivity extends Activity {
 
     private int searchControl(LinearLayout into,String section,String title,boolean on){
         if(!matchesSearch(title))return 0;if(into.getChildCount()>0)into.addView(line());
-        into.addView(actionRow("search",title,on?"Включено":"Выключено",()->{searchQuery="";settingsGroup=groupOf(section);rebuild();page.post(()->{View target=settingTargets.get(title);if(target==null)return;int offset=0;View cursor=target;while(cursor!=column){offset+=cursor.getTop();if(!(cursor.getParent() instanceof View))break;cursor=(View)cursor.getParent();}page.smoothScrollTo(0,Math.max(0,offset-dp(16)));Motion.change(target);});}));return 1;
+        into.addView(actionRow("search",title,on?Local.of("Включено"):Local.of("Выключено"),()->{searchQuery="";settingsGroup=groupOf(section);rebuild();page.post(()->{View target=settingTargets.get(title);if(target==null)return;int offset=0;View cursor=target;while(cursor!=column){offset+=cursor.getTop();if(!(cursor.getParent() instanceof View))break;cursor=(View)cursor.getParent();}page.smoothScrollTo(0,Math.max(0,offset-dp(16)));Motion.change(target);});}));return 1;
     }
     private int searchHit(LinearLayout into, String title, String words, final Runnable open) {
         if (!matchesSearch(title + " " + words)) return 0;
@@ -3071,11 +3109,11 @@ public class SettingsActivity extends Activity {
 
     private String currentValue(String title){
         if(title.equals(Text.ACCENT))return String.format(Locale.US,"#%06X",Accent.colour()&0xFFFFFF);
-        if(title.equals(Text.THEME))return Themes.isEnabled()?"Включена":"Выключена";
-        if(title.equals(Text.FEED))return Feed.isEnabled()?"Реклама скрыта":"Реклама разрешена";
-        if(title.equals(Text.DOWNLOADS))return Download.isEnabled()?"Без водяного знака":"Обычное сохранение";
-        if(title.equals(Text.PROFILE_STYLE))return Account.profileHandle()==null?"Откройте свой профиль":"@"+Account.profileHandle();
-        return "Открыть настройки";
+        if(title.equals(Text.THEME))return Themes.isEnabled()?Local.of("Включена"):Local.of("Выключена");
+        if(title.equals(Text.FEED))return Feed.isEnabled()?Local.of("Реклама скрыта"):Local.of("Реклама разрешена");
+        if(title.equals(Text.DOWNLOADS))return Download.isEnabled()?Local.of("Без водяного знака"):Local.of("Обычное сохранение");
+        if(title.equals(Text.PROFILE_STYLE))return Account.profileHandle()==null?Local.of("Откройте свой профиль"):"@"+Account.profileHandle();
+        return Local.of("Открыть настройки");
     }
     private boolean matchesSearch(String words) {
         return words.toLowerCase(Locale.ROOT).contains(searchQuery);
@@ -3096,37 +3134,37 @@ public class SettingsActivity extends Activity {
 
     private String groupName(int group) {
         switch (group) {
-            case 1: return "Оформление";
-            case 2: return "Профиль";
-            case 3: return "Лента и видео";
-            case 4: return "Инструменты";
-            case 5: return "О проекте";
-            case 6: return "Плагины";
-            case 7: return "Друзья и чаты";
+            case 1: return Local.of("Оформление");
+            case 2: return Local.of("Профиль");
+            case 3: return Local.of("Лента и видео");
+            case 4: return Local.of("Инструменты");
+            case 5: return Local.of("О проекте");
+            case 6: return Local.of("Плагины");
+            case 7: return Local.of("Друзья и чаты");
             default: return "MargyT";
         }
     }
 
     private void showSectionHelp() {
-        String[] notes = {"", "Акцент меняет цвет кнопок и вкладок. Готовые картинки могут сохранять свой цвет. Тема и шрифты настраиваются отдельно.",
-                "Значки, их порядок и градиент на ник. Чтобы что-то менять, аккаунт надо один раз подтвердить.",
-                "Глаз меняет прозрачность кнопок поверх видео; «Защита экрана» теперь здесь же. Удержание «Отправить» открывает скачивание и перемотку. Удерживайте видео: вниз закрепить скорость, вверх отменить выбор; после фиксации вниз — снять её.",
-                "Скачивание, резервные копии, диагностика и журнал. Сохраните копию перед экспериментами.",
-                "Здесь находятся версия мода, обновления, журнал и участники.", "Магазин, установка и настройки плагинов. Плагины запускают дополнительный код; устанавливайте только те, которым доверяете.",
-                "Закреплённые друзья, автопродление серий и уведомления мода."};
-        Panel.with(this,skin,"Подсказки").text(notes[Math.max(0,Math.min(notes.length-1,settingsGroup))])
-                .quiet("Обучение",() -> Tutorial.show(this)).primary("Понятно",null).show();
+        String[] notes = {"", Local.of("Акцент меняет цвет кнопок и вкладок. Готовые картинки могут сохранять свой цвет. Тема и шрифты настраиваются отдельно."),
+                Local.of("Значки, их порядок и градиент на ник. Чтобы что-то менять, аккаунт надо один раз подтвердить."),
+                Local.of("Глаз меняет прозрачность кнопок поверх видео; «Защита экрана» теперь здесь же. Удержание «Отправить» открывает скачивание и перемотку. Удерживайте край видео, чтобы ускорить, и потяните вниз, чтобы закрепить скорость."),
+                Local.of("Скачивание, резервные копии, диагностика и журнал. Сохраните копию перед экспериментами."),
+                Local.of("Здесь находятся версия мода, обновления, журнал и участники."), Local.of("Магазин, установка и настройки плагинов. Плагины запускают дополнительный код; устанавливайте только те, которым доверяете."),
+                Local.of("Закреплённые друзья, автопродление серий и уведомления мода.")};
+        Panel.with(this,skin,Local.of("Подсказки")).text(notes[Math.max(0,Math.min(notes.length-1,settingsGroup))])
+                .quiet(Local.of("Обучение"),() -> Tutorial.show(this)).primary(Local.of("Понятно"),null).show();
     }
 
     private View groupNavigation() {
         LinearLayout list = card();
         String[] icons = {"palette", "group", "play_circle", "tune", "info", "extension", "chat"};
-        String[] notes = {"Акцент, тема и шрифты",
-                "Значки, градиент и аккаунт",
-                "Просмотр, кнопки, защита экрана и регион",
-                "Скачивание, копии и диагностика",
-                "Версия, обновления и участники", "Магазин и установленные",
-                "Друзья, серии и уведомления"};
+        String[] notes = {Local.of("Акцент, тема и шрифты"),
+                Local.of("Значки, градиент и аккаунт"),
+                Local.of("Просмотр, кнопки, защита экрана и регион"),
+                Local.of("Скачивание, копии и диагностика"),
+                Local.of("Версия, обновления и участники"), Local.of("Магазин и установленные"),
+                Local.of("Друзья, серии и уведомления")};
         // Shelf order on screen: what people touch daily first, the project itself last.
         int[] shelf = {1, 2, 3, 7, 4, 6, 5};
         for (int n = 0; n < shelf.length; n++) {
@@ -3182,7 +3220,7 @@ public class SettingsActivity extends Activity {
         }
     }
 
-    private static final String BURN = "Защита экрана";
+    private static final String BURN = Local.of("Защита экрана");
 
     private boolean navigating;
     private void goBack() {

@@ -28,6 +28,7 @@ public static void main(String[] a){
 '''}
   with tempfile.TemporaryDirectory() as folder:
    files=[]
+   __import__("android_doubles").with_mod(sources)
    for name,source in sources.items():
     p=pathlib.Path(folder)/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(source,encoding='utf-8');files.append(str(p))
    result=subprocess.run(['javac','-encoding','UTF-8','-d',folder,*files],capture_output=True,text=True);self.assertEqual(0,result.returncode,result.stderr)

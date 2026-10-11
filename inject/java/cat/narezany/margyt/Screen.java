@@ -279,7 +279,7 @@ public final class Screen {
                     DownloadMark content=new DownloadMark(activity,onAccent());
                     content.setOrientation(android.widget.LinearLayout.VERTICAL);
                     content.setPadding(dp(activity,16),dp(activity,10),dp(activity,16),dp(activity,12));
-                    TextView text=new TextView(activity);text.setText(progressJobs.line()==null?"Задачи":"Загрузка");text.setGravity(Gravity.CENTER);text.setPadding(0,0,0,0);text.setContentDescription(line);text.setTextColor(0xFFF2F0F5);text.setTextSize(13);text.setSingleLine(true);text.setEllipsize(android.text.TextUtils.TruncateAt.END);Fonts.apply(text);
+                    TextView text=new TextView(activity);text.setText(progressJobs.line()==null?Local.of("Задачи"):Local.of("Загрузка"));text.setGravity(Gravity.CENTER);text.setPadding(0,0,0,0);text.setContentDescription(line);text.setTextColor(0xFFF2F0F5);text.setTextSize(13);text.setSingleLine(true);text.setEllipsize(android.text.TextUtils.TruncateAt.END);Fonts.apply(text);
                     content.addView(text,new android.widget.LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT));
                     android.widget.ProgressBar progress=new android.widget.ProgressBar(activity,null,android.R.attr.progressBarStyleHorizontal);
                     progress.setMax(100);
@@ -312,7 +312,7 @@ public final class Screen {
                 }
     }
 
-    public static void showTasks(){MAIN.post(()->{if(bar!=null&&barText==null)hideProgressWindow();if(bar==null){progressLine="Задачи";progressWindow();progressLine=progressJobs.line();if(barSurface!=null)barSurface.progress(100);}if(barIsland!=null&&!barIsland.expanded())barIsland.toggle();});}
+    public static void showTasks(){MAIN.post(()->{if(bar!=null&&barText==null)hideProgressWindow();if(bar==null){progressLine=Local.of("Задачи");progressWindow();progressLine=progressJobs.line();if(barSurface!=null)barSurface.progress(100);}if(barIsland!=null&&!barIsland.expanded())barIsland.toggle();});}
     static void tasksCollapsed(){if(progressLine==null)hideProgressWindow();}
     public static void progressGone() {
         progressGone("default");
@@ -366,7 +366,7 @@ public final class Screen {
             dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
             window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));window.setDimAmount(0f);
             window.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL|WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE);
-            TextView text=new TextView(owner);text.setText("Сохранено в "+where);text.setTextColor(0xFFF2F0F5);text.setTextSize(12);text.setGravity(Gravity.CENTER);text.setMaxLines(2);text.setEllipsize(android.text.TextUtils.TruncateAt.END);Fonts.apply(text);
+            TextView text=new TextView(owner);text.setText(Local.of("Сохранено в ")+where);text.setTextColor(0xFFF2F0F5);text.setTextSize(12);text.setGravity(Gravity.CENTER);text.setMaxLines(2);text.setEllipsize(android.text.TextUtils.TruncateAt.END);Fonts.apply(text);
             text.setPadding(dp(owner,14),dp(owner,8),dp(owner,14),dp(owner,8));
             GradientDrawable pill=new GradientDrawable();pill.setColor(0xFF24262B);pill.setCornerRadius(dp(owner,16));text.setBackground(pill);
             dialog.setContentView(text);dialog.show();

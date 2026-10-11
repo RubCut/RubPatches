@@ -126,6 +126,7 @@ class SheetRuntimeTest(unittest.TestCase):
                 ROOT / 'inject/java/cat/narezany/margyt/SheetDialog.java').read_text(encoding='utf-8')
             sources['cat/narezany/margyt/SheetDrag.java']=(ROOT/'inject/java/cat/narezany/margyt/SheetDrag.java').read_text()
             sources['cat/narezany/margyt/SheetHarness.java'] = HARNESS
+            __import__("android_doubles").with_mod(sources)
             for name, content in sources.items():
                 path = work / name
                 path.parent.mkdir(parents=True, exist_ok=True)

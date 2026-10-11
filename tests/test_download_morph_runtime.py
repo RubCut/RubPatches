@@ -39,6 +39,7 @@ class DownloadMorphRuntimeTest(unittest.TestCase):
    work=pathlib.Path(directory);sources=dict(STUBS)
    for name in ('DownloadMark','DownloadMorph','DownloadWave'):sources['cat/narezany/margyt/'+name+'.java']=(ROOT/('inject/java/cat/narezany/margyt/'+name+'.java')).read_text(encoding='utf-8')
    sources['cat/narezany/margyt/MorphHarness.java']=HARNESS
+   __import__("android_doubles").with_mod(sources)
    for name,content in sources.items():
     path=work/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(content,encoding='utf-8')
    result=subprocess.run(['javac','-source','8','-target','8','-encoding','UTF-8','-d',str(work)]+[str(work/n) for n in sources],capture_output=True,text=True);self.assertEqual(0,result.returncode,result.stderr)

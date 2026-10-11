@@ -86,6 +86,7 @@ class FeedFeaturesRuntimeTest(unittest.TestCase):
                 sources['cat/narezany/margyt/'+name+'.java'] = (
                     ROOT / ('inject/java/cat/narezany/margyt/'+name+'.java')).read_text(encoding='utf-8')
             sources['cat/narezany/margyt/FeedHarness.java'] = HARNESS
+            __import__("android_doubles").with_mod(sources)
             for name, content in sources.items():
                 path = work / name
                 path.parent.mkdir(parents=True, exist_ok=True)

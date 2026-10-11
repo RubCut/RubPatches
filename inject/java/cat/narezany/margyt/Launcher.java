@@ -46,7 +46,7 @@ public final class Launcher {
 
     public static String nameOf(String which) {
         int at = indexOf(which);
-        return at < 0 ? Text.ICON_DEFAULT : Shots.LABELS[at];
+        return at < 0 ? Text.ICON_DEFAULT : Local.of(Shots.LABELS[at]);
     }
 
     public static String chosen() {

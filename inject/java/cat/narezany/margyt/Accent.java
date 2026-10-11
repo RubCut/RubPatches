@@ -327,6 +327,28 @@ public final class Accent {
         return now == was ? drawable : new ColorDrawable(now);
     }
 
+    /**
+     * Whether a picture is TikTok's red and next to nothing else.
+     *
+     * That is what an icon to be moved looks like: one colour, and greys. A
+     * drawing is not that -- the flame of a streak runs from red through
+     * orange to yellow -- and moving only the part of it that happens to fall
+     * in the red family gave a flame in colours nobody chose. So a picture is
+     * moved only when nearly every pixel with any colour in it is the red.
+     */
+    private static boolean plainlyRed(int[] pixels) {
+        int coloured = 0, red = 0;
+        for (int pixel : pixels) {
+            if ((pixel >>> 24) < 48) continue;
+            int r = (pixel >> 16) & 0xFF, g = (pixel >> 8) & 0xFF, b = pixel & 0xFF;
+            int most = Math.max(r, Math.max(g, b)), least = Math.min(r, Math.min(g, b));
+            if (most - least < 40) continue;   // a grey, a white, a black
+            coloured++;
+            if (Palette.captures(pixel, TIKTOK)) red++;
+        }
+        return coloured > 0 && red * 100 >= coloured * 88;
+    }
+
     /** Pictures at least this many pixels are worth reading from disk (64x64). */
     private static final int DISK_MIN = 4096;
 
@@ -356,24 +378,30 @@ public final class Accent {
             int[] pixels = new int[width * height];
             source.getPixels(pixels, 0, width, 0, 0, width, height);
             // Larger pictures are remembered across runs, keyed by their pixels.
+            // "bmp2": what was kept under the old name includes pictures that
+            // should never have been moved, and must not be handed back
             String diskKey = width * height >= DISK_MIN
-                    ? "bmp|" + Integer.toHexString(target) + "|"
+                    ? "bmp2|" + Integer.toHexString(target) + "|"
                         + RecolourCache.hash(pixels, width, height) : null;
             if (diskKey != null) {
                 byte[] saved = RecolourCache.get(diskKey);
                 if (saved == RecolourCache.NONE) return drawable;
                 Bitmap restored = saved == null ? null : RecolourCache.decode(saved);
-                if (restored != null) {
+                if (restored != null && restored.getWidth() == width
+                        && restored.getHeight() == height) {
+                    restored.setDensity(source.getDensity());
                     recolouredBitmaps.put(source, restored);
                     return new android.graphics.drawable.BitmapDrawable(resources, restored);
                 }
             }
             boolean any = false;
-            for (int i = 0; i < pixels.length; i++) {
-                int pixel = pixels[i];
-                if ((pixel >>> 24) == 0) continue;
-                int now = Palette.map(pixel, TIKTOK, target);
-                if (now != pixel) { pixels[i] = now; any = true; }
+            if (plainlyRed(pixels)) {
+                for (int i = 0; i < pixels.length; i++) {
+                    int pixel = pixels[i];
+                    if ((pixel >>> 24) == 0) continue;
+                    int now = Palette.map(pixel, TIKTOK, target);
+                    if (now != pixel) { pixels[i] = now; any = true; }
+                }
             }
             if (!any) {
                 if (diskKey != null) RecolourCache.put(diskKey, null);
@@ -381,6 +409,9 @@ public final class Accent {
             }
             Bitmap out = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
             out.setPixels(pixels, 0, width, 0, 0, width, height);
+            // the size it is drawn at comes from this, and a picture made here
+            // is otherwise taken to be the screen's own density
+            out.setDensity(source.getDensity());
             recolouredBitmaps.put(source, out);
             if (diskKey != null) {
                 byte[] encoded = RecolourCache.png(out);
@@ -430,7 +461,7 @@ public final class Accent {
             int[] pixels = new int[width * height];
             drawn.getPixels(pixels, 0, width, 0, 0, width, height);
             String diskKey = width * height >= DISK_MIN
-                    ? "vec|" + Integer.toHexString(target) + "|"
+                    ? "vec2|" + Integer.toHexString(target) + "|"
                         + RecolourCache.hash(pixels, width, height) : null;
             if (diskKey != null) {
                 byte[] saved = RecolourCache.get(diskKey);
@@ -445,10 +476,11 @@ public final class Accent {
                 }
             }
             boolean any = false;
+            boolean red = plainlyRed(pixels);
             for (int i = 0; i < pixels.length; i++) {
                 int pixel = pixels[i];
                 if ((pixel >>> 24) == 0) continue;
-                int now = Palette.map(pixel, TIKTOK, target);
+                int now = red ? Palette.map(pixel, TIKTOK, target) : pixel;
                 if (now == pixel && Palette.secondary(pixel)) now = Palette.toAccent(pixel, target);
                 if (now != pixel) { pixels[i] = now; any = true; }
             }

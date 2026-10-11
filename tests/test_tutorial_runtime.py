@@ -126,6 +126,7 @@ class TutorialRuntimeTest(unittest.TestCase):
             sources['cat/narezany/margyt/Tutorial.java'] = (
                 ROOT / 'inject/java/cat/narezany/margyt/Tutorial.java').read_text(encoding='utf-8')
             sources['cat/narezany/margyt/TutorialHarness.java'] = HARNESS
+            __import__("android_doubles").with_mod(sources)
             for name, content in sources.items():
                 path = work / name
                 path.parent.mkdir(parents=True, exist_ok=True)

@@ -71,6 +71,7 @@ public class Test {
         }
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
+            __import__("android_doubles").with_mod(sources)
             for path, content in sources.items():
                 target = root / "src" / path
                 target.parent.mkdir(parents=True, exist_ok=True)

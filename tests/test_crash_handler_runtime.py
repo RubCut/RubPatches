@@ -7,6 +7,7 @@ class CrashHandlerTest(unittest.TestCase):
   files={'cat/narezany/margyt/CrashReports.java':code,'android/content/Context.java':'package android.content;public class Context{public Context getApplicationContext(){return this;}}','android/os/Process.java':'package android.os;public class Process{public static int myPid(){return 1;}public static void killProcess(int i){}}','cat/narezany/margyt/Test.java':"""package cat.narezany.margyt;public class Test{public static void main(String[] args){final int[] nativeCalls={0};Thread.setDefaultUncaughtExceptionHandler((t,e)->nativeCalls[0]++);CrashReports.start(new android.content.Context());Thread.UncaughtExceptionHandler h=Thread.getDefaultUncaughtExceptionHandler();h.uncaughtException(Thread.currentThread(),new RuntimeException());h.uncaughtException(Thread.currentThread(),new RuntimeException());if(nativeCalls[0]!=2)throw new AssertionError("native crash chain suppressed");}}"""}
   with tempfile.TemporaryDirectory() as directory:
    work=pathlib.Path(directory)
+   __import__("android_doubles").with_mod(files)
    for name,text in files.items():p=work/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(text,encoding='utf8')
    out=subprocess.run(['javac','-source','8','-target','8','-d',directory]+[str(work/name) for name in files],capture_output=True,text=True);self.assertEqual(0,out.returncode,out.stderr)
    out=subprocess.run(['java','-cp',directory,'cat.narezany.margyt.Test'],capture_output=True,text=True);self.assertEqual(0,out.returncode,out.stderr)
