@@ -681,6 +681,12 @@ public class SettingsActivity extends Activity {
     }
 
     /** A setting changed: redraw, and from now on the bar is up. */
+    /** Something that needs a restart was changed on another screen: the store, say. */
+    static void restartOwed() {
+        pending = true;
+        Unsaved.other();
+    }
+
     private void markChanged() {
         // not simply "yes": put everything back as it was and there is
         // nothing left for a restart to apply
@@ -2441,9 +2447,12 @@ public class SettingsActivity extends Activity {
     }
 
     private void activatePlugin(final Plugins.Info info,boolean enabled){
-        if(!enabled){Net.away("plugin stop",()->{Plugins.setEnabled(info.id,false);runOnUiThread(()->{if(!isFinishing())rebuild();});});return;}
+        // A plugin's hooks are in TikTok from the moment it starts, and stay there after it is told to
+        // stop: on or off, it only takes hold with a restart. The plugins said so themselves, in a line
+        // of text; this offers the same button every other such setting does.
+        if(!enabled){Net.away("plugin stop",()->{Plugins.setEnabled(info.id,false);runOnUiThread(()->{if(!isFinishing()){markChanged();rebuild();}});});return;}
         // on is on: what the plugin reaches for was shown when it was installed, and is one tap away
-        Net.away("plugin start",()->{Plugins.setEnabled(info.id,true);runOnUiThread(()->{if(!isFinishing())rebuild();});});
+        Net.away("plugin start",()->{Plugins.setEnabled(info.id,true);runOnUiThread(()->{if(!isFinishing()){markChanged();rebuild();}});});
     }
 
     private void openPluginSettings(final Plugins.Info info) {
@@ -2523,7 +2532,7 @@ public class SettingsActivity extends Activity {
                     if(isFinishing())return;
                     Panel panel=Panel.with(this,skin,Text.PLUGIN_REVIEW).text(report.summary());
                     panel.primary(Text.PLUGIN_INSTALL,()->Net.away("plugin install",()->{
-                        try {Plugins.install(this,source,report.digest);runOnUiThread(()->{if(!isFinishing())rebuild();});Screen.say(Text.PLUGIN_INSTALLED);}
+                        try {Plugins.install(this,source,report.digest);runOnUiThread(()->{if(!isFinishing()){markChanged();rebuild();}});Screen.say(Text.PLUGIN_INSTALLED);}
                         catch(Throwable error){Screen.say(String.valueOf(error.getMessage()));}
                     }));
                     panel.quiet(Local.of("Назад"),null).show();

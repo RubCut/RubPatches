@@ -90,6 +90,11 @@ final class Unsaved {
         }
     }
 
+    /** A change that is not written in any preference, and so cannot be seen to be undone. */
+    static void other() {
+        elsewhere = true;
+    }
+
     private static boolean same(Object one, Object two) {
         return one == null ? two == null : one.equals(two);
     }
