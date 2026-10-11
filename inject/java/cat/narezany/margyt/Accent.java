@@ -1834,10 +1834,52 @@ public final class Accent {
         view.setTextColor((original&0xff000000)|(accent()&0xffffff));
     }
 
+    /**
+     * The colour a number stands for, where TikTok gives a colour by number.
+     *
+     * The number is nearly always an attribute of the theme -- "primary
+     * text", "secondary icon" -- and only the theme knows what colour that is
+     * today. It used to be read here as a colour resource, which it is not:
+     * the read failed, the failure was written in the diary several times a
+     * second, and the label or icon was left the colour its layout gave it,
+     * which on a dark sheet is black on nearly black. TikTok's own reading is
+     * the one done here now, and a plain colour resource is still tried
+     * after it, for the few callers that do pass one.
+     */
+    static Integer themed(android.content.Context context, int number) {
+        if (context == null || number == 0) return null;
+        try {
+            android.util.TypedValue value = new android.util.TypedValue();
+            if (context.getTheme().resolveAttribute(number, value, true)) {
+                if (value.type >= android.util.TypedValue.TYPE_FIRST_COLOR_INT
+                        && value.type <= android.util.TypedValue.TYPE_LAST_COLOR_INT) {
+                    return Integer.valueOf(value.data);
+                }
+                if (value.resourceId != 0) {
+                    return Integer.valueOf(context.getResources().getColor(value.resourceId, context.getTheme()));
+                }
+                return null;
+            }
+        } catch (Throwable ignored) { }
+        try {
+            return Integer.valueOf(context.getResources().getColor(number, context.getTheme()));
+        } catch (Throwable notAColour) {
+            return null;
+        }
+    }
+
+    /** What colour TikTok asked for on a view, before any of this changed it. A test build's question. */
+    static String sourceOf(TextView view){
+        Integer source;
+        synchronized(textSources){source=textSources.get(view);}
+        return source==null?"unknown":Integer.toHexString(source);
+    }
+
     public static void setTextColorRes(TextView view,int resource){
         if(view==null||resource==0)return;
-        try{setTextColor(view,view.getContext().getResources().getColor(resource,view.getContext().getTheme()));}
-        catch(Throwable error){Diary.note("native text colour resource: "+error);}
+        // nothing it stands for: TikTok leaves the view as it is, and so does this
+        Integer colour=themed(view.getContext(),resource);
+        if(colour!=null)setTextColor(view,colour.intValue());
     }
 
     public static void setTextColor(TextView view, int colour) {
@@ -1893,8 +1935,8 @@ public final class Accent {
 
     public static void setTintColorRes(TuxIconView view,int resource){
         if(view==null)return;
-        try{setTintColor(view,view.getContext().getResources().getColor(resource,view.getContext().getTheme()));}
-        catch(Throwable error){Diary.note("native tint resource: "+error);}
+        Integer colour=themed(view.getContext(),resource);
+        if(colour!=null)setTintColor(view,colour.intValue());
     }
     /** Native 47.2.41 reaction controller: only the filled, selected dislike icon. */
     public static void dislike(Object controller){

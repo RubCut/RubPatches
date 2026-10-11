@@ -1,9 +1,0 @@
-package cat.narezany.margyt;
-
-/** Declared for the api build. The real one is in the patched apk. */
-public final class Diary {
-    private Diary() {}
-
-    public static void note(String line) {
-    }
-}

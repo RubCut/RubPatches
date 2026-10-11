@@ -205,6 +205,11 @@ public final class Cats {
         });
     }
 
+    /** The fat tilcayo himself, for the widget. Fetched if this phone has not met him. */
+    static byte[] fat(Context context) {
+        return picture(context, "tilcayo.jpg");
+    }
+
     private static byte[] picture(Context context, String path) {
         File cache = new File(context.getFilesDir(), "margyt/cats/" + name(path));
         byte[] have = Net.read(cache);

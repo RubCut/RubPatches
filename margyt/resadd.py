@@ -33,10 +33,12 @@ UTF8_FLAG = 1 << 8
 
 
 def add_files(data: bytes, package_id: int, type_name: str,
-              names_and_paths: List[tuple]) -> bytes:
+              names_and_paths: List[tuple], package_name: str = "margyt") -> bytes:
     """Add one package holding a file resource per (name, path) given.
 
     The ids handed out are `package_id<<24 | 1<<16 | n`, in the order given.
+    A second package added to the same table is given a name of its own:
+    the system keeps a list of packages by name as well as by number.
     """
     table_kind, table_header, table_size = struct.unpack_from("<HHI", data, 0)
     if table_kind != RES_TABLE:
@@ -48,7 +50,8 @@ def add_files(data: bytes, package_id: int, type_name: str,
 
     package = _package(package_id, type_name,
                        [name for name, _path in names_and_paths],
-                       list(range(first_string, first_string + len(paths))))
+                       list(range(first_string, first_string + len(paths))),
+                       package_name)
 
     out = bytearray(grown)
     out.extend(package)
@@ -168,7 +171,7 @@ def _encode(text: str, utf8: bool) -> bytes:
 
 
 def _package(package_id: int, type_name: str, keys: List[str],
-             string_indexes: List[int]) -> bytes:
+             string_indexes: List[int], package_name: str = "margyt") -> bytes:
     """A whole package chunk: its two pools, a type spec, and one type."""
     type_pool = _pool([type_name])
     key_pool = _pool(keys)
@@ -183,7 +186,7 @@ def _package(package_id: int, type_name: str, keys: List[str],
     struct.pack_into("<HHI", head, 0, RES_TABLE_PACKAGE, header_size,
                      header_size + len(body))
     struct.pack_into("<I", head, 8, package_id)
-    name = "margyt".encode("utf-16-le")
+    name = package_name.encode("utf-16-le")
     head[12:12 + len(name)] = name
     # typeStrings, lastPublicType, keyStrings, lastPublicKey
     struct.pack_into("<4I", head, 268,

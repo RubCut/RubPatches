@@ -33,6 +33,9 @@ final class Local {
     }
 
     static {
+        add("Код плагина не удалось разобрать: ",
+                "Код плагіна не вдалося розібрати: ",
+                "The plugin's code could not be read: ");
         add("Задачи  ·  Свернуть",
                 "Завдання  ·  Згорнути",
                 "Tasks  ·  Collapse");

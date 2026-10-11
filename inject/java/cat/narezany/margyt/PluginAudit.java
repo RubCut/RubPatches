@@ -47,7 +47,19 @@ public final class PluginAudit {
         }
         report.digest=hex(hash.digest());return report;
     }
+    /**
+     * What a dex reaches for. A dex this cannot read is said to be one it could not read, and is not
+     * refused for it: whether the code runs is for the loader to find out, and a look that fails is no
+     * reason to keep a plugin off somebody's phone.
+     */
     public static Report dex(byte[] data)throws Exception{
+        try{return read(data);}
+        catch(IOException unreadable){
+            Report report=new Report();report.add(Local.of("Код плагина не удалось разобрать: ")+unreadable.getMessage(),false);
+            report.digest=sha256(data);return report;
+        }
+    }
+    private static Report read(byte[] data)throws Exception{
         Report report=new Report();Dex d=new Dex(data);
         for(int i=0;i<d.typeCount;i++){
             String type=d.type(i);
@@ -105,7 +117,10 @@ public final class PluginAudit {
             if(index<0||index>=stringCount)throw new IOException(Local.of("Индекс строки DEX"));
             int offset=u32(stringOff+index*4);String ready=decoded.get(offset);if(ready!=null)return ready;
             int[] pos={offset};uleb(pos);int start=pos[0];
-            while(true){range(pos[0],1);if(b[pos[0]++]==0)break;if(++textBytes>MAX_DEX||pos[0]-start>65536)throw new IOException(Local.of("Слишком большие строки DEX"));}
+            while(true){range(pos[0],1);if(b[pos[0]++]==0)break;
+            // One string may be as long as it likes: a plugin that carries a picture carries it as text, and
+            // the dex compiler joins the pieces of one back together however the author split them.
+            if(++textBytes>MAX_DEX)throw new IOException(Local.of("Слишком большие строки DEX"));}
             ready=new String(b,start,pos[0]-start-1,java.nio.charset.StandardCharsets.UTF_8);decoded.put(offset,ready);return ready;
         }
         String type(int index)throws IOException{if(index<0||index>=typeCount)throw new IOException(Local.of("Индекс типа DEX"));return string(u32(typeOff+index*4));}

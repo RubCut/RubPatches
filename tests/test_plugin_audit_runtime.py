@@ -36,7 +36,7 @@ class AuditHarness {
   check(!scan(args[3]).blocked&&!scan(args[3]).findings.isEmpty(),"network reported, not automatically malicious");
   check(!scan(args[4]).findings.isEmpty(),"reflection needs review");check(!scan(args[5]).findings.isEmpty(),"host API network reported");
   byte[] broken=PluginAudit.read(new File(args[0]),PluginAudit.MAX_DEX);broken[broken.length-2]^=1;
-  try{PluginAudit.dex(broken);throw new AssertionError("damaged DEX accepted");}catch(IOException expected){}
+  check(!PluginAudit.dex(broken).findings.isEmpty()&&!PluginAudit.dex(broken).blocked,"a damaged DEX is said to be unreadable, and that is all");
   for(int i=7;i<=11;i++)check(!scan(args[i]).blocked,"short names, missing sources and long strings are nobody's business");
   check(scan(args[1]).summary().contains("What the plugin"),"the summary is written in the phone's language");
   File dir=new File(args[6]);denied(pack("../classes.dex",1),new File(dir,"path"));denied(pack("lib.so",1),new File(dir,"native"));denied(pack("manifest.json",65537),new File(dir,"bomb"));denied(pack("classes.dex",1),new File(dir,"missing"));

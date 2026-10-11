@@ -54,6 +54,20 @@ ATTR_IDS = {
     "taskAffinity": 0x01010012,
     "minSdkVersion": 0x0101020C,
     "versionCode": 0x0101021B,
+    # a widget's description, its layout, and the line that points to them
+    "resource": 0x01010025,
+    "id": 0x010100D0,
+    "layout_width": 0x010100F4,
+    "layout_height": 0x010100F5,
+    "scaleType": 0x0101011D,
+    "minWidth": 0x0101013F,
+    "minHeight": 0x01010140,
+    "updatePeriodMillis": 0x01010250,
+    "initialLayout": 0x01010251,
+    "resizeMode": 0x01010363,
+    "widgetCategory": 0x010103C4,
+    "targetCellWidth": 0x01010634,
+    "targetCellHeight": 0x01010635,
 }
 
 NO_ENTRY = 0xFFFFFFFF

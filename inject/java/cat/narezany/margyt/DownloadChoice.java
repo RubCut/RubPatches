@@ -10,9 +10,44 @@ public final class DownloadChoice {
  private static void bind(View view,Dialog dialog,Object post,int depth,int[] budget){if(post==null||depth>20||budget[0]--<=0)return;
   CharSequence label=view instanceof TextView?((TextView)view).getText():view.getContentDescription();
   if(saveLabel(label)){View target=view;for(int i=0;i<4&&!target.hasOnClickListeners()&&target.getParent() instanceof View;i++)target=(View)target.getParent();
-   if(target.hasOnClickListeners()){final View button=target;target.setOnClickListener(v->{dialog.dismiss();VideoActions.chooseDownload(button.getContext(),post);});return;}
+   if(target.hasOnClickListeners()&&cell(target)&&!offline(dialog)){final View button=target;target.setOnClickListener(v->{dialog.dismiss();VideoActions.chooseDownload(button.getContext(),post);});return;}
   }
   if(view instanceof ViewGroup){ViewGroup group=(ViewGroup)view;for(int i=0;i<group.getChildCount();i++)bind(group.getChildAt(i),dialog,post,depth+1,budget);}
+ }
+
+ /**
+  * Whether a view is one cell of the share sheet's row and not something wider.
+  *
+  * "Download" is also what the button says on the sheet that saves videos for
+  * watching offline, and there the nearest thing with a click on it can be
+  * the whole sheet: every tap on it then opened this menu, for the video
+  * playing underneath. A cell of the share row is a fifth of the screen
+  * across; anything approaching half of it is not one.
+  */
+ static boolean cell(View target){
+  View root=target.getRootView();int across=root==null?0:root.getWidth();
+  return across<=0||target.getWidth()<=0||target.getWidth()<across*0.45f;
+ }
+ private static final java.util.Map<Dialog,Boolean> offlineSheets=new java.util.WeakHashMap<>();
+ /** Whether a dialog is the offline-videos sheet, decided once it has something in it. */
+ private static boolean offline(Dialog dialog){
+  synchronized(offlineSheets){Boolean known=offlineSheets.get(dialog);if(known!=null)return known;}
+  android.view.Window window=dialog.getWindow();if(window==null)return false;
+  int[] budget={512};boolean found=offlineIn(window.getDecorView(),0,budget);
+  // an empty sheet says nothing yet: ask again when it has been filled
+  if(found||budget[0]<500)synchronized(offlineSheets){offlineSheets.put(dialog,found);}
+  return found;
+ }
+ static boolean offlineWords(CharSequence value){
+  if(value==null||value.length()<6)return false;String text=value.toString().toLowerCase(java.util.Locale.ROOT);
+  return text.contains("офлайн")||text.contains("оффлайн")||text.contains("offline");
+ }
+ private static boolean offlineIn(View view,int depth,int[] budget){
+  if(view==null||depth>24||budget[0]--<=0)return false;
+  if(view.getClass().getName().contains(".offlinemode."))return true;
+  if(view instanceof TextView&&offlineWords(((TextView)view).getText()))return true;
+  if(view instanceof ViewGroup){ViewGroup group=(ViewGroup)view;for(int i=0;i<group.getChildCount();i++)if(offlineIn(group.getChildAt(i),depth+1,budget))return true;}
+  return false;
  }
 
  private static final java.util.Map<android.view.Window,Boolean> guarded=new java.util.WeakHashMap<>();
@@ -34,7 +69,7 @@ public final class DownloadChoice {
     boolean take=false;
     try{
      int action=e.getActionMasked();
-     if(action==android.view.MotionEvent.ACTION_DOWN){zone[0]=saveZone(window.getDecorView(),(int)e.getRawX(),(int)e.getRawY(),new int[]{512});down[0]=e.getRawX();down[1]=e.getRawY();when[0]=e.getEventTime();}
+     if(action==android.view.MotionEvent.ACTION_DOWN){zone[0]=offline(dialog)?null:saveZone(window.getDecorView(),(int)e.getRawX(),(int)e.getRawY(),new int[]{512});down[0]=e.getRawX();down[1]=e.getRawY();when[0]=e.getEventTime();}
      else if(zone[0]!=null){
       if(action==android.view.MotionEvent.ACTION_CANCEL||action==android.view.MotionEvent.ACTION_POINTER_DOWN)zone[0]=null;
       else if(action==android.view.MotionEvent.ACTION_MOVE){if(Math.hypot(e.getRawX()-down[0],e.getRawY()-down[1])>slop)zone[0]=null;}
@@ -59,6 +94,7 @@ public final class DownloadChoice {
   if(view==null||budget[0]--<=0||view.getVisibility()!=View.VISIBLE)return null;
   CharSequence label=view instanceof TextView?((TextView)view).getText():view.getContentDescription();
   if(saveLabel(label)){View target=view;for(int i=0;i<4&&!(target.isClickable()||target.hasOnClickListeners())&&target.getParent() instanceof View;i++)target=(View)target.getParent();
+   if(!cell(target))return null;
    int[] at=new int[2];target.getLocationOnScreen(at);android.graphics.Rect rect=new android.graphics.Rect(at[0],at[1],at[0]+target.getWidth(),at[1]+target.getHeight());
    if(rect.contains(x,y))return rect;
   }

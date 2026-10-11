@@ -648,6 +648,171 @@ final class Text {
             "The badge is given by hand, usually within a day. The gradient on "
                     + "your name and the link to the closed chat come with it.");
 
+    static final String TIKTOK_FEATURES = pick("Функции TikTok", "Функції TikTok", "TikTok features");
+    static final String TIKTOK_FEATURES_NOTE = pick(
+            "Это функции самого TikTok, которые он пока включает не всем. Здесь их "
+                    + "можно включить себе. Что-то может работать не до конца.",
+            "Це функції самого TikTok, які він поки вмикає не всім. Тут їх можна "
+                    + "увімкнути собі. Щось може працювати не до кінця.",
+            "These are TikTok's own features that it has not switched on for everybody yet. "
+                    + "Here you can switch them on for yourself. Some may not fully work.");
+    static final String COMMENT_REPOST = pick("Репост комментариев", "Репост коментарів",
+            "Repost comments");
+    static final String SELF_REPOST = pick("Репост своих видео", "Репост своїх відео",
+            "Repost your own videos");
+    static final String NEW_PROFILE = pick("Новый вид профиля TikTok", "Новий вигляд профілю TikTok",
+            "TikTok's new profile look");
+
+    static final String TAB_READ_ALL = pick("Прочитать все?", "Прочитати все?", "Mark all as read?");
+    static final String TAB_READ_ALL_NOTE = pick(
+            "Число на кнопке пропадёт и вернётся, когда придёт что-то новое.",
+            "Число на кнопці зникне й повернеться, коли надійде щось нове.",
+            "The number on the tab goes away and comes back when something new arrives.");
+    static final String TAB_READ_ALL_YES = pick("Прочитать", "Прочитати", "Mark as read");
+    static final String TAB_UNREAD_BACK = pick("Вернуть число?", "Повернути число?", "Bring the number back?");
+    static final String TAB_UNREAD_BACK_NOTE = pick(
+            "Сейчас число на этой кнопке скрыто.", "Зараз число на цій кнопці приховано.",
+            "The number on this tab is hidden at the moment.");
+    static final String TAB_UNREAD_BACK_YES = pick("Вернуть", "Повернути", "Bring it back");
+
+    static final String AVATAR_SHAPE = pick("Форма аватарок", "Форма аватарок", "Avatar shape");
+    static final String SHAPE_CIRCLE = pick("Круг", "Коло", "Circle");
+    static final String SHAPE_ROUNDED = pick("Скруглённый", "Заокруглений", "Rounded");
+    static final String SHAPE_SQUARE = pick("Квадрат", "Квадрат", "Square");
+    static final String SHAPE_COOKIE = pick("Печенье", "Печиво", "Cookie");
+    static final String SHAPE_CLOVER = pick("Клевер", "Конюшина", "Clover");
+    static final String SHAPE_BURST = pick("Вспышка", "Спалах", "Burst");
+    static final String SHAPE_SUN = pick("Солнце", "Сонце", "Sun");
+    static final String SHAPE_PENTAGON = pick("Пятиугольник", "П'ятикутник", "Pentagon");
+    static final String SHAPE_HEXAGON = pick("Шестиугольник", "Шестикутник", "Hexagon");
+    static final String SHAPE_HEART = pick("Сердце", "Серце", "Heart");
+
+    static final String DEP_TITLE = pick("Деп калькулятор мини", "Деп калькулятор міні", "Dep Calculator mini");
+    static final String DEP_HINT = pick("Наберите число и нажмите «ДЕП»", "Наберіть число й натисніть «ДЕП»",
+            "Type a number and press DEP");
+    static final String DEP_SPIN = pick("ДЕП", "ДЕП", "DEP");
+    static final String DEP_BALANCE = pick("Баланс", "Баланс", "Balance");
+    static final String DEP_DEBT = pick("Долг", "Борг", "Debt");
+    static final String DEP_WON = pick("Выигрыш", "Виграш", "Won");
+    static final String DEP_LOST = pick("Проигрыш", "Програш", "Lost");
+    static final String DEP_LOAN = pick("Денег нет. Банк выдал кредит.", "Грошей немає. Банк видав кредит.",
+            "No money left. The bank gave you a loan.");
+    static final String DEP_COIN = pick("ДК", "ДК", "DC");
+    static final String DEP_BORROW = pick("Кредит", "Кредит", "Loan");
+    static final String DEP_REPAY = pick("Погасить", "Погасити", "Repay");
+    static final String DEP_REPAID = pick("Погашено", "Погашено", "Repaid");
+    static final String DEP_NO_DEBT = pick("Гасить нечего или нечем", "Гасити нічого або нічим",
+            "Nothing to repay, or nothing to repay it with");
+    static final String DEP_BROKE = pick("Денег нет. Возьмите кредит.", "Грошей немає. Візьміть кредит.",
+            "No money left. Take a loan.");
+    static final String DEP_PUSH = pick("Ничья, ставка вернулась", "Нічия, ставка повернулася",
+            "A draw, the stake is back");
+    static final String DEP_HIT = pick("Ещё", "Ще", "Hit");
+    static final String DEP_STAND = pick("Хватит", "Досить", "Stand");
+    static final String DEP_YOU = pick("Вы", "Ви", "You");
+    static final String DEP_DEALER = pick("Дилер", "Дилер", "Dealer");
+    static final String DEP_OFFLINE = pick("Сервер не ответил", "Сервер не відповів", "The server did not answer");
+    static final String DEP_PROVE = pick("Сначала подтвердите аккаунт", "Спочатку підтвердьте акаунт",
+            "Prove the account is yours first");
+    static final String DEP_PROVE_SHORT = pick("нужен аккаунт", "потрібен акаунт", "account needed");
+    static final String DEP_PROVE_WHY = pick(
+            "Деп коины и значок считает сервер, поэтому играть может только подтверждённый аккаунт: "
+                    + "так никто не проиграет чужие коины.",
+            "Деп коїни й значок рахує сервер, тому грати може лише підтверджений акаунт: "
+                    + "так ніхто не програє чужі коїни.",
+            "The server counts the dep coins and the badge, so only a proved account can play: "
+                    + "that way nobody can lose somebody else's coins.");
+    static final String DEP_SLOW = pick("Слишком быстро", "Занадто швидко", "Too fast");
+    static final String DEP_OWED_MOST = pick("Больше в долг не дают. Потолок:", "Більше в борг не дають. Стеля:",
+            "No more loans. The ceiling is");
+    static final String DEP_PAY_FIRST = pick("Сначала погасите долг", "Спочатку погасіть борг", "Repay the debt first");
+    static final String DEP_SHORT = pick("Не хватает. Значок стоит", "Не вистачає. Значок коштує",
+            "Not enough. The badge costs");
+    static final String DEP_HAND_OPEN = pick("Сначала доиграйте раздачу в 21", "Спочатку дограйте роздачу в 21",
+            "Finish the hand of twenty-one first");
+    static final String DEP_BUY = pick("Значок «Калькуляторщик»", "Значок «Калькуляторник»", "The Calculator badge");
+    static final String DEP_BOUGHT = pick("Значок «Калькуляторщик» ваш", "Значок «Калькуляторник» ваш",
+            "The Calculator badge is yours");
+    static final String DEP_DAILY = pick("Ежедневные", "Щоденні", "Today's");
+    static final String SCREAMER_SOUND = pick("Звук скримера", "Звук скримера", "Screamer sound");
+    static final String DEP_FLOAT = pick("Слоты поверх ленты", "Слоти поверх стрічки", "Reels over the feed");
+    static final String DEP_NOTE = pick(
+            "Мини-версия Деп калькулятора. Деп коины игровые, их считает сервер. "
+                    + "Каждый день дают ещё, а за очень много можно купить значок.",
+            "Міні-версія Деп калькулятора. Деп коїни ігрові, їх рахує сервер. "
+                    + "Щодня дають ще, а за дуже багато можна купити значок.",
+            "A small Dep Calculator. Dep coins are play money counted by the server. "
+                    + "More arrive each day, and a great many of them buy a badge.");
+    static final String CHIP_TEMPORARY = pick("ВРЕМЕННО", "ТИМЧАСОВО", "FOR NOW");
+    static final String CHIP_COLLAB = pick("КОЛЛАБ", "КОЛАБ", "COLLAB");
+
+    static final String FUN = pick("Смешнявки", "Смішнявки", "Silly things");
+    static final String FUN_NOTE = pick("Деп калькулятор, скримеры и тилкайо",
+            "Деп калькулятор, скримери й тілкайо", "Dep Calculator, screamers and tilcayo");
+    static final String FUN_HELP = pick(
+            "Здесь то, что ни для чего не нужно. Скримеры выключены, пока вы сами их не включите.",
+            "Тут те, що ні для чого не потрібне. Скримери вимкнені, доки ви самі їх не ввімкнете.",
+            "Things that are for nothing at all. Screamers stay off until you switch them on yourself.");
+    static final String FUN_DEP = pick("Деп калькулятор", "Деп калькулятор", "Dep Calculator");
+    static final String FUN_SCREAMERS = pick("Скримеры", "Скримери", "Screamers");
+    static final String SCREAMERS_NOTE = pick(
+            "Время от времени на весь экран выскакивает растянутый жирный тилкайо и орёт. "
+                    + "Громко ровно настолько, насколько сейчас включён звук.",
+            "Час від часу на весь екран вискакує розтягнутий жирний тілкайо й репетує. "
+                    + "Гучно рівно настільки, наскільки зараз увімкнено звук.",
+            "Every so often a stretched fat tilcayo fills the screen and yells. "
+                    + "As loud as your media volume is, and no louder.");
+    static final String SCREAMER_NOW = pick("Показать сейчас", "Показати зараз", "Show one now");
+    static final String FUN_CAT = pick("Жирный тилкайо", "Жирний тілкайо", "Fat tilcayo");
+
+    static final String DEP_FULL = pick("Полная версия: zenusus.sbs/dep", "Повна версія: zenusus.sbs/dep",
+            "The full thing: zenusus.sbs/dep");
+
+    static final String DEV_FLAGS = pick("Флаги TikTok", "Прапорці TikTok", "TikTok flags");
+    static final String DEV_FLAGS_NOTE = pick("Все флаги и их значения", "Усі прапорці та їхні значення",
+            "Every flag and its value");
+    static final String FLAGS_WARNING = pick(
+            "Экспериментально. Флаги управляют внутренностями TikTok: от изменения что-то "
+                    + "может сломаться, вылетать или не измениться вообще. Если TikTok три раза "
+                    + "подряд не сможет запуститься, ваши изменения отключатся сами.",
+            "Експериментально. Прапорці керують нутрощами TikTok: від зміни щось може "
+                    + "зламатися, вилітати або не змінитися взагалі. Якщо TikTok тричі поспіль "
+                    + "не зможе запуститися, ваші зміни вимкнуться самі.",
+            "Experimental. Flags steer the insides of TikTok: changing one can break something, "
+                    + "crash the app, or do nothing at all. If TikTok fails to start three times "
+                    + "in a row, your changes switch themselves off.");
+    static final String FLAGS_HELD = pick(
+            "Ваши изменения отключены: TikTok три раза подряд не смог с ними запуститься.",
+            "Ваші зміни вимкнено: TikTok тричі поспіль не зміг із ними запуститися.",
+            "Your changes are switched off: TikTok failed to start with them three times in a row.");
+    static final String FLAGS_AGAIN = pick("Включить снова", "Увімкнути знову", "Switch them back on");
+    static final String FLAGS_SEARCH = pick("Часть названия флага", "Частина назви прапорця",
+            "Part of a flag's name");
+    static final String FLAGS_LOADING = pick("Читаю список флагов…", "Читаю список прапорців…",
+            "Reading the list of flags…");
+    static final String FLAGS_NO_LIST = pick("В этой версии TikTok список флагов не нашёлся.",
+            "У цій версії TikTok список прапорців не знайшовся.",
+            "The list of flags was not found in this version of TikTok.");
+    static final String FLAGS_CHANGED = pick("Изменённые", "Змінені", "Changed");
+    static final String FLAGS_NONE_CHANGED = pick(
+            "Пока ничего не изменено. Всего флагов: %d. Найдите нужный по названию.",
+            "Поки нічого не змінено. Усього прапорців: %d. Знайдіть потрібний за назвою.",
+            "Nothing changed yet. %d flags in all. Find the one you want by name.");
+    static final String FLAGS_FOUND = pick("Найдено: %d", "Знайдено: %d", "Found: %d");
+    static final String FLAGS_MORE = pick("Показаны первые %d. Уточните название.",
+            "Показано перші %d. Уточніть назву.", "The first %d are shown. Narrow the name down.");
+    static final String FLAGS_HERE = pick("здесь", "тут", "here");
+    static final String FLAGS_AS_TIKTOK = pick("Как у TikTok", "Як у TikTok", "As TikTok has it");
+    static final String FLAGS_ON = pick("Включить", "Увімкнути", "On");
+    static final String FLAGS_OFF = pick("Выключить", "Вимкнути", "Off");
+    static final String FLAGS_RESET = pick("Сбросить", "Скинути", "Reset");
+    static final String FLAGS_RESET_ALL = pick("Сбросить все изменения", "Скинути всі зміни",
+            "Reset every change");
+    static final String FLAGS_BAD = pick("Это не значение такого типа", "Це не значення такого типу",
+            "That is not a value of this type");
+    static final String FLAGS_FIXED = pick("Флаги такого типа менять нельзя",
+            "Прапорці такого типу змінювати не можна", "Flags of this type cannot be changed");
+
     static final String SPEED_LOCK = pick(
             "Фиксация скорости свайпом вниз", "Фіксація швидкості свайпом униз",
             "Lock the speed by swiping down");

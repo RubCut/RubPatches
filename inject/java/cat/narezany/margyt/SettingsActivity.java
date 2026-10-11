@@ -226,6 +226,13 @@ public class SettingsActivity extends Activity {
             restoreScroll(0);
             return;
         }
+        if (settingsGroup == FLAGS_PAGE) {
+            column.addView(title(Text.DEV_FLAGS));
+            flagsPage();
+            showRestartBar();
+            restoreScroll(previousScroll);
+            return;
+        }
         column.addView(title(settingsGroup == 0 ? "MargyT" : groupName(settingsGroup)));
         if(settingsGroup==0 || searchQuery.length()>0)column.addView(searchBox());
         if (settingsGroup != 0) column.addView(wrap(actionRow("info",Local.of("Подсказки"),null,this::showSectionHelp)));
@@ -275,6 +282,12 @@ public class SettingsActivity extends Activity {
         loading.addView(line());
         loading.addView(toggleRow("image", Text.ROUND_CARDS, Corners.isEnabled(),
                 Corners::setEnabled));
+        loading.addView(line());
+        loading.addView(actionRow("account_circle", Text.AVATAR_SHAPE,
+                AvatarShape.nameOf(AvatarShape.chosen()), this::chooseAvatarShape));
+        loading.addView(line());
+        loading.addView(toggleRow("view_compact", Text.NEW_PROFILE, Flags.isOn(Flags.KEY_NEW_PROFILE),
+                on -> Flags.set(Flags.KEY_NEW_PROFILE, on)));
         column.addView(wrap(loading));
 
         column.addView(section(Text.THEME));
@@ -443,6 +456,16 @@ public class SettingsActivity extends Activity {
                 Comments::setCopyEnabled));
         column.addView(wrap(comments));
 
+        column.addView(section(Text.TIKTOK_FEATURES));
+        LinearLayout features = card();
+        features.addView(quiet(Text.TIKTOK_FEATURES_NOTE));
+        features.addView(toggleRow("repeat", Text.COMMENT_REPOST, Flags.isOn(Flags.KEY_COMMENT_REPOST),
+                on -> Flags.set(Flags.KEY_COMMENT_REPOST, on)));
+        features.addView(line());
+        features.addView(toggleRow("repeat", Text.SELF_REPOST, Flags.isOn(Flags.KEY_SELF_REPOST),
+                on -> Flags.set(Flags.KEY_SELF_REPOST, on)));
+        column.addView(wrap(features));
+
         column.addView(section(BURN));
         LinearLayout burn = card();
         burn.addView(liveToggleRow("eye_open", Text.DIM, Dim.isConfigured(), on -> {
@@ -601,11 +624,124 @@ public class SettingsActivity extends Activity {
         donateAnchor = wrap(support);
         column.addView(donateAnchor);
 
+        column.addView(section(Text.FUN_DEP));
+        LinearLayout dep = card();
+        dep.addView(chipRow("flare", Text.FUN_DEP, new String[] {Text.CHIP_TEMPORARY, Text.CHIP_COLLAB},
+                this::openDep));
+        dep.addView(quiet(Text.DEP_NOTE));
+        dep.addView(line());
+        dep.addView(liveToggleRow("open_with", Text.DEP_FLOAT, DepFloat.isOn(this),
+                on -> DepFloat.set(this, on)));
+        column.addView(wrap(dep));
+
+        column.addView(section(Text.FUN_SCREAMERS));
+        LinearLayout screamers = card();
+        screamers.addView(liveToggleRow("animation", Text.FUN_SCREAMERS, Screamer.isOn(this),
+                on -> Screamer.set(this, on)));
+        screamers.addView(quiet(Text.SCREAMERS_NOTE));
+        screamers.addView(line());
+        screamers.addView(liveToggleRow("volume_up", Text.SCREAMER_SOUND, Screamer.loud(this),
+                on -> Screamer.setLoud(this, on)));
+        screamers.addView(line());
+        screamers.addView(actionRow("play_arrow", Text.SCREAMER_NOW, null, () -> Screamer.now(this)));
+        column.addView(wrap(screamers));
+
+        column.addView(section(Text.FUN_CAT));
+        column.addView(fatCat());
+
         filterGroup();
         column.addView(versions());
 
         showRestartBar();
         restoreScroll(previousScroll);
+    }
+
+    /**
+     * The calculator, for an account that has proved itself. The coins are
+     * the server's and are kept by account, so an account that anybody could
+     * claim to be would have its coins staked by anybody.
+     */
+    private void openDep() {
+        if (DepGame.verified()) {
+            DepCalc.show(this, skin);
+            return;
+        }
+        Panel.with(this, skin, Text.DEP_PROVE)
+                .text(Text.DEP_PROVE_WHY)
+                .primary(Text.PROVE, this::proveAccount)
+                .quiet(Text.CANCEL, null)
+                .show();
+    }
+
+    /** The fat tilcayo, as wide as the screen will have him. */
+    private View fatCat() {
+        final ImageView cat = new ImageView(this);
+        cat.setAdjustViewBounds(true);
+        cat.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        cat.setContentDescription(Text.FUN_CAT);
+        GradientDrawable round = new GradientDrawable();
+        round.setColor(skin.card);
+        round.setCornerRadius(dp(28));
+        cat.setBackground(round);
+        cat.setClipToOutline(true);
+        cat.setMinimumHeight(dp(160));
+        if (fatCatPicture != null) {
+            cat.setImageBitmap(fatCatPicture);
+        } else {
+            final Context app = getApplicationContext();
+            Net.away("fat cat", () -> {
+                try {
+                    byte[] raw = Cats.fat(app);
+                    if (raw == null) return;
+                    final android.graphics.Bitmap picture =
+                            android.graphics.BitmapFactory.decodeByteArray(raw, 0, raw.length);
+                    runOnUiThread(() -> {
+                        fatCatPicture = picture;
+                        if (picture != null && cat.isAttachedToWindow()) cat.setImageBitmap(picture);
+                    });
+                } catch (Throwable error) {
+                    Diary.note("fat cat: " + error);
+                }
+            });
+        }
+        LinearLayout box = new LinearLayout(this);
+        box.setPadding(dp(12), 0, dp(12), dp(6));
+        box.addView(cat, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        return box;
+    }
+
+    private static android.graphics.Bitmap fatCatPicture;
+
+    /** A row that opens something, with a word or two beside its name saying what kind of thing it is. */
+    private View chipRow(String picture, String title, String[] chips, final Runnable action) {
+        LinearLayout row = row();
+        row.addView(icon(picture));
+        row.addView(label(title));
+        LinearLayout marks = new LinearLayout(this);
+        marks.setGravity(Gravity.CENTER_VERTICAL);
+        for (String word : chips) {
+            TextView chip = new TextView(this);
+            chip.setText(word);
+            chip.setTextColor(onAccent());
+            chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
+            chip.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+            chip.setPadding(dp(8), dp(3), dp(8), dp(3));
+            GradientDrawable back = new GradientDrawable();
+            back.setColor(Accent.colour());
+            back.setCornerRadius(dp(12));
+            chip.setBackground(back);
+            LinearLayout.LayoutParams place = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            place.rightMargin = dp(6);
+            marks.addView(chip, place);
+        }
+        row.addView(marks, grow());
+        ImageView chevron = new ImageView(this);
+        chevron.setImageDrawable(SettingsGlyph.make("chevron_right", skin.muted()));
+        row.addView(chevron, new LinearLayout.LayoutParams(dp(24), dp(24)));
+        row.setOnClickListener(v -> action.run());
+        return sized(row, 56);
     }
 
     private void restoreScroll(final int scrollY) {
@@ -2753,8 +2889,10 @@ public class SettingsActivity extends Activity {
         rebuild();
     }
 
-    /** Under the diary: the full report to copy, and the way back out. */
+    /** Under the diary: the full report to copy, TikTok's flags, and the way back out. */
     private void addDeveloperRows(LinearLayout into) {
+        into.addView(line());
+        into.addView(actionRow("tune", Text.DEV_FLAGS, Text.DEV_FLAGS_NOTE, this::showFlags));
         into.addView(line());
         into.addView(actionRow("article", Text.DEV_FULL_REPORT, Text.DEV_FULL_NOTE,
                 () -> copy("MargyT full report", Diagnostics.fullReport())));
@@ -2765,6 +2903,281 @@ public class SettingsActivity extends Activity {
                 rebuildAfterSwitchAnimation();
             }
         }));
+    }
+
+    /** Every shape as a picture of itself, four to a row. */
+    private void chooseAvatarShape() {
+        final Panel panel = Panel.with(this, skin, Text.AVATAR_SHAPE);
+        LinearLayout grid = new LinearLayout(this);
+        grid.setOrientation(LinearLayout.VERTICAL);
+        final String now = AvatarShape.chosen();
+        LinearLayout line = null;
+        for (int i = 0; i < AvatarShape.ALL.length; i++) {
+            final String shape = AvatarShape.ALL[i];
+            if (i % 4 == 0) {
+                line = new LinearLayout(this);
+                grid.addView(line, new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            }
+            LinearLayout tile = Panel.tile(this, skin, AvatarShape.picture(shape, dp(36), 0xFFFFFFFF),
+                    shape.equals(now) ? Accent.colour() : skin.text, AvatarShape.nameOf(shape),
+                    shape.equals(now));
+            tile.setOnClickListener(v -> {
+                panel.close();
+                if (shape.equals(now)) return;
+                AvatarShape.choose(this, shape);
+                // a picture already cut keeps its shape until it is cut again
+                markChanged();
+                rebuild();
+            });
+            Motion.press(tile);
+            LinearLayout.LayoutParams place = new LinearLayout.LayoutParams(0,
+                    ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            place.setMargins(dp(3), dp(3), dp(3), dp(3));
+            line.addView(tile, place);
+        }
+        // the last row is not full: keep its tiles the width of the others
+        for (int i = AvatarShape.ALL.length; i % 4 != 0; i++) {
+            line.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
+            ((LinearLayout.LayoutParams) line.getChildAt(line.getChildCount() - 1).getLayoutParams())
+                    .setMargins(dp(3), dp(3), dp(3), dp(3));
+        }
+        panel.view(grid);
+        panel.quiet(Text.CLOSE, null);
+        panel.show();
+    }
+
+    // ------------------------------------------------------ TikTok's flags
+
+    private static final int FLAGS_PAGE = 98;
+    /** How many rows a search shows. There are twenty thousand flags and a row is a view. */
+    private static final int FLAG_ROWS = 60;
+
+    private String flagQuery = "";
+    private java.util.List<Flags.Known> flagList;
+    private boolean flagsLoading;
+
+    private void showFlags() {
+        settingsGroup = FLAGS_PAGE;
+        searchQuery = "";
+        flagQuery = "";
+        page.scrollTo(0, 0);
+        rebuild();
+    }
+
+    /**
+     * Every flag TikTok declares, to look up and to answer differently.
+     *
+     * Nothing is listed until something is typed, bar what has already been
+     * changed: the list is twenty thousand names long, and the one somebody
+     * came for is found by a piece of its name or not at all.
+     */
+    private void flagsPage() {
+        LinearLayout warning = card();
+        warning.addView(quiet(Text.FLAGS_WARNING));
+        column.addView(wrap(warning));
+
+        final java.util.Map<String, Object> mine = Flags.overrides();
+        if (FlagGuard.heldBack() && !mine.isEmpty()) {
+            LinearLayout held = card();
+            held.addView(quiet(Text.FLAGS_HELD));
+            held.addView(actionRow("restore", Text.FLAGS_AGAIN, null, () -> {
+                FlagGuard.again();
+                Flags.forget();
+                restartOwed();
+                rebuild();
+            }));
+            column.addView(wrap(held));
+        }
+
+        if (flagList == null) {
+            LinearLayout wait = card();
+            wait.addView(quiet(Text.FLAGS_LOADING));
+            column.addView(wrap(wait));
+            if (flagsLoading) return;
+            flagsLoading = true;
+            // the list is built by a class initialiser the size of a small
+            // book, and that is not something to wait for with a finger down
+            new Thread(() -> {
+                final java.util.List<Flags.Known> all = Flags.catalogue();
+                runOnUiThread(() -> {
+                    flagList = all;
+                    flagsLoading = false;
+                    if (settingsGroup == FLAGS_PAGE && !isFinishing()) rebuild();
+                });
+            }, "margyt-flags").start();
+            return;
+        }
+
+        column.addView(flagSearch());
+
+        java.util.List<Flags.Known> shown = new java.util.ArrayList<Flags.Known>();
+        int found = 0;
+        for (Flags.Known flag : flagList) {
+            boolean wanted = flagQuery.length() == 0 ? mine.containsKey(flag.key)
+                    : flag.key.toLowerCase(Locale.ROOT).contains(flagQuery);
+            if (!wanted) continue;
+            found++;
+            if (shown.size() < FLAG_ROWS) shown.add(flag);
+        }
+
+        column.addView(section(flagQuery.length() == 0 ? Text.FLAGS_CHANGED
+                : String.format(Locale.ROOT, Text.FLAGS_FOUND, found)));
+        LinearLayout list = card();
+        if (flagList.isEmpty()) list.addView(quiet(Text.FLAGS_NO_LIST));
+        else if (shown.isEmpty()) list.addView(quiet(flagQuery.length() == 0
+                ? String.format(Locale.ROOT, Text.FLAGS_NONE_CHANGED, flagList.size())
+                : Text.NOTHING_FOUND));
+        for (int i = 0; i < shown.size(); i++) {
+            if (i > 0) list.addView(line());
+            list.addView(flagRow(shown.get(i), mine.get(shown.get(i).key)));
+        }
+        if (found > shown.size()) {
+            list.addView(quiet(String.format(Locale.ROOT, Text.FLAGS_MORE, shown.size())));
+        }
+        column.addView(wrap(list));
+
+        if (!mine.isEmpty()) {
+            column.addView(wrap(actionRow("restore", Text.FLAGS_RESET_ALL, null, () -> {
+                Flags.clearOverrides();
+                restartOwed();
+                rebuild();
+            })));
+        }
+    }
+
+    private View flagSearch() {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(20), dp(4), dp(8), dp(4));
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(skin.card);
+        background.setCornerRadius(dp(28));
+        row.setBackground(background);
+
+        final EditText input = new EditText(this);
+        input.setSingleLine(true);
+        input.setText(flagQuery);
+        input.setHint(Text.FLAGS_SEARCH);
+        input.setHintTextColor(skin.muted());
+        input.setTextColor(skin.text);
+        input.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        input.setTypeface(Typeface.MONOSPACE);
+        input.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        input.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+        input.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
+        final Runnable look = () -> {
+            flagQuery = input.getText().toString().trim().toLowerCase(Locale.ROOT);
+            page.scrollTo(0, 0);
+            rebuild();
+        };
+        input.setOnEditorActionListener((view, action, event) -> {
+            if (action != EditorInfo.IME_ACTION_SEARCH) return false;
+            look.run();
+            return true;
+        });
+        row.addView(input, grow());
+
+        TextView go = label(flagQuery.length() == 0 ? Text.SEARCH : Text.SEARCH_CLEAR);
+        go.setTextColor(accentInk());
+        go.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        go.setGravity(Gravity.CENTER);
+        go.setPadding(dp(16), 0, dp(16), 0);
+        go.setBackground(Expressive.tile(this, accentTonal(), (Accent.colour() & 0xFFFFFF) | 0x33000000,
+                dp(20), dp(20), dp(10)));
+        go.setOnClickListener(v -> {
+            if (flagQuery.length() > 0) input.setText("");
+            look.run();
+        });
+        row.addView(go, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, dp(40)));
+        LinearLayout box = new LinearLayout(this);
+        box.setPadding(dp(12), dp(4), dp(12), dp(8));
+        box.addView(sized(row, 56));
+        return box;
+    }
+
+    /** A flag: its name, its type, what TikTok says and, if it differs, what is said here. */
+    private View flagRow(final Flags.Known flag, final Object mine) {
+        LinearLayout row = row();
+        row.setPadding(dp(16), dp(10), dp(16), dp(10));
+        LinearLayout words = new LinearLayout(this);
+        words.setOrientation(LinearLayout.VERTICAL);
+        TextView name = label(flag.key);
+        name.setTypeface(Typeface.MONOSPACE);
+        name.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        words.addView(name);
+
+        final Object own = flag.settable() ? Flags.own(flag) : null;
+        final Object theirs = own != null ? own : flag.fallback;
+        String says = flag.type.toLowerCase(Locale.ROOT) + "  ·  TikTok: " + flagValue(theirs);
+        if (mine != null) says += "  ·  " + Text.FLAGS_HERE + ": " + flagValue(mine);
+        TextView about = detail(says);
+        about.setPadding(0, dp(4), 0, 0);
+        if (mine != null) about.setTextColor(accentInk());
+        words.addView(about);
+        row.addView(words, grow());
+        row.setOnClickListener(v -> editFlag(flag, theirs, mine));
+        return sized(row, 56);
+    }
+
+    private static String flagValue(Object value) {
+        if (value == null) return "—";
+        String text = value instanceof Object[] ? java.util.Arrays.toString((Object[]) value)
+                : String.valueOf(value);
+        if (value instanceof String) text = '"' + text + '"';
+        return text.length() > 48 ? text.substring(0, 48) + "…" : text;
+    }
+
+    private void editFlag(final Flags.Known flag, Object theirs, Object mine) {
+        if (!flag.settable()) {
+            Toast.makeText(this, Text.FLAGS_FIXED, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final Panel panel = Panel.with(this, skin, flag.key);
+        if (flag.type.equals("BOOLEAN")) {
+            panel.option(Text.FLAGS_AS_TIKTOK + " (" + flagValue(theirs) + ")", mine == null, false,
+                    () -> answerFlag(flag, null));
+            panel.option(Text.FLAGS_ON, Boolean.TRUE.equals(mine), false,
+                    () -> answerFlag(flag, Boolean.TRUE));
+            panel.option(Text.FLAGS_OFF, Boolean.FALSE.equals(mine), false,
+                    () -> answerFlag(flag, Boolean.FALSE));
+            panel.quiet(Text.CLOSE, null);
+            panel.show();
+            return;
+        }
+        panel.text(flag.type.toLowerCase(Locale.ROOT) + "  ·  TikTok: " + flagValue(theirs));
+        final EditText input = panel.field(String.valueOf(theirs));
+        Object now = mine != null ? mine : theirs;
+        if (now != null) input.setText(String.valueOf(now));
+        if (!flag.type.equals("STRING")) {
+            input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
+                    | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
+                    | (flag.type.equals("FLOAT") || flag.type.equals("DOUBLE")
+                            ? android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL : 0));
+        }
+        panel.primaryKeepOpen(Text.APPLY, () -> {
+            Object value = Flags.parse(flag, input.getText().toString());
+            if (value == null) {
+                Screen.say(Text.FLAGS_BAD);
+                return;
+            }
+            panel.close();
+            answerFlag(flag, value);
+        });
+        if (mine != null) panel.quiet(Text.FLAGS_RESET, () -> answerFlag(flag, null));
+        panel.quiet(Text.CLOSE, null);
+        panel.show();
+    }
+
+    private void answerFlag(Flags.Known flag, Object value) {
+        Flags.override(flag, value);
+        Diary.note("flag " + flag.key + " = " + (value == null ? "TikTok's own" : value));
+        // nearly every flag is read once and remembered, so it takes a restart
+        restartOwed();
+        rebuild();
     }
 
     /** The whole report, monospaced, so columns line up and it reads like a log. */
@@ -3074,6 +3487,10 @@ public class SettingsActivity extends Activity {
         found+=searchControl(results,Text.COMMENTS,Text.COMMENT_COPY_ON,Comments.isCopyEnabled());
         found+=searchControl(results,Text.VIDEO,Text.NO_HDR,Hdr.isEnabled());
         found+=searchControl(results,Text.BADGES,Text.BADGES_ON,Badges.isEnabled());
+        found+=searchControl(results,Text.TIKTOK_FEATURES,Text.COMMENT_REPOST,Flags.isOn(Flags.KEY_COMMENT_REPOST));
+        found+=searchControl(results,Text.TIKTOK_FEATURES,Text.SELF_REPOST,Flags.isOn(Flags.KEY_SELF_REPOST));
+        found+=searchControl(results,Text.APPEARANCE,Text.NEW_PROFILE,Flags.isOn(Flags.KEY_NEW_PROFILE));
+        found+=searchHit(results,Text.APPEARANCE,Text.AVATAR_SHAPE,()->{});
         found+=searchHit(results,Text.FPS,Text.FPS,()->{});
         found+=searchHit(results,Text.TAGS,Text.TAGS+" "+Text.TAGS_ADD,()->{});
         found+=searchHit(results,Text.GRADIENT,Text.GRADIENT,()->{});
@@ -3150,6 +3567,7 @@ public class SettingsActivity extends Activity {
             case 5: return Local.of("О проекте");
             case 6: return Local.of("Плагины");
             case 7: return Local.of("Друзья и чаты");
+            case 8: return Text.FUN;
             default: return "MargyT";
         }
     }
@@ -3160,22 +3578,23 @@ public class SettingsActivity extends Activity {
                 Local.of("Глаз меняет прозрачность кнопок поверх видео; «Защита экрана» теперь здесь же. Удержание «Отправить» открывает скачивание и перемотку. Удерживайте край видео, чтобы ускорить, и потяните вниз, чтобы закрепить скорость."),
                 Local.of("Скачивание, резервные копии, диагностика и журнал. Сохраните копию перед экспериментами."),
                 Local.of("Здесь находятся версия мода, обновления, журнал и участники."), Local.of("Магазин, установка и настройки плагинов. Плагины запускают дополнительный код; устанавливайте только те, которым доверяете."),
-                Local.of("Закреплённые друзья, автопродление серий и уведомления мода.")};
+                Local.of("Закреплённые друзья, автопродление серий и уведомления мода."),
+                Text.FUN_HELP};
         Panel.with(this,skin,Local.of("Подсказки")).text(notes[Math.max(0,Math.min(notes.length-1,settingsGroup))])
                 .quiet(Local.of("Обучение"),() -> Tutorial.show(this)).primary(Local.of("Понятно"),null).show();
     }
 
     private View groupNavigation() {
         LinearLayout list = card();
-        String[] icons = {"palette", "group", "play_circle", "tune", "info", "extension", "chat"};
+        String[] icons = {"palette", "group", "play_circle", "tune", "info", "extension", "chat", "flare"};
         String[] notes = {Local.of("Акцент, тема и шрифты"),
                 Local.of("Значки, градиент и аккаунт"),
                 Local.of("Просмотр, кнопки, защита экрана и регион"),
                 Local.of("Скачивание, копии и диагностика"),
                 Local.of("Версия, обновления и участники"), Local.of("Магазин и установленные"),
-                Local.of("Друзья, серии и уведомления")};
+                Local.of("Друзья, серии и уведомления"), Text.FUN_NOTE};
         // Shelf order on screen: what people touch daily first, the project itself last.
-        int[] shelf = {1, 2, 3, 7, 4, 6, 5};
+        int[] shelf = {1, 2, 3, 7, 4, 6, 8, 5};
         for (int n = 0; n < shelf.length; n++) {
             final int i = shelf[n];
             final int chosen = i;
@@ -3200,9 +3619,12 @@ public class SettingsActivity extends Activity {
 
     /**
      * Which shelf a section lives on.
-     * 1 look, 2 profile, 3 feed and video, 4 tools, 5 about, 6 plugins, 7 friends and chats.
+     * 1 look, 2 profile, 3 feed and video, 4 tools, 5 about, 6 plugins, 7 friends and chats,
+     * 8 the things that are for nothing.
      */
     private int groupOf(String section) {
+        if (section.equals(Text.FUN_DEP) || section.equals(Text.FUN_SCREAMERS)
+                || section.equals(Text.FUN_CAT)) return 8;
         if (section.equals(Text.PLUGINS)) return 6;
         if (section.equals(Text.GRADIENT) || section.equals(Text.BADGES) || section.equals(Text.ACCOUNT)) return 2;
         if (section.equals(Text.APPEARANCE) || section.equals(Text.ACCENT)
@@ -3211,6 +3633,7 @@ public class SettingsActivity extends Activity {
                 || section.equals(Text.FEED) || section.equals(Text.VIDEO)
                 || section.equals(Text.RAIL) || section.equals(Text.COMMENTS)
                 || section.equals(Text.TAGS) || section.equals(Text.FPS)
+                || section.equals(Text.TIKTOK_FEATURES)
                 || section.equals(BURN)) return 3;
         if (section.equals(Text.PINNED_FRIENDS) || section.equals(Text.STREAKS)
                 || section.equals(Text.NOTIFICATIONS)) return 7;
@@ -3235,7 +3658,11 @@ public class SettingsActivity extends Activity {
     private void goBack() {
         if(navigating)return;
         if (searchQuery.length() > 0) { searchQuery = ""; rebuild(); }
-        else if (settingsGroup != 0) { navigating=true;Motion.navigate(column,-1f,()->{settingsGroup=0;rebuild();navigating=false;}); }
+        else if (settingsGroup != 0) {
+            // the flags are reached from the tools, so that is where back leads
+            final int to = settingsGroup == FLAGS_PAGE ? 4 : 0;
+            navigating=true;Motion.navigate(column,-1f,()->{settingsGroup=to;rebuild();navigating=false;});
+        }
         else finish();
     }
 

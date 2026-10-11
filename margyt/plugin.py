@@ -6,11 +6,11 @@ The folder holds a `manifest.json`, the plugin's java under `java/`, and an
 optional `icon.png`. Out comes an `.mtp` -- a zip with the manifest, the icon
 and one `classes.dex`.
 
-The plugin is compiled against `android.jar` and against the mod's own plugin
-api, which is compiled here from `inject/java/cat/narezany/margyt/plugin/` and
-then left out of the dex: those classes are already in the app, and a second
-copy in the plugin's own dex would be a different class with the same name --
-the plugin would be handed a `PluginContext` it does not recognise.
+The plugin is compiled against `android.jar` and against the mod itself, which
+is compiled here from `inject/java` and then left out of the dex: those classes
+are already in the app, and a second copy in the plugin's own dex would be a
+different class with the same name -- the plugin would be handed a
+`PluginContext` it does not recognise.
 
 The toolchain is the one the build downloads, so the first run of either fetches
 it and the other finds it there.
@@ -30,14 +30,13 @@ import zipfile
 from .toolchain import Toolchain
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-API_SOURCES = os.path.join(ROOT, "inject", "java", "cat", "narezany", "margyt", "plugin")
 
 # PluginContext calls into the mod -- Plugins.addRow, Popup.show, Screen.offer,
-# Net.bytes -- and those classes are in the patched apk, not here. Without
-# something to resolve them the api build fails with cannot find symbol, which
-# is what every plugin author ran into. These are declarations only and never
-# reach a plugin's dex: the plugin is dexed with the api as a classpath.
-API_STUBS = os.path.join(ROOT, "inject", "plugin-api")
+# Net.bytes -- and those classes are in the patched apk, not in a plugin. They
+# are compiled here so the plugin has something to be compiled against, and
+# never reach its dex: the plugin is dexed with them as a classpath.
+MOD_SOURCES = os.path.join(ROOT, "inject", "java")
+TIKTOK_STUBS = os.path.join(ROOT, "inject", "stubs")
 
 REQUIRED = ("id", "name", "version", "author", "entry")
 
@@ -78,9 +77,17 @@ def main(argv=None) -> int:
         for path in (api, classes, dex):
             os.makedirs(path)
 
-        print("==> Compiling the plugin api")
-        _javac(tools.android_jar, None, api,
-               _java_files(API_SOURCES) + _java_files(API_STUBS))
+        # The api is two classes, and what they call is half the mod. That half
+        # used to be written out again by hand as declarations for this to
+        # compile against, and fell behind the first time the api grew -- after
+        # which no plugin could be built at all. So the mod itself is compiled
+        # here, the way the build compiles it, and the plugin is compiled
+        # against that. None of it goes into the plugin's dex.
+        print("==> Compiling the mod, for the plugin to be compiled against")
+        stubs = os.path.join(room, "stubs")
+        os.makedirs(stubs)
+        _javac(tools.android_jar, None, stubs, _java_files(TIKTOK_STUBS))
+        _javac(tools.android_jar, stubs, api, _java_files(MOD_SOURCES))
 
         print("==> Compiling %s" % manifest["name"])
         files = _java_files(sources)
@@ -126,7 +133,9 @@ def _java_files(root: str):
 def _javac(android_jar: str, extra_classpath, out_dir: str, files) -> None:
     classpath = android_jar if not extra_classpath else \
         android_jar + os.pathsep + extra_classpath
-    _run(["javac", "-nowarn", "-Xlint:-options", "-encoding", "UTF-8",
+    # -proc:none: a plugin's folder is somebody else's, and compiling it must
+    # not run anything that came with it
+    _run(["javac", "-nowarn", "-Xlint:-options", "-proc:none", "-encoding", "UTF-8",
           "-cp", classpath, "--release", "17", "-d", out_dir] + list(files))
 
 

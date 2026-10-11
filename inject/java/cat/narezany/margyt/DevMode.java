@@ -38,6 +38,7 @@ final class DevMode {
 
     static void set(boolean on) {
         state = on ? 2 : 1;
+        Flags.forget();  // the developer's answers for flags stand only while this is on
         Context context = Margy.context();
         if (context == null) return;
         try {

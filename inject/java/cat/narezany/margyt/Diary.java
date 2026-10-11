@@ -27,6 +27,19 @@ public final class Diary {
     private Diary() {}
 
     private static final String KEY = "diary";
+    /**
+     * A file of its own. It used to be one more entry among the settings,
+     * and saving a settings file means writing all of it: every few seconds
+     * that something was noted, every setting on the phone was written out
+     * again, and Android makes the screen wait for those writes whenever an
+     * activity is left. On a phone whose settings had grown that was a
+     * stall, again and again, that nothing short of clearing the app's data
+     * made better.
+     *
+     * Not named after the mod's settings files: the settings screen watches
+     * those to say whether a restart is owed, and this one changes by itself.
+     */
+    private static final String FILE = "diary_margyt";
     private static final int KEEP = 40;
     private static final int KEEP_DEV = 400;
 
@@ -95,6 +108,18 @@ public final class Diary {
         if (prefs == null) return;  // no context yet: try again next time
         loaded = true;
         String stored = prefs.getString(KEY, "");
+        if (stored.length() == 0) {
+            // what an older version kept among the settings: brought over
+            // once, and taken out of there so it stops being written with them
+            try {
+                SharedPreferences settings = Margy.context()
+                        .getSharedPreferences(Margy.PREFS, Context.MODE_PRIVATE);
+                if (settings.contains(KEY)) {
+                    stored = settings.getString(KEY, "");
+                    settings.edit().remove(KEY).apply();
+                }
+            } catch (Throwable ignored) { }
+        }
         if (stored.length() > 0) LINES.addAll(Arrays.asList(stored.split("\n")));
     }
 
@@ -114,7 +139,7 @@ public final class Diary {
         try {
             Context context = Margy.context();
             if (context == null) return null;
-            return context.getSharedPreferences(Margy.PREFS, Context.MODE_PRIVATE);
+            return context.getSharedPreferences(FILE, Context.MODE_PRIVATE);
         } catch (Throwable ignored) {
             return null;
         }

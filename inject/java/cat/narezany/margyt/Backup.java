@@ -41,7 +41,9 @@ public final class Backup {
             Dim.KEY_ON, Dim.KEY_HOW, 
             Download.KEY, Download.KEY_ALWAYS, Avatars.KEY, Stickers.KEY,
             Comments.KEY_COPY,
-            Flags.KEY_VOICE, Flags.KEY_BANNER,
+            Flags.KEY_VOICE, Flags.KEY_BANNER, Flags.KEY_SPEED_LOCK,
+            Flags.KEY_COMMENT_REPOST, Flags.KEY_SELF_REPOST, Flags.KEY_NEW_PROFILE, AvatarShape.KEY,
+            Screamer.KEY, Screamer.KEY_SOUND, DepGame.KEY_FLOAT,
             Streaks.KEY_ON, Streaks.KEY_MODE, Streaks.KEY_TEXT,
             Updater.KEY_REMIND
     };
@@ -166,7 +168,7 @@ public final class Backup {
                 else if (value instanceof String) edit.putString(key, (String) value);
             }
             global.apply();appearance.apply();AppearanceColors.reload();
-            FeedRail.reloadSettings();
+            FeedRail.reloadSettings();AvatarShape.reloadSettings();
             FeedBlacklist.reload();PlayerTools.accountChanged();PinnedFriends.reload();ProfileLayout.reload();MessageTimes.reload();ModNotifications.reload();Repost.reload();
             Themes.forget();
             Fonts.reload();
@@ -188,6 +190,7 @@ public final class Backup {
                 Themes.KEY_TEXT + "_dark", Themes.KEY_TEXT + "_light",
                 Themes.KEY_BACKGROUND + "_dark", Themes.KEY_BACKGROUND + "_light",
                 Fonts.KEY, Fonts.KEY_EMOJI,
+                Flags.KEY_NEW_PROFILE, AvatarShape.KEY,
                 "profile_layout"
         };
         else if (group == 2) keys = new String[] {
@@ -198,6 +201,8 @@ public final class Backup {
         };
         else if (group == 3) keys = new String[] {
                 Feed.KEY, Feed.KEY_LIVE, Feed.KEY_PHOTOS, Flags.KEY_VOICE, Flags.KEY_BANNER,
+                Flags.KEY_SPEED_LOCK, Flags.KEY_COMMENT_REPOST,
+                Flags.KEY_SELF_REPOST,
                 "rail_show_like","rail_show_comment","rail_show_fav","rail_show_share",
             "streak_send_minute","repost_btn","repost_pos","notify_messages","notify_promos","notify_other","notify_no_prompts",
                 "feed_blocked_authors","feed_blocked_cards",Feed.KEY_STORIES,Feed.KEY_SUGGESTIONS,
@@ -210,7 +215,7 @@ public final class Backup {
         for (String key : keys) (AccountAppearance.appearanceKey(key)?appearance:edit).remove(key);
         appearance.apply();AppearanceColors.reload();
         edit.apply();
-        FeedRail.reloadSettings();
+        FeedRail.reloadSettings();AvatarShape.reloadSettings();
         FeedBlacklist.reload();PlayerTools.accountChanged();PinnedFriends.reload();ProfileLayout.reload();MessageTimes.reload();ModNotifications.reload();Repost.reload();
         Themes.forget();
         Fonts.reload();

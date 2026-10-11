@@ -16,7 +16,7 @@ import re
 import time
 from typing import Dict, List, Optional
 
-from . import accent as accent_module, artwork, prerecolour, dexcache, dexpatch, icon as icon_module, manifest as manifest_module, nightly, resadd
+from . import accent as accent_module, artwork, prerecolour, dexcache, dexpatch, icon as icon_module, manifest as manifest_module, nightly, resadd, widget
 from .apkzip import Apk, STORED
 from .arsc import Arsc
 from . import axml as axml_module
@@ -269,6 +269,7 @@ class Build:
 
         self.say("Icons to choose from")
         extended = self.add_icon_choices(apk, arsc, manifest)
+        extended = self.add_widget(apk, extended, manifest)
         self.add_assets(apk)
         self.add_prerecoloured(apk)
 
@@ -678,6 +679,20 @@ class Build:
                     % (len(self.ICONS), entry.rsplit(".", 1)[-1]))
         return extended
 
+    WIDGET = PACKAGE + ".CatWidget"
+
+    def add_widget(self, apk: Apk, table: bytes, manifest: Axml) -> bytes:
+        """The widget's two files, in the apk, in the table, and in the manifest."""
+        apk.add(widget.LAYOUT_PATH, widget.layout_xml())
+        apk.add(widget.XML_PATH, widget.info_xml())
+        table = resadd.add_files(table, widget.LAYOUT_PACKAGE, "layout",
+                                 [("margyt_widget", widget.LAYOUT_PATH)], "margyt.layout")
+        table = resadd.add_files(table, widget.XML_PACKAGE, "xml",
+                                 [("margyt_widget_info", widget.XML_PATH)], "margyt.xml")
+        manifest_module.add_widget(manifest, self.WIDGET, widget.XML_ID)
+        self.detail("a home-screen widget declared, its layout 0x%08X" % widget.LAYOUT_ID)
+        return table
+
     def find_anchors(self, apk: Apk) -> None:
         """Find the methods whose signature is known and whose name is not."""
         dexes = {name: apk.read(name) for name in apk.names()
@@ -760,7 +775,9 @@ class Build:
         feature_hits = {"seekbar":0,"comment copy":0,"native comment clipboard":0,"publication date":0,"visible publication date":0,"double-tap heart":0,"native heart tint":0,"comment dim exclusion":0,"ads":0}
         feature_hits["native comment text actions"]=0
         feature_hits["native loading indicator"]=0
-        feature_hits["native speed lock"]=0
+        feature_hits[dexpatch.FLAG_LABEL]=0
+        feature_hits["native avatar shape"]=0
+        feature_hits["native avatar ring"]=0
         feature_hits["native card corners"]=0
         feature_hits["native right-area slots"]=0
         feature_hits["native player resume"]=0
@@ -768,7 +785,7 @@ class Build:
         feature_hits["native offline row"]=0
         feature_hits["native offline count accepted"]=0
         feature_hits["native offline comments response"]=0
-        for feature in ("native repost","native repost avatar","native profile layout","native message timestamps","native notification guide","native friends order","native notification filters","native experiment overrides","native author date slot"):feature_hits[feature]=0
+        for feature in ("native repost","native repost avatar","native profile layout","native message timestamps","native notification guide","native friends order","native notification filters","native author date slot"):feature_hits[feature]=0
         total = 0
         patched_dex_count = 0
         # all of them at once, as many side by side as the machine has room
@@ -794,7 +811,9 @@ class Build:
             feature_hits["comment dim exclusion"] += counts.get("native comment cell protection",0)
             feature_hits["native comment text actions"] += counts.get("native comment text actions",0)
             feature_hits["native loading indicator"] += counts.get("native loading indicator",0)
-            feature_hits["native speed lock"] += counts.get("native speed lock",0)
+            feature_hits[dexpatch.FLAG_LABEL] += counts.get(dexpatch.FLAG_LABEL,0)
+            feature_hits["native avatar ring"] += sum(v for key,v in counts.items() if key.startswith("Canvas->drawArc") and dexpatch.STORY_RING in key)
+            feature_hits["native avatar shape"] += sum(v for key,v in counts.items() if key.startswith("Path->addCircle"))
             feature_hits["native card corners"] += counts.get("native card corners",0)
             feature_hits["native right-area slots"] += counts.get("native right-area slots",0)
             feature_hits["native player resume"] += counts.get("native player resume",0)
@@ -803,7 +822,6 @@ class Build:
             feature_hits["native offline count accepted"] += counts.get("native offline count accepted",0)
             feature_hits["native offline comments response"] += counts.get("native offline comments response",0)
             for feature in ("native repost","native repost avatar","native profile layout","native message timestamps","native notification guide"):feature_hits[feature]+=counts.get(feature,0)
-            feature_hits["native experiment overrides"]+=counts.get("native experiment overrides",0)
             feature_hits["native author date slot"]+=counts.get("native author date slot",0)
             feature_hits["native friends order"]+=sum(v for key,v in counts.items() if "FriendsListResponse" in key and "getUserList" in key)
             feature_hits["native notification filters"]+=sum(v for key,v in counts.items() if "NotificationManager" in key and "notify" in key)
