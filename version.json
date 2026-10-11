@@ -1,8 +1,8 @@
 {
   "_comment": "What the app checks to know whether it is out of date. It reads this from the project's own git server at startup and every five minutes; the badges come from the same box.",
-  "version": "2.0",
-  "url": "https://git.narez.xyz/narezany/MargyT/releases/download/v2.0/margyt.apk",
-  "notes": "TikTok 47.2.41 and a new settings screen in Material 3. The phone's own colours as the theme, TikTok's speed lock for everybody, a save button in the sticker's own sheet, and much less stutter. Texture packs, profile banners and patches are gone.",
-  "notes_ru": "TikTok 47.2.41 и новые настройки в стиле Material 3. Тема в цветах своего телефона, родная фиксация скорости у всех, скачивание стикера прямо из его шторки и намного меньше лагов. Текстурпаки, баннеры профиля и заплатки убраны.",
-  "notes_uk": "TikTok 47.2.41 і нові налаштування у стилі Material 3. Тема в кольорах свого телефона, рідна фіксація швидкості в усіх, завантаження стікера просто з його шторки і набагато менше лагів. Текстурпаки, банери профілю та латки прибрано."
+  "version": "2.0.1",
+  "url": "https://git.narez.xyz/narezany/MargyT/releases/download/v2.0.1/margyt.apk",
+  "notes": "Fixes from the first days of 2.0: photos in comments save, the settings are in one language, plugins switch on and off without a quarrel, streaks are kept alive only where there is a flame, and no more hitch on opening a profile or a chat. Video cards in a profile have round corners.",
+  "notes_ru": "Исправления после 2.0: фото из комментариев скачиваются, настройки на одном языке, плагины включаются и выключаются без споров, серии продлеваются только там, где есть огонёк, и нет подлагиваний при входе в профиль и чат. Карточки видео в профиле скруглены.",
+  "notes_uk": "Виправлення після 2.0: фото з коментарів завантажуються, налаштування однією мовою, плагіни вмикаються й вимикаються без суперечок, серії продовжуються лише там, де є вогник, і немає підгальмовувань під час входу в профіль і чат. Картки відео в профілі заокруглено."
 }
