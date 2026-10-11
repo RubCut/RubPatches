@@ -52,6 +52,7 @@ public final class SettingsRow implements Application.ActivityLifecycleCallbacks
 
     @Override
     public void onActivityResumed(Activity activity) {
+        long probe = Probe.start();
         Plugins.onActivityResumed(activity);
         Plugins.screen(activity);
         Screen.at(activity);
@@ -60,6 +61,7 @@ public final class SettingsRow implements Application.ActivityLifecycleCallbacks
         Themes.watch(activity);
         PinkButtons.watch(activity);
         Tutorial.maybeShow(activity);
+        Probe.stop(Probe.SHOWN, probe);
 
         String name = activity.getClass().getName();
 
