@@ -252,7 +252,10 @@ public final class Dim {
         if(depth>40 || budget[0]--<=0)return 15;
         View anchor=commentBoundary(view);
         if(anchor!=null || blockedPanel(view)) {
-            int flags=4|(chatInput(view)?32:0)|(actualCommentPanel(view)?64:0)|(commentField(view)?128:0);commentSources.put(view,anchor==null?view:anchor);inspection.put(view,flags);
+            // A boundary is the sheet drawn round a panel that was found on an earlier pass, and what
+            // kind of panel it was is a fact about the panel, not about the sheet: asked of the sheet
+            // alone, a conversation stopped being one from the second pass on, and the eye came back.
+            int flags=4|(chatInput(view)||(anchor!=null&&chatInput(anchor))?32:0)|(actualCommentPanel(view)?64:0)|(commentField(view)?128:0);commentSources.put(view,anchor==null?view:anchor);inspection.put(view,flags);
             if((flags&128)!=0)markZone(view,true);
             else if(anchor!=null || ((flags&64)!=0 && !Boolean.TRUE.equals(view.getTag(0x5454434D))))markZone(view,false);
             return flags;
