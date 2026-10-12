@@ -1,8 +1,8 @@
 {
   "_comment": "What the app checks to know whether it is out of date. It reads this from the project's own git server at startup and every five minutes; the badges come from the same box.",
-  "version": "2.0.2",
-  "url": "https://git.narez.xyz/narezany/MargyT/releases/download/v2.0.2/margyt.apk",
-  "notes": "Avatar shapes with story rings to match; hold Inbox or Friends to clear the unread number; reposting comments and your own videos; a shelf of silly things with the Dep Calculator, screamers and the fat tilcayo; a home-screen widget; plugins that carry a picture install again, and the feed stutters less.",
-  "notes_ru": "Формы аватарок и кольца историй под них; зажмите «Входящие» или «Друзья», чтобы убрать число непрочитанного; репост комментариев и своих видео; вкладка «Смешнявки» с Деп калькулятором, скримерами и толстым тилкайо; виджет на рабочий стол; плагины с картинками снова ставятся, и лента меньше подлагивает.",
-  "notes_uk": "Форми аватарок і кільця історій під них; затисніть «Вхідні» або «Друзі», щоб прибрати число непрочитаного; репост коментарів і своїх відео; вкладка «Смішнявки» з Деп калькулятором, скримерами й товстим тілкайо; віджет на робочий стіл; плагіни з картинками знову встановлюються, і стрічка менше підгальмовує."
+  "version": "2.0.3",
+  "url": "https://git.narez.xyz/narezany/MargyT/releases/download/v2.0.3/margyt.apk",
+  "notes": "A Material 3 bottom bar, feed, profile and inbox, each with a switch; the MargyT row in TikTok's own settings list; TikTok no longer turns the brightness up by itself; one set of settings for every account; the story ring keeps the avatar's shape beside a video; and the feed stutters much less.",
+  "notes_ru": "Нижняя панель, лента, профиль и входящие в стиле Material 3, всё отключается; кнопка MargyT прямо в списке настроек TikTok; TikTok больше не выкручивает яркость сам; одни настройки на все аккаунты; кольцо историй повторяет форму аватарки и рядом с видео; лента подлагивает гораздо меньше.",
+  "notes_uk": "Нижня панель, стрічка, профіль і вхідні у стилі Material 3, усе вимикається; кнопка MargyT просто у списку налаштувань TikTok; TikTok більше не викручує яскравість сам; одні налаштування на всі акаунти; кільце історій повторює форму аватарки й поруч із відео; стрічка підгальмовує набагато менше."
 }
