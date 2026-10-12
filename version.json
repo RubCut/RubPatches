@@ -1,8 +1,8 @@
 {
   "_comment": "What the app checks to know whether it is out of date. It reads this from the project's own git server at startup and every five minutes; the badges come from the same box.",
-  "version": "2.0.3",
-  "url": "https://git.narez.xyz/narezany/MargyT/releases/download/v2.0.3/margyt.apk",
-  "notes": "A Material 3 bottom bar, feed, profile and inbox, each with a switch; the MargyT row in TikTok's own settings list; TikTok no longer turns the brightness up by itself; one set of settings for every account; the story ring keeps the avatar's shape beside a video; and the feed stutters much less.",
-  "notes_ru": "Нижняя панель, лента, профиль и входящие в стиле Material 3, всё отключается; кнопка MargyT прямо в списке настроек TikTok; TikTok больше не выкручивает яркость сам; одни настройки на все аккаунты; кольцо историй повторяет форму аватарки и рядом с видео; лента подлагивает гораздо меньше.",
-  "notes_uk": "Нижня панель, стрічка, профіль і вхідні у стилі Material 3, усе вимикається; кнопка MargyT просто у списку налаштувань TikTok; TikTok більше не викручує яскравість сам; одні налаштування на всі акаунти; кільце історій повторює форму аватарки й поруч із відео; стрічка підгальмовує набагато менше."
+  "version": "2.0.4",
+  "url": "https://git.narez.xyz/narezany/MargyT/releases/download/v2.0.4/margyt.apk",
+  "notes": "The commonest crash is gone: TikTok closing when a message arrived while it was open. No more crash on signing in or changing the theme with another icon chosen. Material 3 shapes follow a light theme. TikTok's own button that translates all comments at once. The bottom bar comes back at a touch while the screen saver is on.",
+  "notes_ru": "Убран самый частый вылет: TikTok закрывался, когда при открытом приложении приходило сообщение. Больше не вылетает при входе и смене темы со своей иконкой. Оформление Material 3 подстраивается под светлую тему. Встроенная кнопка TikTok, которая переводит все комментарии сразу. При анти-выгорании нижняя панель возвращается по нажатию.",
+  "notes_uk": "Прибрано найчастіший виліт: TikTok закривався, коли за відкритого застосунку надходило повідомлення. Більше не вилітає під час входу та зміни теми зі своєю іконкою. Оформлення Material 3 підлаштовується під світлу тему. Вбудована кнопка TikTok, яка перекладає всі коментарі одразу. Під час антивигоряння нижня панель повертається за натисканням."
 }
