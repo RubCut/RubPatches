@@ -789,7 +789,7 @@ public final class Themes {
                     new android.view.ViewTreeObserver.OnGlobalLayoutListener() {
                         private long updated;
                         private boolean owed;
-                        private int shape=Dim.layoutFingerprint(root,0);
+                        private int shape=shape(root, 0);
                         private final Runnable later = new Runnable() {
                             @Override
                             public void run() {
@@ -822,7 +822,7 @@ public final class Themes {
                             // nothing else would notice the theme change
                             isDark();
                             long probe = Probe.start();
-                            int next=Dim.layoutFingerprint(root,0);
+                            int next=shape(root, 0);
                             Probe.stop(Probe.DIM_PRINT, probe);
                             if(next==shape)return;shape=next;
                             updated = android.os.SystemClock.uptimeMillis();
@@ -867,6 +867,36 @@ public final class Themes {
             AppearanceColors.look(view);
         }
     };
+
+    /**
+     * What is on a screen and how large, said as one number: enough to tell
+     * that something new has appeared and wants painting.
+     *
+     * This used to be the fingerprint the screen saver takes, which also
+     * says where everything has moved to and how faint it is, and asks two
+     * tables about each view. Asking where a view has moved to is a call out
+     * of Java, three of them a view and thousands of views; and a screen with
+     * anything sliding or fading on it had a new fingerprint every time, so
+     * the whole of it was painted again several times a second while a video
+     * was being swiped. A view that has only moved needs no new paint. What
+     * is hidden is not looked inside: it is looked at when it is shown,
+     * which changes the number.
+     */
+    private static int shape(View view, int depth) {
+        if (view == null || depth > 40) return 0;
+        int visibility = view.getVisibility();
+        int hash = System.identityHashCode(view) * 31 + visibility;
+        if (visibility != View.VISIBLE) return hash;
+        hash = 31 * hash + view.getWidth() * 17 + view.getHeight();
+        hash = 31 * hash + (view.isSelected() ? 8 : 0) + (view.isActivated() ? 16 : 0);
+        if (view instanceof android.view.ViewGroup) {
+            android.view.ViewGroup group = (android.view.ViewGroup) view;
+            int many = group.getChildCount();
+            hash = 31 * hash + many;
+            for (int i = 0; i < many; i++) hash = 31 * hash + shape(group.getChildAt(i), depth + 1);
+        }
+        return hash;
+    }
 
     private static void sweep(View root) {
         Sliced.walk(root, ACCENT, ROLES);

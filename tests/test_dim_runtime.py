@@ -108,6 +108,7 @@ STUBS = {
         static boolean header=true;static boolean hasFeedHeader(android.view.View v){return header;} }''',
 }
 
+STUBS['cat/narezany/margyt/NavBar.java']='package cat.narezany.margyt;class NavBar{static boolean wears(android.view.View v){return false;}}'
 STUBS['cat/narezany/margyt/ProfileLayout.java']='package cat.narezany.margyt;class ProfileLayout {static boolean profile;static boolean visible(android.view.View root){return profile;}}'
 STUBS['android/view/View.java']=STUBS['android/view/View.java'].replace('public boolean isAttachedToWindow(){return true;}', 'public boolean isAttachedToWindow(){return true;}public boolean hasWindowFocus(){return true;}')
 

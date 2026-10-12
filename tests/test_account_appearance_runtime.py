@@ -1,4 +1,4 @@
-"""Execute actual account hooks, migration and account-scoped appearance storage."""
+"""Execute actual account hooks, migration and the one set of appearance settings every account shares."""
 import pathlib,shutil,subprocess,tempfile,unittest
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 STUBS={
@@ -20,7 +20,7 @@ STUBS={
 'cat/narezany/margyt/LikeColors.java':'package cat.narezany.margyt;class LikeColors {static void reload(){}}',
 'cat/narezany/margyt/Badge.java':'package cat.narezany.margyt;class Badge {static void refreshProfiles(){}}',
 'cat/narezany/margyt/Plugins.java':'package cat.narezany.margyt;class Plugins {static String uid;static void accountChanged(String value){uid=value;}}',
-'cat/narezany/margyt/Diary.java':'package cat.narezany.margyt;class Diary {static void note(String value){throw new AssertionError(value);}}',
+'cat/narezany/margyt/Diary.java':'package cat.narezany.margyt;class Diary {static java.util.List<String> said=new java.util.ArrayList<>();static void note(String value){if(value.startsWith("settings: one set"))said.add(value);else throw new AssertionError(value);}}',
 'cat/narezany/margyt/BioProof.java':'package cat.narezany.margyt;class BioProof {static void recover(){}}',
 'cat/narezany/margyt/Avatars.java':'package cat.narezany.margyt;class Avatars {static void rememberCurrent(com.ss.android.ugc.aweme.profile.model.User u){}}',
 'com/ss/android/ugc/aweme/profile/model/User.java':'package com.ss.android.ugc.aweme.profile.model;public class User {public String uid,name,handle;public User(String u,String n,String h){uid=u;name=n;handle=h;}public String getUid(){return uid;}public String getNickname(){return name;}public String getUniqueId(){return handle;}}',
@@ -48,21 +48,36 @@ public class AppearanceHarness {
   java.io.File old=new java.io.File(ctx.files,"margyt/font");old.getParentFile().mkdirs();java.nio.file.Files.write(old.toPath(),new byte[]{1,2});
   Service a=new Service(new User("111","Lolipuzik1","lolipuzik1")),b=new Service(new User("222","Bob2","bob2"));
   Account.getCurUser(a);SharedPreferences one=AccountAppearance.prefs(ctx);
-  check(one.getInt("accent",0)==123 && one.getBoolean("profile_gradient_on",false),"first account inherits legacy style once");
-  check(Accent.colour()==123,"actual accent cache starts with first account");
+  check(one.getInt("accent",0)==123 && one.getBoolean("profile_gradient_on",false),"the one set starts from the old settings");
+  check(Accent.colour()==123,"actual accent cache starts with them");
   check(!one.contains("profile_sync_token"),"verification secrets stay out of appearance storage");
-  check(AccountAppearance.file(ctx,"font").isFile(),"font migrated into owner folder");
+  check(AccountAppearance.file(ctx,"font").isFile(),"font brought into the shared folder");
   Account.getCurUser(b);SharedPreferences two=AccountAppearance.prefs(ctx);
-  check(two!=one && two.getInt("accent",0)==0 && !two.getBoolean("profile_gradient_on",false),"second account starts independently");
-  check(!AccountAppearance.file(ctx,"font").exists(),"font is not inherited by second account");
-  check(Accent.colour()==99,"cached accent resets for second account");Accent.set(456);
+  check(two==one && two.getInt("accent",0)==123 && two.getBoolean("profile_gradient_on",false),"a second account has the same settings");
+  check(AccountAppearance.file(ctx,"font").isFile(),"and the same font");
+  check(Accent.colour()==123,"the accent does not change with the account");Accent.set(456);
   check("222".equals(Plugins.uid),"plugin account event");
-  Account.getCurUser(a);check(AccountAppearance.prefs(ctx).getInt("accent",0)==123 && Accent.colour()==123,"switch back restores actual first-account accent cache");
+  Account.getCurUser(a);check(AccountAppearance.prefs(ctx).getInt("accent",0)==456 && Accent.colour()==456,"what one account set, the other has");
   Account.rememberProfile(new com.ss.android.ugc.profile.platform.base.data.UserProfileInfo("111","Wrong1","lolipuzik1"));
   check("Lolipuzik1".equals(Account.canonicalName("111","Wrong1")),"secondary profile model cannot replace authoritative nickname");
   check("Other7".equals(Account.canonicalName("999","Other7")),"another profile unchanged");
-  Account.getCurUser(new Service(null));check("guest".equals(AccountAppearance.scope(ctx)) && !AccountAppearance.prefs(ctx).contains("accent"),"logout uses separate guest appearance");
-  Account.getCurUser(b);check(AccountAppearance.prefs(ctx).getInt("accent",0)==456 && Accent.colour()==456,"second account actual accent restored after logout");
+  Account.getCurUser(new Service(null));check(AccountAppearance.SHARED.equals(AccountAppearance.scope(ctx)) && AccountAppearance.prefs(ctx).getInt("accent",0)==456,"signed out, the settings are still there");
+  Account.getCurUser(b);check(AccountAppearance.prefs(ctx).getInt("accent",0)==456 && Accent.colour()==456,"and after signing in again");
+  // settings that were kept an account: the one set is a copy of the last account's
+  Context kept=new Context();kept.files=new java.io.File(args[0],"kept");
+  kept.getSharedPreferences("mod",0).edit().putString("account_id","222").putInt("accent",1).apply();
+  kept.getSharedPreferences("margyt_appearance_111",0).edit().putBoolean("_initialized",true).putInt("accent",5).apply();
+  kept.getSharedPreferences("margyt_appearance_222",0).edit().putBoolean("_initialized",true).putInt("accent",777).putString("font","mine").apply();
+  java.io.File theirs=new java.io.File(kept.files,"margyt/accounts/222/font");theirs.getParentFile().mkdirs();java.nio.file.Files.write(theirs.toPath(),new byte[]{7});
+  Diary.said.clear();SharedPreferences shared=AccountAppearance.prefs(kept);
+  check(shared.getInt("accent",0)==777 && "mine".equals(shared.getString("font","")),"the last account's settings become everybody's");
+  check(new java.io.File(kept.files,"margyt/accounts/shared/font").isFile() && theirs.isFile(),"its files are copied, and left where they were");
+  check(kept.getSharedPreferences("margyt_appearance_222",0).getInt("accent",0)==777,"and its own set is left as it was");
+  check(Diary.said.size()==1,"said once: "+Diary.said);
+  AccountAppearance.prefs(kept);check(Diary.said.size()==1,"and not brought over twice");
+  Context out=new Context();out.files=new java.io.File(args[0],"out");
+  out.getSharedPreferences("margyt_appearance_guest",0).edit().putBoolean("_initialized",true).putInt("accent",31).apply();
+  check(AccountAppearance.prefs(out).getInt("accent",0)==31,"nobody signed in: what the signed-out set had");
   check(!AccountAppearance.appearanceKey("account_id") && !AccountAppearance.appearanceKey("profile_preview_name"),"identity stays outside appearance");
   android.os.Handler.queued=true;Plugins.uid=null;
   AccountAppearance.select("111");AccountAppearance.select("222");AccountAppearance.select("111");

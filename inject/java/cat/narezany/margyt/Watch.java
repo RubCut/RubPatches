@@ -37,14 +37,17 @@ public final class Watch implements Application.ActivityLifecycleCallbacks {
         } catch (Throwable ignored) {
         }
         try {
-            Hdr.apply(activity);
+            Brightness.apply(activity);
         } catch (Throwable ignored) {
         }
         try {
             Tester.mark(activity);
         } catch (Throwable ignored) {
         }
+        Lag.frames(activity);
         TabBadges.attach(activity);
+        NavBar.attach(activity);
+        Md3.attach(activity);
         DepFloat.attach(activity);
         Screamer.attach(activity);
     }

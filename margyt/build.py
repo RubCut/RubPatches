@@ -778,6 +778,9 @@ class Build:
         feature_hits[dexpatch.FLAG_LABEL]=0
         feature_hits["native avatar shape"]=0
         feature_hits["native avatar ring"]=0
+        feature_hits[dexpatch.HDR_LABEL]=0
+        feature_hits[dexpatch.SETTINGS_LABEL]=0
+        feature_hits["native window brightness"]=0
         feature_hits["native card corners"]=0
         feature_hits["native right-area slots"]=0
         feature_hits["native player resume"]=0
@@ -812,7 +815,10 @@ class Build:
             feature_hits["native comment text actions"] += counts.get("native comment text actions",0)
             feature_hits["native loading indicator"] += counts.get("native loading indicator",0)
             feature_hits[dexpatch.FLAG_LABEL] += counts.get(dexpatch.FLAG_LABEL,0)
-            feature_hits["native avatar ring"] += sum(v for key,v in counts.items() if key.startswith("Canvas->drawArc") and dexpatch.STORY_RING in key)
+            feature_hits[dexpatch.HDR_LABEL] += counts.get(dexpatch.HDR_LABEL,0)
+            feature_hits[dexpatch.SETTINGS_LABEL] += counts.get(dexpatch.SETTINGS_LABEL,0)
+            feature_hits["native window brightness"] += sum(v for key,v in counts.items() if key.startswith(dexpatch.WINDOW_LABEL))
+            feature_hits["native avatar ring"] += sum(v for key,v in counts.items() if key.startswith("Canvas->drawArc") and any(ring in key for ring in dexpatch.STORY_RINGS))
             feature_hits["native avatar shape"] += sum(v for key,v in counts.items() if key.startswith("Path->addCircle"))
             feature_hits["native card corners"] += counts.get("native card corners",0)
             feature_hits["native right-area slots"] += counts.get("native right-area slots",0)
@@ -847,6 +853,8 @@ class Build:
         missing=[feature for feature,hits in feature_hits.items() if not hits]
         if feature_hits["native offline comments response"] < 4:
             missing.append("native offline comments response (need all four)")
+        if 0 < feature_hits[dexpatch.SETTINGS_LABEL] < 2:
+            missing.append(dexpatch.SETTINGS_LABEL + " (need both halves)")
         if feature_hits["native right-area slots"]<4 and "native right-area slots" not in missing:
             missing.append("native right-area slots (need all four)")
         if missing:
