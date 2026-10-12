@@ -59,13 +59,14 @@ public final class Flags {
     // Switched on here for whoever asks, left as TikTok decided otherwise.
     public static final String KEY_COMMENT_REPOST = "flag_comment_repost";
     public static final String KEY_SELF_REPOST = "flag_self_repost";
+    public static final String KEY_TRANSLATE_COMMENTS = "flag_translate_comments";
 
     // The new profile. On unless switched off, and off means the old one even
     // for somebody TikTok has moved to the new: this is a preference.
     public static final String KEY_NEW_PROFILE = "flag_new_profile";
 
     private static final Set<String> ON_BY_DEFAULT = new HashSet<String>(Arrays.asList(
-            KEY_VOICE, KEY_BANNER, KEY_SPEED_LOCK, KEY_NEW_PROFILE));
+            KEY_VOICE, KEY_BANNER, KEY_SPEED_LOCK, KEY_NEW_PROFILE, KEY_TRANSLATE_COMMENTS));
 
     /** Where the developer's own answers are kept, one entry a flag. */
     static final String OVERRIDES = Margy.PREFS + "_flags";
@@ -205,6 +206,23 @@ public final class Flags {
                 made.put("tt_audio_comment_repost", one);
             }
             if (on(prefs, KEY_SELF_REPOST)) made.put("enable_self_repost", one);
+            // A button in the head of the comments that turns the translation
+            // of all of them on and off, where TikTok otherwise translates one
+            // at a time. TikTok has it as an experiment with several arms, and
+            // the second is the one that draws the button, for viewers and for
+            // the author alike.
+            //
+            // Not together with "auto translation v2", which is another
+            // experiment about the same thing: that one translates by itself
+            // and takes no notice of the button, so with both on the button
+            // was there and did nothing.
+            if (on(prefs, KEY_TRANSLATE_COMMENTS)) {
+                made.put("comment_auto_translation_enabled", one);
+                made.put("comment_auto_translation_consumer_style", Integer.valueOf(2));
+                made.put("comment_auto_translation_creator_style", Integer.valueOf(2));
+                made.put("comment_auto_translation_display_button_under_dnt", one);
+                made.put("tt_comment_auto_translation_v2", none);
+            }
 
             made.put("profile_left_align", on(prefs, KEY_NEW_PROFILE) ? one : none);
 

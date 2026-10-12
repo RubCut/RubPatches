@@ -71,10 +71,11 @@ final class Md3 {
         Boolean known = ON[which];
         if (known != null) return known;
         Context context = Margy.context();
-        if (context == null) return true;  // too early to know; not remembered
-        boolean value = true;
+        if (context == null) return which == PROFILE || which == INBOX;  // too early to know; not remembered
+        // the profile and the inbox unless switched off; the feed and its icons only when switched on
+        boolean value = which == PROFILE || which == INBOX;
         try {
-            value = context.getSharedPreferences(Margy.PREFS, Context.MODE_PRIVATE).getBoolean(KEYS[which], true);
+            value = context.getSharedPreferences(Margy.PREFS, Context.MODE_PRIVATE).getBoolean(KEYS[which], value);
         } catch (Throwable ignored) {
         }
         ON[which] = value;
@@ -108,10 +109,22 @@ final class Md3 {
             this.kind = kind;
         }
 
+        /** What it is for, which is what decides its colour. */
+        int role = SHELL;
+
         void tint(int colour) {
             if (paint.getColor() == colour) return;
             paint.setColor(colour);
             invalidateSelf();
+        }
+
+        /** Coloured for what it is and where it is, and kept on the list of what is coloured again. */
+        void dress(View view, int as) {
+            role = as;
+            synchronized (WORN) {
+                WORN.put(view, this);
+            }
+            tint(colour(view, as));
         }
 
         /** The corners of a card in a group: large where the group ends, small where it goes on. */
@@ -201,16 +214,107 @@ final class Md3 {
         view.setTag(OURS, null);
         view.setTag(WAS, null);
         view.setTag(PUT, null);
+        synchronized (WORN) {
+            WORN.remove(view);
+        }
     }
 
     // ------------------------------------------------------------ the colours
 
-    private static int ground() {
+    private static final int SHELL = 0, CHOSEN = 1, OVER_VIDEO = 2, CHOSEN_OVER_VIDEO = 3;
+    /** Everything the mod has dressed, to be coloured again when what it lies on changes colour. */
+    private static final java.util.WeakHashMap<View, Shape> WORN = new java.util.WeakHashMap<View, Shape>();
+
+    /**
+     * The colour of the page a view lies on: the nearest thing behind it that
+     * is painted one solid colour.
+     *
+     * Read off the screen and not asked of the theme, because the theme's
+     * answer is the answer for the screen on top at the moment it is asked --
+     * and with the mod's own settings on top, or nothing, that was the dark
+     * one, and a light page came back wearing dark cards. What is painted
+     * behind a view is the page it will be seen on, whoever painted it.
+     */
+    static int behind(View view) {
+        Object parent = view.getParent();
+        for (int i = 0; i < 28 && parent instanceof View; i++) {
+            Drawable back = ((View) parent).getBackground();
+            if (back instanceof android.graphics.drawable.ColorDrawable) {
+                int colour = ((android.graphics.drawable.ColorDrawable) back).getColor();
+                if (android.graphics.Color.alpha(colour) == 255) return colour;
+            }
+            parent = ((View) parent).getParent();
+        }
         if (Themes.isEnabled()) return Themes.backgroundInUse() | 0xFF000000;
         return Themes.isDark() ? 0xFF121212 : 0xFFFFFFFF;
     }
 
-    private static int ink(int ground) {
+    /**
+     * The colour painted under a view that floats over the screen: the
+     * bottom bar, which is drawn over whichever page is showing and is no
+     * part of it.
+     *
+     * Found the way the screen is drawn. Whatever was laid down before the
+     * view, in its parent and that parent's parent and so on up, is under
+     * it; of those, the one drawn last that is a solid colour where the
+     * middle of the view is, is the colour it is seen against. Under a video
+     * that is TikTok's black strip, on a profile the profile's own page.
+     * Only so many views are looked at, and with nothing found the answer is
+     * the page the view's own ancestors are painted with.
+     */
+    static int under(View view) {
+        try {
+            int[] at = new int[2];
+            view.getLocationOnScreen(at);
+            int x = at[0] + view.getWidth() / 2, y = at[1] + view.getHeight() / 2;
+            // how many views may be looked at, and how wide one has to be to count:
+            // a page is as wide as the bar, a picture in a grid passing under it is not
+            int[] left = {600, Math.round(view.getWidth() * 0.8f)};
+            View child = view;
+            Object parent = view.getParent();
+            for (int level = 0; level < 28 && parent instanceof ViewGroup; level++) {
+                ViewGroup group = (ViewGroup) parent;
+                for (int i = group.indexOfChild(child) - 1; i >= 0; i--) {
+                    int found = painted(group.getChildAt(i), x, y, 0, left, at);
+                    if (found != 0) return found;
+                }
+                Drawable back = group.getBackground();
+                if (back instanceof android.graphics.drawable.ColorDrawable) {
+                    int colour = ((android.graphics.drawable.ColorDrawable) back).getColor();
+                    if (android.graphics.Color.alpha(colour) == 255) return colour;
+                }
+                child = group;
+                parent = group.getParent();
+            }
+        } catch (Throwable ignored) {
+            // a screen being taken apart: the page will do
+        }
+        return behind(view);
+    }
+
+    /** The solid colour a view or the last-drawn thing inside it paints at a point on the screen, or nought. */
+    private static int painted(View view, int x, int y, int depth, int[] left, int[] at) {
+        if (view == null || depth > 24 || left[0]-- <= 0) return 0;
+        if (view.getVisibility() != View.VISIBLE || view.getAlpha() < 0.9f || view.getWidth() == 0) return 0;
+        view.getLocationOnScreen(at);
+        if (x < at[0] || y < at[1] || x >= at[0] + view.getWidth() || y >= at[1] + view.getHeight()) return 0;
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int i = group.getChildCount() - 1; i >= 0; i--) {
+                int found = painted(group.getChildAt(i), x, y, depth + 1, left, at);
+                if (found != 0) return found;
+            }
+        }
+        Drawable back = view.getBackground();
+        if (view.getWidth() >= left[1] && back instanceof android.graphics.drawable.ColorDrawable) {
+            int colour = ((android.graphics.drawable.ColorDrawable) back).getColor();
+            if (android.graphics.Color.alpha(colour) == 255) return colour;
+        }
+        return 0;
+    }
+
+    /** What is written on a page of this colour: the theme's own, where that can be read on it. */
+    static int ink(int ground) {
         boolean dark = NavBar.bright(ground) < 0.5f;
         int ink = dark ? 0xFFFFFFFF : 0xFF161823;
         if (Themes.isEnabled()) {
@@ -220,15 +324,41 @@ final class Md3 {
         return ink;
     }
 
-    /** A surface one step up from the page: a card, a capsule, a disc on a page. */
-    private static int shell() {
-        int ground = ground();
-        return NavBar.mix(ground, ink(ground), 0.07f);
+    /** The colour of a shape behind a view, for what the shape is. */
+    private static int colour(View view, int role) {
+        if (role == OVER_VIDEO) return overVideo();
+        if (role == CHOSEN_OVER_VIDEO) return chosenOverVideo();
+        int ground = behind(view);
+        // a surface one step up from the page: a card, a capsule, a disc
+        int shell = NavBar.mix(ground, ink(ground), 0.07f);
+        return role == CHOSEN ? NavBar.mix(shell, Accent.colour() | 0xFF000000, 0.30f) : shell;
     }
 
-    /** What the chosen thing sits on: a tab that is open. */
-    private static int chosen() {
-        return NavBar.mix(shell(), Accent.colour() | 0xFF000000, 0.30f);
+    /** Whether the page a view lies on is a dark one. */
+    private static boolean onDark(View view) {
+        return NavBar.bright(behind(view)) < 0.5f;
+    }
+
+    private static long coloured;
+
+    /** Now and then, before a frame: a theme that has changed is noticed by what it has painted. */
+    private static void recolour() {
+        long now = SystemClock.uptimeMillis();
+        if (now - coloured < 500L) return;
+        coloured = now;
+        View[] views;
+        Shape[] shapes;
+        synchronized (WORN) {
+            views = WORN.keySet().toArray(new View[0]);
+            shapes = new Shape[views.length];
+            for (int i = 0; i < views.length; i++) shapes[i] = WORN.get(views[i]);
+        }
+        for (int i = 0; i < views.length; i++) {
+            View view = views[i];
+            Shape shape = shapes[i];
+            if (view == null || shape == null || !view.isAttachedToWindow()) continue;
+            shape.tint(colour(view, shape.role));
+        }
     }
 
     /** A disc over a video: dark whatever the theme, and mostly there. */
@@ -273,7 +403,7 @@ final class Md3 {
             card.wide = 48f * unit;
             card.top = card.bottom = unit;
             card.ends(first ? 24f * unit : 6f * unit, last ? 24f * unit : 6f * unit);
-            card.tint(overVideo());
+            card.dress(slot, OVER_VIDEO);
         } catch (Throwable error) {
             Diary.detail("md3: rail: " + error);
         }
@@ -535,6 +665,7 @@ final class Md3 {
         public boolean onPreDraw() {
             try {
                 FeedRail.icons();
+                recolour();
                 // Every row there is, every frame: which of them begins a group
                 // and which ends one changes as the list is scrolled, and there
                 // are a dozen of them.
@@ -568,7 +699,7 @@ final class Md3 {
                     int chosen = chosenIn(strip);
                     if (chosen != tabChosen) {
                         tabChosen = chosen;
-                        pills(strip, on(PROFILE), 3f, 3f, chosen());
+                        pills(strip, on(PROFILE), 3f, 3f, CHOSEN);
                     }
                 }
                 strip = feedTabs.get();
@@ -576,7 +707,7 @@ final class Md3 {
                     int chosen = chosenIn(strip);
                     if (chosen != feedChosen) {
                         feedChosen = chosen;
-                        pills(strip, on(FEED), 2f, 13f, chosenOverVideo());
+                        pills(strip, on(FEED), 2f, 13f, CHOSEN_OVER_VIDEO);
                     }
                     // TikTok gives the line its colour back when the feed under it changes
                     underline(strip, false);
@@ -592,7 +723,7 @@ final class Md3 {
             int id = view.getId();
             if (id != View.NO_ID && id != 0) {
                 if (id == feedLeft || id == feedSearch) {
-                    disc(view, on(FEED), overVideo(), 19f);
+                    disc(view, on(FEED), OVER_VIDEO, 19f);
                     return;
                 }
                 if (id == feedTop && view instanceof ViewGroup) feedTop((ViewGroup) view);
@@ -607,7 +738,7 @@ final class Md3 {
                 }
             }
             if (BurnEye.eye(view)) {
-                disc(view, on(FEED), overVideo(), 19f);
+                disc(view, on(FEED), OVER_VIDEO, 19f);
                 return;
             }
             int kind = kind(view);
@@ -636,7 +767,9 @@ final class Md3 {
                 return;
             }
             if (kind == K_NAV) {
-                icons(view, 0, inProfile ? on(PROFILE) : on(INBOX));
+                // Over a profile's picture the buttons are white, and a disc the
+                // colour of a light page would hide them; there they go without.
+                icons(view, 0, inProfile ? on(PROFILE) && onDark(view) : on(INBOX));
                 return;
             }
             if (view instanceof ViewGroup) {
@@ -673,7 +806,7 @@ final class Md3 {
             float unit = row.getResources().getDisplayMetrics().density;
             Shape capsule = wear(window, PILL);
             capsule.top = capsule.bottom = 9f * unit;
-            capsule.tint(overVideo());
+            capsule.dress(window, OVER_VIDEO);
             if (feedTabs.get() != strip) {
                 feedTabs = new WeakReference<ViewGroup>(strip);
                 feedChosen = -2;
@@ -691,7 +824,7 @@ final class Md3 {
                 tabs = new WeakReference<ViewGroup>(null);
                 return;
             }
-            wear(holder, PILL).tint(shell());
+            wear(holder, PILL).dress(holder, SHELL);
             if (strip.getTag(FLAT) == null) {
                 strip.setTag(FLAT, Boolean.TRUE);
                 try {
@@ -722,7 +855,7 @@ final class Md3 {
     }
 
     /** A pill on the tab that is chosen, and nothing on the others. */
-    private static void pills(ViewGroup strip, boolean on, float sides, float ends, int colour) {
+    private static void pills(ViewGroup strip, boolean on, float sides, float ends, int role) {
         float unit = strip.getResources().getDisplayMetrics().density;
         for (int i = 0; i < strip.getChildCount(); i++) {
             View tab = strip.getChildAt(i);
@@ -730,7 +863,7 @@ final class Md3 {
                 Shape pill = wear(tab, PILL);
                 pill.left = pill.right = sides * unit;
                 pill.top = pill.bottom = ends * unit;
-                pill.tint(colour);
+                pill.dress(tab, role);
             } else {
                 strip(tab);
             }
@@ -764,7 +897,7 @@ final class Md3 {
     }
 
     /** A disc behind a button that is only an icon. */
-    private static void disc(View view, boolean on, int colour, float radius) {
+    private static void disc(View view, boolean on, int role, float radius) {
         if (!on) {
             strip(view);
             return;
@@ -772,7 +905,7 @@ final class Md3 {
         if (view.getBackground() != null && !(view.getTag(OURS) instanceof Shape)) return;
         Shape disc = wear(view, DISC);
         disc.radius = radius * view.getResources().getDisplayMetrics().density;
-        disc.tint(colour);
+        disc.dress(view, role);
     }
 
     /** The buttons of a bar across the top of a screen. */
@@ -780,7 +913,7 @@ final class Md3 {
         if (depth > 6 || view.getVisibility() != View.VISIBLE) return;
         if (kind(view) == K_ICON) {
             float unit = view.getResources().getDisplayMetrics().density;
-            if (view.isFocusable() && view.getWidth() >= 32 * unit) disc(view, on, shell(), 19f);
+            if (view.isFocusable() && view.getWidth() >= 32 * unit) disc(view, on, SHELL, 19f);
             return;
         }
         if (view instanceof ViewGroup) {
@@ -814,7 +947,7 @@ final class Md3 {
         card.left = card.right = 8f * unit;
         card.top = card.bottom = unit;
         card.ends(head ? 22f * unit : 5f * unit, tail ? 22f * unit : 5f * unit);
-        card.tint(shell());
+        card.dress(view, SHELL);
     }
 
     private static final ViewOutlineProvider ROUNDED = new ViewOutlineProvider() {
@@ -852,7 +985,7 @@ final class Md3 {
             return;
         }
         if (row.getTag(OURS) instanceof Shape && row.getBackground() == row.getTag(OURS)) {
-            ((Shape) row.getTag(OURS)).tint(shell());
+            ((Shape) row.getTag(OURS)).dress(row, SHELL);
             return;
         }
         if (row.getBackground() != null && !(row.getTag(OURS) instanceof Shape)) return;
@@ -864,7 +997,7 @@ final class Md3 {
         card.bottom = -4f * unit;
         card.right = 0f;
         card.radius = 18f * unit;
-        card.tint(shell());
+        card.dress(row, SHELL);
         // and so drawn past the row, which its parents would otherwise cut off
         Object above = row.getParent();
         for (int i = 0; i < 2 && above instanceof ViewGroup; i++) {

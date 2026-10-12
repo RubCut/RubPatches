@@ -657,6 +657,10 @@ final class Text {
             "Repost comments");
     static final String SELF_REPOST = pick("Репост своих видео", "Репост своїх відео",
             "Repost your own videos");
+    static final String TRANSLATE_COMMENTS = pick("Перевод всех комментариев сразу", "Переклад усіх коментарів одразу",
+            "Translate all comments at once");
+    static final String KEEP_BAR = pick("Не прятать нижнюю панель", "Не ховати нижню панель",
+            "Keep the bottom bar in sight");
     static final String NEW_PROFILE = pick("Новый вид профиля TikTok", "Новий вигляд профілю TikTok",
             "TikTok's new profile look");
 

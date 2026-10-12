@@ -473,6 +473,9 @@ public class SettingsActivity extends Activity {
         features.addView(line());
         features.addView(toggleRow("repeat", Text.SELF_REPOST, Flags.isOn(Flags.KEY_SELF_REPOST),
                 on -> Flags.set(Flags.KEY_SELF_REPOST, on)));
+        features.addView(line());
+        features.addView(toggleRow("language", Text.TRANSLATE_COMMENTS, Flags.isOn(Flags.KEY_TRANSLATE_COMMENTS),
+                on -> Flags.set(Flags.KEY_TRANSLATE_COMMENTS, on)));
         column.addView(wrap(features));
 
         column.addView(section(BURN));
@@ -484,8 +487,10 @@ public class SettingsActivity extends Activity {
         if (Dim.isConfigured()) {
             burn.addView(line());
             burn.addView(slider("contrast", Text.DIM_HOW, Dim.strength(), 90, 0, "%", value -> Dim.setStrength(value)));
+            burn.addView(line());
+            burn.addView(toggleRow("visibility_off", Text.KEEP_BAR, NavBar.isKept(), NavBar::setKept));
         }
-        burn.addView(quiet(Local.of("Глаз в ленте и на видео включает и выключает затемнение на лету. Поле ввода комментария не затемняется.")));
+        burn.addView(quiet(Local.of("Глаз в ленте и на видео включает и выключает затемнение на лету. Поле ввода комментария не затемняется. Нижняя панель при затемнении прячется и возвращается на несколько секунд, если нажать на её место.")));
         column.addView(wrap(burn));
 
         column.addView(section(Text.DOWNLOADS));
@@ -3498,6 +3503,7 @@ public class SettingsActivity extends Activity {
         found+=searchControl(results,Text.BADGES,Text.BADGES_ON,Badges.isEnabled());
         found+=searchControl(results,Text.TIKTOK_FEATURES,Text.COMMENT_REPOST,Flags.isOn(Flags.KEY_COMMENT_REPOST));
         found+=searchControl(results,Text.TIKTOK_FEATURES,Text.SELF_REPOST,Flags.isOn(Flags.KEY_SELF_REPOST));
+        found+=searchControl(results,Text.TIKTOK_FEATURES,Text.TRANSLATE_COMMENTS,Flags.isOn(Flags.KEY_TRANSLATE_COMMENTS));
         found+=searchControl(results,Text.APPEARANCE,Text.NEW_PROFILE,Flags.isOn(Flags.KEY_NEW_PROFILE));
         found+=searchControl(results,Text.APPEARANCE,Text.NAV_CAPSULE,NavBar.isEnabled());
         found+=searchControl(results,Text.APPEARANCE,Text.MD3_FEED,Md3.isOn(Md3.KEY_FEED));

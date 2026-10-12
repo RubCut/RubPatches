@@ -52,6 +52,20 @@ final class NavBar {
     private NavBar() {}
 
     static final String KEY = "nav_capsule";
+    /** Whether the bar stays in sight, dimmed like the rest, while the screen saver is on. */
+    static final String KEY_KEEP = "nav_keep_dimmed";
+    /** How long a touch where the bar was brings it back for. */
+    private static final long PEEK = 5000L;
+
+    static boolean isKept() {
+        SharedPreferences prefs = prefs();
+        return prefs != null && prefs.getBoolean(KEY_KEEP, false);
+    }
+
+    static void setKept(boolean kept) {
+        SharedPreferences prefs = prefs();
+        if (prefs != null) prefs.edit().putBoolean(KEY_KEEP, kept).apply();
+    }
 
     private static final int HOME = 0, FRIENDS = 1, CREATE = 2, INBOX = 3, PROFILE = 4, OTHER = 5;
     private static final String[] FRIEND_WORDS = {"друзья", "friends", "друзі"};
@@ -381,6 +395,9 @@ final class NavBar {
         private int ground = Color.BLACK, accent;
         private Drawable sampledFrom;
         private long sampledAt;
+        /** Until when the bar is back in sight after a touch where it was. */
+        private long peekUntil;
+        private boolean listening;
         /** How far out of sight the screen saver has put the bar, nought to one, and where that is heading. */
         private float away, awayFrom, awayTo;
         private long awaySince;
@@ -457,7 +474,20 @@ final class NavBar {
             // rest: it goes altogether, and cannot be touched where it was.
             boolean dimmed = false;
             for (Tab tab : tabs) if (tab.shown < 0.99f) dimmed = true;
-            float out = dimmed && Dim.isEnabled() ? 1f : 0f;
+            // ...unless it is kept, or the place it was has just been touched
+            float out = dimmed && Dim.isEnabled() && !isKept() && now >= peekUntil ? 1f : 0f;
+            if (!listening) {
+                listening = true;
+                bar.setOnTouchListener((touched, event) -> {
+                    // its tabs are off the screen while it is away, so a touch
+                    // where it was comes here: it brings the bar back for a while
+                    if (awayTo < 1f || event.getActionMasked() != android.view.MotionEvent.ACTION_DOWN) return false;
+                    peekUntil = SystemClock.uptimeMillis() + PEEK;
+                    touched.invalidate();
+                    touched.postDelayed(touched::invalidate, PEEK + 50L);
+                    return true;
+                });
+            }
             if (out != awayTo) {
                 awayFrom = away;
                 awayTo = out;
@@ -513,6 +543,8 @@ final class NavBar {
             bar.getOverlay().remove(this);
             for (Tab tab : tabs) release(tab.view);
             tabs = new Tab[0];
+            if (listening) bar.setOnTouchListener(null);
+            listening = false;
             if (ownKept && bar.getBackground() == null) bar.setBackground(own);
             own = null;
             ownKept = false;
@@ -554,50 +586,19 @@ final class NavBar {
         }
 
         /**
-         * The colour TikTok gave the bar, which the capsule's own colours are
-         * mixed from. Read off the background that was put away, drawn into
-         * one pixel rather than asked for, because not every background is a
-         * plain colour that can say what it is.
+         * The colour the capsule's own colours are mixed from: whatever is
+         * painted under the bar on the page now showing, so that a light
+         * page has a light capsule and a dark one a dark, and the black strip
+         * TikTok keeps under a video has a dark one whatever the theme.
+         *
+         * It used to be the colour TikTok gave the bar, and then the colour
+         * of the bar's own ancestors; but the bar is not part of the page it
+         * is seen over, and both were dark on a light profile.
          */
         private int under(View bar, long now) {
-            Drawable back = own;
-            // a bar with nothing of its own behind it shows what it lies on
-            Object above = bar.getParent();
-            for (int i = 0; i < 8 && back == null && above instanceof View; i++) {
-                back = ((View) above).getBackground();
-                above = ((View) above).getParent();
-            }
-            if (back == sampledFrom && now - sampledAt < LOOK_AGAIN) return ground;
-            sampledFrom = back;
+            if (now - sampledAt < LOOK_AGAIN) return ground;
             sampledAt = now;
-            int colour = 0;
-            if (back != null && bar.getWidth() > 0 && bar.getHeight() > 0) {
-                try {
-                    if (pixel == null) {
-                        pixel = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
-                        pixelCanvas = new Canvas(pixel);
-                    }
-                    pixel.eraseColor(0);
-                    int saved = pixelCanvas.save();
-                    android.graphics.Rect whole = back.getBounds();
-                    pixelCanvas.scale(1f / Math.max(1, whole.width()), 1f / Math.max(1, whole.height()));
-                    pixelCanvas.translate(-whole.left, -whole.top);
-                    back.draw(pixelCanvas);
-                    pixelCanvas.restoreToCount(saved);
-                    colour = pixel.getPixel(0, 0);
-                } catch (Throwable ignored) {
-                    colour = 0;
-                }
-            }
-            int behind = Themes.isEnabled() ? Themes.backgroundInUse() | 0xFF000000 : Color.BLACK;
-            int read = mix(behind, colour | 0xFF000000, Color.alpha(colour) / 255f);
-            // The background was put away before the theme could repaint it,
-            // so where it is the theme's kind of colour -- dark for a dark
-            // theme -- the theme's own is used. The feed's bar is black
-            // whatever the theme, and stays black.
-            if (Themes.isEnabled() && (bright(read) < 0.5f) == (bright(behind) < 0.5f)
-                    && (read & 0xFFFFFF) != 0) return behind;
-            return read;
+            return Md3.under(bar) | 0xFF000000;
         }
 
         /** Where everything goes along the bar, for how far open each tab is now. */
@@ -666,12 +667,7 @@ final class NavBar {
             if (tabs.length == 0 || body.isEmpty() || away >= 1f) return;
             int veil = away > 0f ? canvas.saveLayerAlpha(body.left - unit, body.top - 8f * unit, body.right + unit,
                     body.bottom + unit, Math.round(255f * (1f - away))) : -1;
-            boolean dark = bright(ground) < 0.5f;
-            int ink = dark ? 0xFFFFFFFF : 0xFF161823;
-            if (Themes.isEnabled()) {
-                int chosen = Themes.text() | 0xFF000000;
-                if ((bright(chosen) < 0.5f) != dark) ink = chosen;
-            }
+            int ink = Md3.ink(ground);
             int shell = mix(ground, ink, 0.07f), edge = mix(ground, ink, 0.15f);
             int pill = mix(shell, accent | 0xFF000000, 0.30f);
             int lit = mix(accent | 0xFF000000, ink, 0.40f);

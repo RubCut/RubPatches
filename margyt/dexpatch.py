@@ -1328,6 +1328,64 @@ def rewrite_hdr_switch(root: str, dex: Optional[bytes] = None) -> Dict[str, int]
     return counts
 
 
+# When a message arrives while the app is open, the code that shows the banner
+# for it asks for a string an apk installed by hand does not have, and the app
+# closes: nine crash reports in ten, in every version. In those two classes
+# the string is asked for through the mod, which gives nothing back where
+# there is nothing.
+SAFELY = "Lcat/narezany/margyt/Safely;"
+for anchor in ("LX/0TFu;", "LX/0TVv;"):
+    ANCHORED_SOURCES.append((anchor, "Landroid/content/Context;", "getString",
+        "(I)Ljava/lang/String;", "(Landroid/content/Context;I)Ljava/lang/String;", SAFELY))
+    CLASS_ANCHORED_SOURCES.add(anchor)
+
+# Every screen of TikTok's starts another through this one class, which is
+# androidx and has kept its name. The start is shown to the mod first: with
+# another icon chosen, the entry TikTok starts by name is switched off.
+STARTER = "Landroidx/activity/ComponentActivity;"
+START_LABEL = "native start"
+START_ROUTE = "Lcat/narezany/margyt/Launcher;->route(Landroid/content/Intent;)V"
+
+
+def rewrite_starts(root: str, dex: Optional[bytes] = None) -> Dict[str, int]:
+    """Show the mod every screen TikTok is about to start."""
+    counts: Dict[str, int] = {}
+    if dex is not None and not defines(dex, STARTER):
+        return counts
+    path = os.path.join(root, *STARTER[1:-1].split("/")) + ".smali"
+    if not os.path.exists(path):
+        return counts
+    with open(path, encoding="utf-8") as handle:
+        text = handle.read()
+
+    def shown(match):
+        head, body = match.group(1), match.group(2)
+        counts[START_LABEL] = counts.get(START_LABEL, 0) + 1
+        if START_ROUTE in body:
+            return match.group(0)
+        rows = body.split("\n")
+        inside = False
+        at = 0
+        for at, row in enumerate(rows):
+            word = row.strip()
+            if inside:
+                inside = not word.startswith(".end annotation")
+            elif word.startswith(".annotation"):
+                inside = True
+            elif word and not word.startswith((".registers", ".prologue", ".param", ".end param")):
+                break
+        rows[at:at] = ["    invoke-static {p1}, %s\n" % START_ROUTE]
+        return head + "\n".join(rows)
+
+    changed = re.sub(
+        r"(?ms)^(\.method public startActivityForResult\(Landroid/content/Intent;I(?:Landroid/os/Bundle;)?\)V\n)(.*?^\.end method)",
+        shown, text)
+    if changed != text:
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(changed)
+    return counts
+
+
 SETTINGS_CELL = "Lcat/narezany/margyt/SettingsCell;"
 SETTINGS_LABEL = "native settings row"
 # The function that draws the "Display" row of TikTok's settings, and the one
@@ -1758,7 +1816,8 @@ def interesting(dex: bytes, literals: Optional[Dict[str, str]] = None) -> bool:
     for class_name, _signature in FORCED_FALSE:
         if ("L%s;" % class_name).encode() in dex:
             return True
-    if defines(dex, PLAYER_CONFIG) or defines(dex, SETTINGS_ROWS) or defines(dex, SETTINGS_GROUP):
+    if (defines(dex, PLAYER_CONFIG) or defines(dex, SETTINGS_ROWS) or defines(dex, SETTINGS_GROUP)
+            or defines(dex, STARTER)):
         return True
     if TELEPHONY.encode() not in dex:
         return False
@@ -1900,6 +1959,7 @@ def rewrite_targets() -> List[str]:
     out.extend("%s->%s(Ljava/lang/String;)%s" % (FLAGS, method, boxed)
                for method, boxed, _unbox, _wide in FLAG_ANSWERS.values())
     out.append(HDR_QUESTION)
+    out.append(START_ROUTE)
     out.extend(["%s->title()Ljava/lang/String;" % SETTINGS_CELL,
                 "%s->again(Ljava/lang/Object;ZZI)Ljava/lang/Object;" % SETTINGS_CELL,
                 "%s->draw(ZLjava/lang/Object;)Z" % SETTINGS_CELL])
@@ -2067,6 +2127,7 @@ def rewrite_everything(root: str, literals: Optional[Dict[str, str]] = None,
     counts.update(rewrite_flag_reader(root, dex))
     counts.update(rewrite_hdr_switch(root, dex))
     counts.update(rewrite_settings_row(root, dex))
+    counts.update(rewrite_starts(root, dex))
     # Class-specific heart hooks must claim the feed heart's Tux tint calls
     # before the generic accent pass rewrites every TuxIconView tint. The
     # latter would otherwise swallow the exact native heart hook and leave

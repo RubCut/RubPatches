@@ -937,7 +937,11 @@ public final class Themes {
         long now = android.os.SystemClock.uptimeMillis();
         if (mode != 0 && now - asked < 1000) return mode == 1;
         Boolean seen = painted();
-        boolean dark = seen != null ? seen.booleanValue() : configured();
+        // With no screen of TikTok's to look at, what was last seen on one
+        // still stands. The phone's own setting is asked only when nothing
+        // has been seen: TikTok can be light on a dark phone, and it used to
+        // turn dark for a second each time the mod's settings were shut.
+        boolean dark = seen != null ? seen.booleanValue() : mode != 0 ? mode == 1 : configured();
         int was = mode;
         mode = dark ? 1 : 2;
         asked = now;
@@ -955,6 +959,8 @@ public final class Themes {
         try {
             android.app.Activity here = Watch.here();
             if (here == null) return null;
+            // the mod's own screens are painted its own way, which says nothing about TikTok's
+            if (here.getClass().getName().startsWith("cat.narezany.margyt.")) return null;
             android.view.View decor = here.getWindow() == null
                     ? null : here.getWindow().getDecorView();
             android.graphics.drawable.Drawable ground =
