@@ -63,6 +63,7 @@ public final class Diary {
 
     public static void note(String line) {
         if (flooding(line)) return;
+        if (Version.TEST || Version.LITE) android.util.Log.i("MargyT", "diary: " + line);
         String stamped = stamp() + "  " + line;
         synchronized (LINES) {
             load();

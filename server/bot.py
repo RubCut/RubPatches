@@ -32,6 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
 import badges as service
+import patcher
 import tiktok
 
 TOKEN_FILE = os.path.join(HERE, "bot.txt")
@@ -469,6 +470,25 @@ def handle(update):
         if private or low.startswith("иконка") or low.startswith("icon"):
             return offered(message, chat, from_who, text)
         return
+
+    # Somebody signing in to the patcher app: it opened the bot with a
+    # one-time code, and pressing Start is how the code learns who they are.
+    if low.startswith("/start p_"):
+        code = text.split("p_", 1)[1].strip()
+        name = from_who.get("first_name") or from_who.get("username") or ""
+        if from_who.get("id") and patcher.claim(code, from_who["id"], name):
+            return say(chat, "Готово. Возвращайся в <b>Margy Patcher</b>.")
+        return say(chat, "Этот вход уже не действует. Нажми «Войти через Telegram» "
+                         "в патчере ещё раз.")
+
+    # The owner says which group is the supporters' one, from inside it.
+    if low.split("@")[0] == "/supporters":
+        if from_who.get("id") != OWNER:
+            return
+        if message["chat"].get("type") == "private":
+            return say(chat, "Напиши это в группе поддержавших, куда я добавлен.")
+        patcher.set_group(chat)
+        return say(chat, "Запомнил: это группа поддержавших.")
 
     if low in ("/start", "/help", "помощь"):
         me = call("getMe").get("result", {}).get("username", "margyt_bot")

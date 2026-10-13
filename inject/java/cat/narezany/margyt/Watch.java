@@ -45,10 +45,13 @@ public final class Watch implements Application.ActivityLifecycleCallbacks {
         } catch (Throwable ignored) {
         }
         Lag.frames(activity);
-        TabBadges.attach(activity);
-        NavBar.attach(activity);
-        Md3.attach(activity);
-        DepFloat.attach(activity);
+        // what follows dresses TikTok's own screens, and Lite's are not those
+        if (!Version.LITE) {
+            TabBadges.attach(activity);
+            NavBar.attach(activity);
+            Md3.attach(activity);
+            DepFloat.attach(activity);
+        }
         Screamer.attach(activity);
     }
 
@@ -59,7 +62,7 @@ public final class Watch implements Application.ActivityLifecycleCallbacks {
         }
     }
 
-    @Override public void onActivityCreated(Activity activity, Bundle state) {}
+    @Override public void onActivityCreated(Activity activity, Bundle state) { LiteLogin.created(activity); }
     @Override public void onActivityStarted(Activity activity) {}
     @Override public void onActivityStopped(Activity activity) {}
     @Override public void onActivitySaveInstanceState(Activity activity, Bundle out) {}

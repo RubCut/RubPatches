@@ -233,7 +233,7 @@ public class SettingsActivity extends Activity {
             restoreScroll(previousScroll);
             return;
         }
-        column.addView(title(settingsGroup == 0 ? "MargyT" : groupName(settingsGroup)));
+        column.addView(title(settingsGroup == 0 ? (Version.LITE ? "MargyT Lite" : "MargyT") : groupName(settingsGroup)));
         if(settingsGroup==0 || searchQuery.length()>0)column.addView(searchBox());
         if (settingsGroup != 0) column.addView(wrap(actionRow("info",Local.of("Подсказки"),null,this::showSectionHelp)));
         if (searchQuery.length() > 0) {
@@ -2408,7 +2408,8 @@ public class SettingsActivity extends Activity {
         // the author and the licence live here as well: the licence asks that
         // a fork keep this line and the card that asks for support, rather
         // than moving the name into print nobody reads
-        view.setText("MargyT " + Version.MOD + "  ·  TikTok " + Version.TIKTOK
+        view.setText((Version.LITE ? "MargyT Lite " : "MargyT ") + Version.MOD
+                + (Version.LITE ? " beta  ·  TikTok Lite " : "  ·  TikTok ") + Version.TIKTOK
                 + "\n" + Text.MADE_BY);
         view.setTextColor(skin.muted());
         view.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
@@ -2570,6 +2571,12 @@ public class SettingsActivity extends Activity {
         if (!info.description.isEmpty()) by = by + "  ·  " + info.description;
         text.addView(detail(by));
         if (info.trouble != null) text.addView(detail(info.trouble));
+        long stalled = Lag.cost(info.id);
+        if (stalled >= 1000L) {
+            TextView slow = detail(Local.of("Тормозит приложение: подвисаний за этот запуск") + " " + (stalled + 500L) / 1000L + " " + Local.of("с"));
+            slow.setTextColor(0xFFE57373);
+            text.addView(slow);
+        }
         if(info.safety!=null&&!info.safety.isEmpty())text.addView(detail(Local.of("Удерживайте для действий")));
         row.addView(text, grow());
 
@@ -3614,7 +3621,8 @@ public class SettingsActivity extends Activity {
                 Local.of("Версия, обновления и участники"), Local.of("Магазин и установленные"),
                 Local.of("Друзья, серии и уведомления"), Text.FUN_NOTE};
         // Shelf order on screen: what people touch daily first, the project itself last.
-        int[] shelf = {1, 2, 3, 7, 4, 6, 8, 5};
+        // Lite has the shelves that have something on them for it
+        int[] shelf = Version.LITE ? new int[] {1, 3, 2, 4, 8, 5} : new int[] {1, 2, 3, 7, 4, 6, 8, 5};
         for (int n = 0; n < shelf.length; n++) {
             final int i = shelf[n];
             final int chosen = i;
@@ -3664,12 +3672,29 @@ public class SettingsActivity extends Activity {
 
     private void filterGroup() {
         int current = 0;
+        boolean offered = true;
         for (int i = 3; i < column.getChildCount(); i++) {
             View item = column.getChildAt(i);
-            if (item instanceof TextView && sectionTargets.containsValue(item))
-                current = groupOf(((TextView) item).getText().toString());
-            item.setVisibility(current == settingsGroup ? View.VISIBLE : View.GONE);
+            if (item instanceof TextView && sectionTargets.containsValue(item)) {
+                String section = ((TextView) item).getText().toString();
+                current = groupOf(section);
+                offered = !Version.LITE || inLite(section);
+            }
+            item.setVisibility(current == settingsGroup && offered ? View.VISIBLE : View.GONE);
         }
+    }
+
+    /**
+     * The sections that do something in TikTok Lite. The rest hook classes
+     * Lite does not have, and a switch that does nothing is worse than none.
+     */
+    private static boolean inLite(String section) {
+        return section.equals(Text.REGION) || section.equals(Text.COUNTRY)
+                || section.equals(Text.ACCENT) || section.equals(Text.THEME)
+                || section.equals(Text.DOWNLOADS) || section.equals(Text.BADGES) || section.equals(Text.ACCOUNT)
+                || section.equals(Text.FUN_SCREAMERS) || section.equals(Text.FUN_CAT)
+                || section.equals(Text.DIAGNOSTICS) || section.equals(Text.DIARY)
+                || section.equals(Text.THANKS) || section.equals(Text.LINKS) || section.equals(Text.CHANNEL);
     }
 
     private static final String BURN = Local.of("Защита экрана");

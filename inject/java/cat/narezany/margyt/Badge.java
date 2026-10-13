@@ -61,6 +61,23 @@ public final class Badge {
         }
     }
 
+    /**
+     * The name read straight off the account, which is how TikTok Lite reads
+     * it: Lite was built with the getter folded away, so there is no call to
+     * stand in for and the read itself comes here. The full app still calls
+     * the getter and is given back what was there.
+     */
+    public static String nickname(User user) {
+        if (user == null) return null;
+        String name = user.nickname;
+        if (!Version.LITE) return name;
+        try {
+            return marked(name, user.getUid(), false);
+        } catch (Throwable ignored) {
+            return name;
+        }
+    }
+
     /** The same name, off the model a loaded profile uses instead. */
     public static String getNickname(UserProfileInfo user) {
         if (user == null) return null;
@@ -492,6 +509,7 @@ public final class Badge {
 
         @Override
         public void onClick(View widget) {
+            if (Version.TEST || Version.LITE) android.util.Log.i("MargyT", "badge: tapped, in " + widget.getContext());
             String head = badge.title != null && badge.title.length() > 0
                     ? badge.title : "MargyT";
             Popup.show(widget.getContext(), head, badge.text, badge.button,
@@ -535,6 +553,7 @@ public final class Badge {
             int action = event.getAction();
             if (action == MotionEvent.ACTION_DOWN) {
                 pressed = span(v, event) != null;
+                if (Version.TEST || Version.LITE) android.util.Log.i("MargyT", "badge: a touch on a name, on the badge: " + pressed);
                 return pressed;
             }
             if (!pressed) return false;

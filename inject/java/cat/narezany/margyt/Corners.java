@@ -33,6 +33,7 @@ public final class Corners {
     }
 
     public static boolean isEnabled() {
+        if (Version.LITE) return false;
         Boolean known = cached;
         if (known != null) return known;
         try {

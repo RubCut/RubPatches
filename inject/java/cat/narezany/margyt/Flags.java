@@ -224,6 +224,13 @@ public final class Flags {
                 made.put("tt_comment_auto_translation_v2", none);
             }
 
+            // TikTok hides itself from Google's Circle to Search: while a finger
+            // is on the navigation handle it marks the window secure. A secure
+            // window is black in the list of recent apps and cannot be
+            // screenshotted, and it is an experiment only some accounts are in,
+            // which is why some people had it and most did not. Nobody gets it.
+            made.put("circle_search_block", none);
+
             made.put("profile_left_align", on(prefs, KEY_NEW_PROFILE) ? one : none);
 
             // last, so that a developer's answer beats a switch

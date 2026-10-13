@@ -56,6 +56,7 @@ ATTR_IDS = {
     "versionCode": 0x0101021B,
     # a widget's description, its layout, and the line that points to them
     "resource": 0x01010025,
+    "value": 0x01010024,
     "id": 0x010100D0,
     "layout_width": 0x010100F4,
     "layout_height": 0x010100F5,

@@ -570,6 +570,10 @@ final class Local {
         add("Глаз в ленте и на видео включает и выключает затемнение на лету. Поле ввода комментария не затемняется. Нижняя панель при затемнении прячется и возвращается на несколько секунд, если нажать на её место.",
                 "Око у стрічці та на відео вмикає й вимикає затемнення на льоту. Поле введення коментаря не затемнюється. Нижня панель під час затемнення ховається й повертається на кілька секунд, якщо натиснути на її місце.",
                 "The eye in the feed and on a video turns the dimming on and off as you go. The comment box is never dimmed. The bottom bar goes while the screen is dimmed, and comes back for a few seconds when you touch where it was.");
+        add("Тормозит приложение: подвисаний за этот запуск",
+                "Гальмує застосунок: підвисань за цей запуск",
+                "Slows the app down: stalled this run for");
+        add("с", "с", "s");
         add("Добавить плагин",
                 "Додати плагін",
                 "Add a plugin");

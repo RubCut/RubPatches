@@ -28,6 +28,7 @@ STUBS={
 'com/ss/android/ugc/aweme/IAccountUserService.java':'package com.ss.android.ugc.aweme;public interface IAccountUserService {String getCurUserId();String getCurSecUserId();com.ss.android.ugc.aweme.profile.model.User getCurUser();}',
 }
 STUBS['cat/narezany/margyt/FeedRail.java']='package cat.narezany.margyt;class FeedRail{static void reloadSettings(){}}'
+STUBS['cat/narezany/margyt/Version.java']='package cat.narezany.margyt;class Version{static final boolean LITE=false,TEST=false;static final String MOD="0";}'
 STUBS['cat/narezany/margyt/FeedBlacklist.java']='package cat.narezany.margyt;class FeedBlacklist{static void reload(){}}'
 STUBS['cat/narezany/margyt/PlayerTools.java']='package cat.narezany.margyt;class PlayerTools{static void accountChanged(){} static void cancelSmooth(){}}'
 STUBS['cat/narezany/margyt/VideoActions.java']='package cat.narezany.margyt;class VideoActions{static void accountChanged(){} static void bindNative(Object c){} static void selected(Object c,Object p){}}'

@@ -52,6 +52,7 @@ from urllib.parse import parse_qs, urlparse
 import dep
 import guard
 import panel
+import patcher
 import tiktok
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -1442,6 +1443,20 @@ class Handler(BaseHTTPRequestHandler):
             self.answer(200, {"ok": True})
             return
 
+        # the patcher app: who has signed in, and what is early
+        if path == "/patcher/login/check":
+            code, out = patcher.check((parse_qs(parts.query).get("code") or [""])[0])
+            self.answer(code, out)
+            return
+        if path == "/patcher/me":
+            code, out = patcher.me(self.headers.get("Authorization"))
+            self.answer(code, out)
+            return
+        if path == "/patcher/beta":
+            code, out = patcher.beta(self.headers.get("Authorization"))
+            self.answer(code, out)
+            return
+
         self.answer(404, {"error": "no such thing"})
 
     def do_POST(self):
@@ -1482,6 +1497,8 @@ class Handler(BaseHTTPRequestHandler):
             code, out = gradient(body, ip)
         elif path == "/crash":
             code, out = crash(body, raw.decode("utf-8", "replace"), ip)
+        elif path == "/patcher/login/start":
+            code, out = patcher.start(ip)
         elif path == "/patches":
             # 1.x asked here for fixes that travel without an apk. There are
             # none any more, and "nothing new" keeps those phones quiet

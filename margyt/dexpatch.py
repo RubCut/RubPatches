@@ -482,6 +482,8 @@ FIELD_SOURCES: List[Tuple[str, str, str, str, str]] = [
     (FEED_ITEM_LIST, "items", LIST, "rawItems", FEED),
     ("Lcom/ss/android/ugc/aweme/search/pages/result/topsearch/core/model/SearchMixFeedList;", "mItems", LIST, "searchItems", FEED),
     (VIDEO_CONTROL, "allowDownload", BOXED_BOOLEAN, "allowDownload", DOWNLOAD),
+    # TikTok Lite reads a name off the account itself, with no getter between
+    (USER, "nickname", STRING, "nickname", BADGE),
     # a slideshow is not a video and never goes near getDownloadAddr: its
     # images carry the stamp themselves, with the clean one beside them
     # every sticker the app touches, so the settings have something to offer as
@@ -1386,6 +1388,154 @@ def rewrite_starts(root: str, dex: Optional[bytes] = None) -> Dict[str, int]:
     return counts
 
 
+LITE_MENU = "Lcat/narezany/margyt/LiteMenu;"
+LITE_MENU_LABEL = "native menu row"
+LITE_MENU_SHEET = '"MoreActionDialog"'
+# The row TikTok Lite puts last in the sheet behind the three lines of the
+# profile: made, given an icon, given a title, given what a tap does, added.
+LITE_MENU_ROW = re.compile(
+    r"    new-instance (?P<row>[vp]\d+), (?P<kind>L[^;]+;)\n(?:[ \t]*\n|[ \t]*\.line \d+\n)*"
+    r"    invoke-direct \{(?P=row)\}, (?P=kind)-><init>\(\)V\n(?:[ \t]*\n|[ \t]*\.line \d+\n)*"
+    r"    const [vp]\d+, (?P<icon>0x[0-9a-f]+)\n(?:[ \t]*\n|[ \t]*\.line \d+\n)*"
+    r"    invoke-virtual \{(?P=row), [vp]\d+\}, (?P<pictured>L[^;]+;->\w+\(I\)V)\n"
+    r"(?P<between>.*?)"
+    r"    iput-object [vp]\d+, (?P=row), (?P<titled>L[^;]+;->\w+:Ljava/lang/String;)\n"
+    r"(?P<after>.*?)"
+    r"    invoke-virtual \{(?P=row), [vp]\d+\}, (?P<tapped>L[^;]+;->\w+\(Lkotlin/jvm/functions/Function1;\)V)\n",
+    re.S)
+LITE_MENU_LIST = re.compile(
+    r"    new-instance (?P<list>v\d+), Ljava/util/ArrayList;\n(?:[ \t]*\n|[ \t]*\.line \d+\n)*"
+    r"    invoke-direct \{(?P=list)\}, Ljava/util/ArrayList;-><init>\(\)V\n")
+
+
+def opens_the_menu(dex: bytes) -> bool:
+    return LITE_MENU_SHEET.strip('"').encode() in dex
+
+
+def rewrite_lite_menu(root: str, dex: Optional[bytes] = None) -> Dict[str, int]:
+    """Put a row for the mod first in the sheet TikTok Lite opens from the profile.
+
+    Lite's settings are a web page, so there is no list of theirs to add a row
+    to. What it does have is the sheet behind the three lines: with nothing to
+    offer but the settings it skips the sheet and opens them, and with one
+    thing more it shows both. The mod's row is that one thing more. It is made
+    the way theirs is made, by the same calls, read off the row they make for
+    the settings, so it looks like theirs and needs nothing known in advance
+    but the name the sheet is shown under.
+    """
+    counts: Dict[str, int] = {}
+    if dex is not None and not opens_the_menu(dex):
+        return counts
+    for folder, _folders, files in os.walk(root):
+        for name in files:
+            if not name.endswith(".smali"):
+                continue
+            path = os.path.join(folder, name)
+            with open(path, encoding="utf-8") as handle:
+                text = handle.read()
+            if LITE_MENU_SHEET not in text:
+                continue
+            at = text.find(LITE_MENU_SHEET)
+            start = text.rfind("\n.method ", 0, at)
+            end = text.find("\n.end method", at)
+            if start < 0 or end < 0:
+                continue
+            body = text[start:end]
+            if LITE_MENU in body:
+                counts[LITE_MENU_LABEL] = counts.get(LITE_MENU_LABEL, 0) + 1
+                continue
+            made = LITE_MENU_LIST.search(body)
+            rows = [row for row in LITE_MENU_ROW.finditer(body)
+                    if len(row.group("between")) < 600 and len(row.group("after")) < 600]
+            if not made or not rows or made.start() > rows[0].start():
+                continue
+            row = rows[-1]
+            # nothing has been put in v0 or v1 that is read later: the list was
+            # made a moment ago and is the first thing the function does
+            if made.group("list") in ("v0", "v1") or body.find("move-result", 0, made.start()) >= 0:
+                continue
+            ours = (
+                "\n    new-instance v0, {kind}\n\n"
+                "    invoke-direct {{v0}}, {kind}-><init>()V\n\n"
+                "    const v1, {icon}\n\n"
+                "    invoke-virtual {{v0, v1}}, {pictured}\n\n"
+                "    invoke-static {{}}, {mod}->title()Ljava/lang/String;\n\n"
+                "    move-result-object v1\n\n"
+                "    iput-object v1, v0, {titled}\n\n"
+                "    invoke-static {{}}, {mod}->tapped()Ljava/lang/Object;\n\n"
+                "    move-result-object v1\n\n"
+                "    check-cast v1, Lkotlin/jvm/functions/Function1;\n\n"
+                "    invoke-virtual {{v0, v1}}, {tapped}\n\n"
+                "    invoke-virtual {{{list}, v0}}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z\n"
+            ).format(kind=row.group("kind"), icon=row.group("icon"), pictured=row.group("pictured"),
+                     titled=row.group("titled"), tapped=row.group("tapped"), mod=LITE_MENU,
+                     list=made.group("list"))
+            body = body[:made.end()] + ours + body[made.end():]
+            text = text[:start] + body + text[end:]
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write(text)
+            counts[LITE_MENU_LABEL] = counts.get(LITE_MENU_LABEL, 0) + 1
+    return counts
+
+
+LITE_NET = "Lcat/narezany/margyt/LiteNet;"
+LITE_NET_LABEL = "native request drop"
+URL_DISPATCHER = "Lcom/bytedance/frameworks/baselib/network/http/ok3/impl/urldispatcher/URLDispatcher;"
+LITE_NET_ASK = "%s->drops()Z" % LITE_NET
+# Where a rule gives its verdict that a request is not to be sent: it wipes
+# the address the request was going to, and answers "drop".
+LITE_NET_DROP = re.compile(
+    r"(?P<wipe>    const-string (?P<held>v\d+), \"\"\n(?:[ \t]*\n|[ \t]*\.line \d+\n)*"
+    r"    invoke-virtual \{[vp]\d+, [vp]\d+, (?P=held)\}, Ljava/util/ArrayList;->set\(ILjava/lang/Object;\)Ljava/lang/Object;\n"
+    r"(?:[ \t]*\n|[ \t]*\.line \d+\n)*"
+    r"    sget-object (?P=held), (?P<kind>L[^;]+;)->DISPATCH_DROP:(?P=kind)\n(?:[ \t]*\n|[ \t]*\.line \d+\n)*"
+    r"    return-object (?P=held)\n)")
+
+
+def rewrite_lite_drops(root: str, dex: Optional[bytes] = None) -> Dict[str, int]:
+    """Have a rule ask the mod before it has a request dropped.
+
+    The rules a request is dispatched by come from the server, and one thing
+    a rule can say is that the request is not to be sent. It says so by
+    wiping the address and answering "drop". Before it does either it asks;
+    told no, it answers that it has nothing to say about this request, and
+    the address is as it was.
+    """
+    counts: Dict[str, int] = {}
+    if dex is not None and not defines(dex, URL_DISPATCHER):
+        return counts
+    for folder, _folders, files in os.walk(root):
+        for name in files:
+            if not name.endswith(".smali"):
+                continue
+            path = os.path.join(folder, name)
+            with open(path, encoding="utf-8") as handle:
+                text = handle.read()
+            if "DISPATCH_DROP" not in text:
+                continue
+            if LITE_NET_ASK in text:
+                counts[LITE_NET_LABEL] = counts.get(LITE_NET_LABEL, 0) + text.count(LITE_NET_ASK)
+                continue
+
+            def asked(match):
+                at = counts.get(LITE_NET_LABEL, 0)
+                counts[LITE_NET_LABEL] = at + 1
+                held, kind = match.group("held"), match.group("kind")
+                return ("    invoke-static {}, %s\n\n" % LITE_NET_ASK
+                        + "    move-result %s\n\n" % held
+                        + "    if-nez %s, :margyt_drop_%d\n\n" % (held, at)
+                        + "    sget-object %s, %s->DISPATCH_NONE:%s\n\n" % (held, kind, kind)
+                        + "    return-object %s\n\n" % held
+                        + "    :margyt_drop_%d\n" % at
+                        + match.group("wipe"))
+
+            changed = LITE_NET_DROP.sub(asked, text)
+            if changed != text:
+                with open(path, "w", encoding="utf-8") as handle:
+                    handle.write(changed)
+    return counts
+
+
 SETTINGS_CELL = "Lcat/narezany/margyt/SettingsCell;"
 SETTINGS_LABEL = "native settings row"
 # The function that draws the "Display" row of TikTok's settings, and the one
@@ -1819,6 +1969,8 @@ def interesting(dex: bytes, literals: Optional[Dict[str, str]] = None) -> bool:
     if (defines(dex, PLAYER_CONFIG) or defines(dex, SETTINGS_ROWS) or defines(dex, SETTINGS_GROUP)
             or defines(dex, STARTER)):
         return True
+    if opens_the_menu(dex) or defines(dex, URL_DISPATCHER):
+        return True
     if TELEPHONY.encode() not in dex:
         return False
     return any(name.encode() in dex for name, _o, _r in TARGETS)
@@ -1946,6 +2098,8 @@ def rewrite_targets() -> List[str]:
     out.extend(["Lcat/narezany/margyt/OfflineComments;->closed(Ljava/lang/Object;)V", "Lcat/narezany/margyt/OfflineComments;->nativeTask(Ljava/lang/String;)Ljava/lang/Object;", "Lcat/narezany/margyt/OfflineComments;->nativeObservable(Ljava/lang/String;)Ljava/lang/Object;"])
     out.extend(["Lcat/narezany/margyt/OfflineChoices;->counts(Ljava/util/List;)Ljava/util/List;", "Lcat/narezany/margyt/OfflineChoices;->row(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;", "Lcat/narezany/margyt/OfflineChoices;->validCount(Ljava/util/List;Ljava/lang/Object;)Z", "Lcat/narezany/margyt/OfflineChoices;->legacy(Ljava/lang/Object;)V", "Lcat/narezany/margyt/OfflineComments;->cached(Ljava/lang/Object;Ljava/lang/String;)V", "Lcat/narezany/margyt/OfflineComments;->content(Ljava/lang/Object;)V", "Lcat/narezany/margyt/OfflineComments;->bottom(Landroid/view/View;)Landroid/view/View;"])
     out.append(SPEED_TOUCH_TARGET)
+    out.extend(["%s->title()Ljava/lang/String;" % LITE_MENU, "%s->tapped()Ljava/lang/Object;" % LITE_MENU])
+    out.append(LITE_NET_ASK)
     out.append(COMMENTS+"->mark(Landroid/view/View;)V")
     out.append(COMMENTS+"->openNativeActions(Ljava/lang/Object;)Z")
     out.append(COMMENTS+"->nativeItems(Ljava/lang/Object;Ljava/util/List;)Ljava/util/List;")
@@ -2128,6 +2282,8 @@ def rewrite_everything(root: str, literals: Optional[Dict[str, str]] = None,
     counts.update(rewrite_hdr_switch(root, dex))
     counts.update(rewrite_settings_row(root, dex))
     counts.update(rewrite_starts(root, dex))
+    counts.update(rewrite_lite_menu(root, dex))
+    counts.update(rewrite_lite_drops(root, dex))
     # Class-specific heart hooks must claim the feed heart's Tux tint calls
     # before the generic accent pass rewrites every TuxIconView tint. The
     # latter would otherwise swallow the exact native heart hook and leave

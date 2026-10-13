@@ -98,6 +98,10 @@ final class Text {
             "Копіювати діагностику", "Copy diagnostics");
     static final String PROFILE_STYLE = pick("Оформление профиля",
             "Оформлення профілю", "Profile style");
+    static final String LITE_GOOGLE = pick(
+            "Вход через Google в MargyT Lite не работает. Войди по почте или номеру телефона.",
+            "Вхід через Google у MargyT Lite не працює. Увійди за поштою або номером телефону.",
+            "Signing in with Google does not work in MargyT Lite. Use your e-mail or phone number.");
     static final String APPEARANCE = pick("Внешний вид", "Зовнішній вигляд", "Appearance");
     static final String PROFILE_PREVIEW = pick("Так значок будет выглядеть у ника",
             "Так значок виглядатиме біля імені", "Badge preview beside nickname");
