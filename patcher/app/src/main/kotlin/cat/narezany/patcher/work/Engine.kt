@@ -27,7 +27,11 @@ import java.io.File
  */
 object Engine {
 
-    enum class Stage { ORIGINAL, CHECKING, PATCH, MAKING }
+    enum class Stage { ORIGINAL, CHECKING, PATCH, MAKING, APK }
+
+    /** The steps a release goes through, in order: a patched one has four, one handed out whole has one. */
+    fun stages(release: Release): List<Stage> =
+        if (release.whole) listOf(Stage.APK) else listOf(Stage.ORIGINAL, Stage.CHECKING, Stage.PATCH, Stage.MAKING)
 
     /** Why it stopped, for the screen to put into the person's language. */
     enum class Trouble { NETWORK, WRONG_APK, BAD_PATCH, NO_ROOM, OTHER }
@@ -87,7 +91,8 @@ object Engine {
             flow.value = State.Ready(mod, release, ready)
             return
         }
-        if (original(app, release).exists()) run(app, mod, release) { }
+        if (release.whole) whole(app, mod, release)
+        else if (original(app, release).exists()) run(app, mod, release) { }
         else flow.value = State.Asking(mod, release)
     }
 
@@ -152,6 +157,40 @@ object Engine {
     }
 
     private class WrongApk : java.io.IOException("not the apk the patch is for")
+
+    /** A mod handed out as a finished apk: fetched, checked against its hash, and that is all. */
+    private fun whole(context: Context, mod: Mod, release: Release) {
+        stop = false
+        flow.value = State.Working(mod, release, Stage.APK, 0, release.resultSize)
+        WorkService.start(context)
+        job = scope.launch {
+            val out = made(context, mod, release)
+            try {
+                out.parentFile?.mkdirs()
+                out.parentFile?.listFiles()?.forEach { if (it.name.startsWith(mod.id + "-")) it.delete() }
+                Net.file(release.apkUrl, out, release.resultSize, { stop }) { done, of ->
+                    flow.value = State.Working(mod, release, Stage.APK, done, of)
+                }
+                if (Patch.sha256(out, { stop }) != release.apkSha256) {
+                    out.delete()
+                    throw Patch.Refused("the apk did not arrive whole")
+                }
+                flow.value = State.Ready(mod, release, out)
+            } catch (cancelled: Net.Cancelled) {
+                flow.value = State.Idle
+            } catch (cancelled: Patch.Cancelled) {
+                flow.value = State.Idle
+            } catch (refused: Patch.Refused) {
+                flow.value = State.Failed(mod, release, Trouble.BAD_PATCH, refused.message ?: "")
+            } catch (failed: java.io.IOException) {
+                val full = room(context).usableSpace < 64L shl 20
+                flow.value = State.Failed(mod, release, if (full) Trouble.NO_ROOM else Trouble.NETWORK,
+                    failed.message ?: failed.toString())
+            } catch (failed: Throwable) {
+                flow.value = State.Failed(mod, release, Trouble.OTHER, failed.toString())
+            }
+        }
+    }
 
     private fun run(context: Context, mod: Mod, release: Release, first: () -> Unit) {
         stop = false

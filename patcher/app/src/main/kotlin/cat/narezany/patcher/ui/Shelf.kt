@@ -30,6 +30,11 @@ object Shelf {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    init {
+        // which version of a mod is installed may be learnt a moment after it was asked
+        cat.narezany.patcher.data.ApkHashes.learnt = { looked.value += 1 }
+    }
+
     fun refresh(context: Context) {
         val app = context.applicationContext
         if (catalog.value == null) catalog.value = Catalog.remembered(app)

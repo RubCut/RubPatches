@@ -21,7 +21,12 @@ data class Release(
     val patchSize: Long,
     val resultSize: Long,
     val notes: Map<String, String>,
-)
+    /** For a mod handed out whole rather than as a patch: where its apk is, and its hash. */
+    val apkUrl: String = "",
+    val apkSha256: String = "",
+) {
+    val whole: Boolean get() = apkUrl.isNotEmpty()
+}
 
 data class Mod(
     val id: String,
@@ -30,6 +35,8 @@ data class Mod(
     val about: Map<String, String>,
     val packageName: String,
     val releases: List<Release>,
+    /** Installed under a name of its own, beside the app it is a mod of: whatever has that name is the mod. */
+    val ownPackage: Boolean = false,
 ) {
     /** The newest release this person may have: betas only if they asked for them. */
     fun latest(beta: Boolean): Release? =
@@ -108,13 +115,27 @@ data class Catalog(val patcher: PatcherRelease?, val channel: String, val mods: 
                 val releases = ArrayList<Release>()
                 val given = mod.getJSONArray("releases")
                 for (j in 0 until given.length()) releases.add(release(given.getJSONObject(j)))
+                // Kept apart from the patches, under a name the first version
+                // of the app never reads: it would have choked on one of these.
+                val whole = mod.optJSONArray("apks") ?: JSONArray()
+                for (j in 0 until whole.length()) releases.add(apk(whole.getJSONObject(j)))
                 extra[mod.getString("id")]?.let { more ->
                     for (j in 0 until more.length()) releases.add(release(more.getJSONObject(j)))
                 }
                 mods.add(Mod(mod.getString("id"), mod.getString("name"), mod.optString("icon"),
-                    words(mod.optJSONObject("about")), mod.getString("package"), releases))
+                    words(mod.optJSONObject("about")), mod.getString("package"), releases,
+                    mod.optBoolean("own_package", false)))
             }
             return Catalog(patcher, root.optString("channel", "https://t.me/margymods"), mods)
+        }
+
+        private fun apk(given: JSONObject): Release {
+            val file = given.getJSONObject("apk")
+            return Release(
+                given.getString("version"), given.optBoolean("beta", false),
+                "", "", 0L, emptyList(), "", "", 0L, file.getLong("size"),
+                words(given.optJSONObject("notes")), file.getString("url"), file.getString("sha256"),
+            )
         }
 
         private fun release(given: JSONObject): Release {

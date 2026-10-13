@@ -20,6 +20,7 @@ class Strings(
     val notInstalled: String,
     val installed: (String) -> String,
     val installedOld: String,
+    val installedSome: String,
     val updateTo: (String) -> String,
     val originalInstalled: String,
     val install: String,
@@ -38,6 +39,7 @@ class Strings(
     val stageChecking: String,
     val stagePatch: String,
     val stageMaking: String,
+    val stageApk: String,
     val cancel: String,
     val needOriginalTitle: (String) -> String,
     val needOriginalText: String,
@@ -111,6 +113,7 @@ class Strings(
         Engine.Stage.CHECKING -> stageChecking
         Engine.Stage.PATCH -> stagePatch
         Engine.Stage.MAKING -> stageMaking
+        Engine.Stage.APK -> stageApk
     }
 
     /** A text given in several languages, in this one, or English, or whatever there is. */
@@ -139,6 +142,7 @@ class Strings(
             notInstalled = "Не установлен",
             installed = { "Установлена версия $it" },
             installedOld = "Установлена старая версия",
+            installedSome = "Установлен",
             updateTo = { "Доступно обновление $it" },
             originalInstalled = "Стоит оригинальное приложение",
             install = "Установить",
@@ -157,6 +161,7 @@ class Strings(
             stageChecking = "Проверяется апк",
             stagePatch = "Скачивается патч",
             stageMaking = "Накладывается патч",
+            stageApk = "Скачивается апк",
             cancel = "Отмена",
             needOriginalTitle = { "Нужен $it" },
             needOriginalText = "Мод собирается из оригинального апк. Патчер скачает его сам или возьмёт файл, который у тебя уже есть. Подойдёт только эта версия, файл проверяется.",
@@ -234,6 +239,7 @@ class Strings(
             notInstalled = "Не встановлено",
             installed = { "Встановлено версію $it" },
             installedOld = "Встановлено стару версію",
+            installedSome = "Встановлено",
             updateTo = { "Доступне оновлення $it" },
             originalInstalled = "Стоїть оригінальний застосунок",
             install = "Встановити",
@@ -252,6 +258,7 @@ class Strings(
             stageChecking = "Перевіряється апк",
             stagePatch = "Завантажується патч",
             stageMaking = "Накладається патч",
+            stageApk = "Завантажується апк",
             cancel = "Скасувати",
             needOriginalTitle = { "Потрібен $it" },
             needOriginalText = "Мод збирається з оригінального апк. Патчер завантажить його сам або візьме файл, який у тебе вже є. Підійде лише ця версія, файл перевіряється.",
@@ -329,6 +336,7 @@ class Strings(
             notInstalled = "Not installed",
             installed = { "Version $it installed" },
             installedOld = "An old version is installed",
+            installedSome = "Installed",
             updateTo = { "Update to $it available" },
             originalInstalled = "The original app is installed",
             install = "Install",
@@ -347,6 +355,7 @@ class Strings(
             stageChecking = "Checking the apk",
             stagePatch = "Downloading the patch",
             stageMaking = "Applying the patch",
+            stageApk = "Downloading the apk",
             cancel = "Cancel",
             needOriginalTitle = { "$it is needed" },
             needOriginalText = "A mod is made from the original apk. The patcher can download it or take a file you already have. Only this version will do, and the file is checked.",

@@ -46,6 +46,8 @@ fun ModIcon(name: String, size: Dp) {
         // Lite's is the same note on black, as it is on the home screen
         "margyt-lite" -> Image(painterResource(R.drawable.ic_margyt_lite), contentDescription = null,
             modifier = Modifier.size(size).clip(shape))
+        "margyc" -> Image(painterResource(R.drawable.ic_margyc), contentDescription = null,
+            modifier = Modifier.size(size).clip(shape))
         else -> Box(Modifier.size(size).clip(shape).background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center) {
             Icon(Icons.Rounded.Extension, contentDescription = null, modifier = Modifier.size(size * 0.5f),

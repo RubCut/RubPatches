@@ -62,6 +62,7 @@ fun standingText(words: Strings, standing: Standing): String {
     return when {
         installed is Installed.Theirs -> words.originalInstalled
         installed is Installed.Nothing -> words.notInstalled
+        installed is Installed.Ours && !installed.sure -> words.installedSome
         standing.outdated && latest != null -> words.updateTo(latest.version)
         installed is Installed.Ours && installed.version != null -> words.installed(installed.version)
         else -> words.installedOld

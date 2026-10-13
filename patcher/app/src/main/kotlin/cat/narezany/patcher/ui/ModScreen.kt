@@ -179,8 +179,10 @@ fun ModScreen(id: String, back: () -> Unit) {
                                 "working" -> {
                                     val working = now as? Engine.State.Working
                                     if (working != null) {
-                                        for (stage in Engine.Stage.entries) {
-                                            val done = stage.ordinal < working.stage.ordinal
+                                        val stages = Engine.stages(working.release)
+                                        val at = stages.indexOf(working.stage)
+                                        for ((number, stage) in stages.withIndex()) {
+                                            val done = number < at
                                             val current = stage == working.stage
                                             Row(Modifier.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                                                 Box(Modifier.size(32.dp).clip(CircleShape).background(
@@ -194,7 +196,7 @@ fun ModScreen(id: String, back: () -> Unit) {
                                                         current -> CircularProgressIndicator(
                                                             color = MaterialTheme.colorScheme.onPrimary,
                                                             strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
-                                                        else -> Text((stage.ordinal + 1).toString(),
+                                                        else -> Text((number + 1).toString(),
                                                             style = MaterialTheme.typography.labelLarge,
                                                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                                                     }
@@ -301,8 +303,10 @@ fun ModScreen(id: String, back: () -> Unit) {
                 }
 
                 Group {
-                    row(Icons.Rounded.Android, words.original, release.baseName)
-                    row(Icons.Rounded.Healing, words.patch, Formatter.formatShortFileSize(context, release.patchSize))
+                    if (!release.whole) {
+                        row(Icons.Rounded.Android, words.original, release.baseName)
+                        row(Icons.Rounded.Healing, words.patch, Formatter.formatShortFileSize(context, release.patchSize))
+                    }
                     row(Icons.Rounded.Inventory2, words.finishedApk,
                         Formatter.formatShortFileSize(context, release.resultSize))
                 }

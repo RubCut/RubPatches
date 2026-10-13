@@ -38,7 +38,7 @@ class News(context: Context, parameters: WorkerParameters) : CoroutineWorker(con
             val prefs = Prefs.of(context)
             val words = Strings.of(context)
             catalog.mods.forEachIndexed { at, mod ->
-                val standing = Standing.of(context, mod, prefs.now.value.beta)
+                val standing = Standing.of(context, mod, prefs.now.value.beta, wait = true)
                 val latest = standing.latest ?: return@forEachIndexed
                 val key = "${mod.id}_${latest.version}"
                 if (standing.outdated && !prefs.told(key)) {
