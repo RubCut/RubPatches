@@ -483,6 +483,11 @@ def handle(update):
 
     # The owner says which group is the supporters' one, from inside it.
     if low.split("@")[0] == "/supporters":
+        # An admin who posts as the group itself has no name to be known by,
+        # and saying nothing left the owner guessing why nothing happened.
+        if message.get("sender_chat") or from_who.get("id") == 1087968824:
+            return say(chat, "Напиши это от своего имени, не анонимно: "
+                             "я должен видеть, что это владелец.")
         if from_who.get("id") != OWNER:
             return
         if message["chat"].get("type") == "private":
