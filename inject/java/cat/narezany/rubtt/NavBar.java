@@ -159,6 +159,21 @@ final class NavBar {
         return capsule != null && capsule.worn;
     }
 
+    /** A bar the capsule is drawn on right now, or null when it is on none. */
+    static View wornBar() {
+        try {
+            for (java.util.Map.Entry<View, Capsule> entry : BARS.entrySet()) {
+                View bar = entry.getKey();
+                Capsule capsule = entry.getValue();
+                if (bar != null && capsule != null && capsule.worn && bar.isAttachedToWindow()) {
+                    return bar;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return null;
+    }
+
     /** Whether a worn capsule's bar sits inside this view: its containers wear no shields either. */
     static boolean holdsWorn(View ancestor) {
         if (ancestor == null) return false;

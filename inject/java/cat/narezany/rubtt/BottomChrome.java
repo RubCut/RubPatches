@@ -24,11 +24,16 @@ final class BottomChrome {
 
     static void protect(View view) {
         if (view == null) return;
-        // the mod's own bar has put the backing away on purpose: neither the
-        // bar itself nor any container holding a worn bar gets the black
-        // shield, and one caught standing is taken back down
+        // the capsule owns every subtree it is drawn in: no black shields
+        // there, and whatever shield is caught standing comes down. The rail
+        // keeps pointing at the worn bar throughout, so Dim keeps taking the
+        // fadeBottom path for it instead of dimming the capsule's own tabs.
         if (NavBar.wears(view) || NavBar.holdsWorn(view)) {
-            restore();
+            if (view.getBackground() == backing) {
+                view.setBackgroundDrawable(rail.get() == view ? original : null);
+            }
+            View worn = NavBar.wornBar();
+            if (worn != null) rail = new WeakReference<View>(worn);
             return;
         }
         if (rail.get() != view) { restore(); rail = new WeakReference<View>(view); }
@@ -44,6 +49,10 @@ final class BottomChrome {
     static void restore() {
         View view = rail.get();
         if (view != null && view.getBackground() == backing) view.setBackgroundDrawable(original);
+        // while the capsule is worn the rail stays tracked: Dim must keep
+        // taking the fadeBottom path for the bar, or it dims the capsule's
+        // own tabs and the new bar goes dark
+        if (NavBar.wornBar() != null) return;
         rail = new WeakReference<View>(null);
         original = null; backing = null;shield=null;
     }
