@@ -36,19 +36,15 @@ import cat.narezany.rubp.R
 /** A row of a list that does something when pressed. */
 fun Modifier.clickableRow(pressed: () -> Unit): Modifier = this.clickable(onClick = pressed)
 
-/** A mod's own icon, as its launcher icon looks. One the app does not know gets a plain one. */
+/** The mod's own icon, as its launcher icon looks. One the app does not know gets a plain one. */
 @Composable
 fun ModIcon(name: String, size: Dp) {
     val shape = RoundedCornerShape(percent = 28)
-    when (name) {
-        "rubtt" -> Image(painterResource(R.drawable.ic_margyt), contentDescription = null,
+    if (name == "rubtt") {
+        Image(painterResource(R.drawable.ic_rubtt), contentDescription = null,
             modifier = Modifier.size(size).clip(shape))
-        // Lite's is the same note on black, as it is on the home screen
-        "margyt-lite" -> Image(painterResource(R.drawable.ic_margyt_lite), contentDescription = null,
-            modifier = Modifier.size(size).clip(shape))
-        "margyc" -> Image(painterResource(R.drawable.ic_margyc), contentDescription = null,
-            modifier = Modifier.size(size).clip(shape))
-        else -> Box(Modifier.size(size).clip(shape).background(MaterialTheme.colorScheme.primaryContainer),
+    } else {
+        Box(Modifier.size(size).clip(shape).background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center) {
             Icon(Icons.Rounded.Extension, contentDescription = null, modifier = Modifier.size(size * 0.5f),
                 tint = MaterialTheme.colorScheme.onPrimaryContainer)
