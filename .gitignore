@@ -1,35 +1,22 @@
-# Gradle files
-.gradle/
+
+# Someone else's: the original apk and anything derived from it.
+apk/
+work/
 build/
-.kotlin/
 
-# Local configuration file (sdk path, etc)
-local.properties
+# Downloaded tooling
+tools/
 
-# Log/OS Files
-*.log
+# Packed plugins: the sources are here, the zip is a build artefact
+*.mtp
 
-# Android Studio generated files and folders
-captures/
-.externalNativeBuild/
-.cxx/
-*.aab
-*.apk
-output-metadata.json
+# Somebody else's source, shared in confidence and not ours to publish.
+# Read it here, take ideas from it, never commit a line of it.
+reference/
+vendor/
+*-source/
+*_source/
 
-# IntelliJ
-*.iml
-.idea/
-misc.xml
-deploymentTargetDropDown.xml
-render.experimental.xml
-
-# Keystore files
-*.jks
-*.keystore
-
-# Google Services (e.g. APIs or Firebase)
-google-services.json
-
-# Android Profiling
-*.hprof
+__pycache__/
+*.pyc
+tools/jadx/
