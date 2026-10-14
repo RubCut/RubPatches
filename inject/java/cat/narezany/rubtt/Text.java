@@ -607,54 +607,16 @@ final class Text {
 
     // -------------------------------------------------------- the donation
 
-    static final String DONATE_BANNER = pick(
-            "Значок за поддержку", "Значок за підтримку", "A badge for supporting");
 
-    static final String DONATE_BANNER_TEXT = pick(
-            "От 250 ₽: значок рядом с ником, градиент на ник и закрытый чат. "
-                    + "Значок и градиент видят все с RubTT.",
-            "Від 250 ₽: значок поруч із ніком, градієнт на нік і закритий чат. "
-                    + "Значок і градієнт бачать усі з RubTT.",
-            "From 250 roubles: a badge beside your name, a gradient on the name "
-                    + "and the private chat. The badge and the gradient are seen "
-                    + "by everyone on RubTT.");
 
-    static final String DONATE_BANNER_HOW = pick(
-            "После перевода — в сообщения канала: чек и ваш ID аккаунта.",
-            "Після переказу — у повідомлення каналу: чек і ваш ID акаунта.",
-            "After paying, write to the channel with the receipt and your "
-                    + "account ID.");
 
-    static final String DONATE_BANNER_BUTTON = pick(
-            "Пожертвовать", "Пожертвувати", "Donate");
 
-    static final String DONATE_BANNER_WRITE = pick(
-            "Сообщения каналу", "Повідомлення каналу", "Message the channel");
 
-    static final String DONATE_STEP_PAY = pick(
-            "1. Переведите от 250 ₽", "1. Переказати від 250 ₽", "1. Send 250 ₽ or more");
 
-    static final String DONATE_STEP_ID = pick(
-            "2. Скопируйте свой ID", "2. Скопіюйте свій ID", "2. Copy your ID");
 
-    static final String DONATE_ID_NOTE = pick(
-            "Нажмите на ID, он скопируется. По нему выдаётся значок.",
-            "Натисніть на ID, він скопіюється. За ним видається значок.",
-            "Tap the ID to copy it. The badge is given to this account.");
 
-    static final String DONATE_STEP_WRITE = pick(
-            "3. Напишите в канал", "3. Напишіть у канал", "3. Write to the channel");
 
-    static final String DONATE_WRITE_NOTE = pick(
-            "Пришлите чек и ID", "Надішліть чек і ID", "Send the receipt and the ID");
 
-    static final String DONATE_AFTER = pick(
-            "Значок выдаётся вручную, обычно в течение дня. Градиент на ник и "
-                    + "ссылка в закрытый чат придут вместе с ним.",
-            "Значок видається вручну, зазвичай протягом дня. Градієнт на нік і "
-                    + "посилання в закритий чат прийдуть разом із ним.",
-            "The badge is given by hand, usually within a day. The gradient on "
-                    + "your name and the link to the closed chat come with it.");
 
     static final String TIKTOK_FEATURES = pick("Функции TikTok", "Функції TikTok", "TikTok features");
     static final String TIKTOK_FEATURES_NOTE = pick(
@@ -843,21 +805,9 @@ final class Text {
             "Фиксация скорости свайпом вниз", "Фіксація швидкості свайпом униз",
             "Lock the speed by swiping down");
 
-    static final String REMIND_TITLE = pick(
-            "Нравится RubTT?", "Подобається RubTT?", "Enjoying RubTT?");
 
-    static final String REMIND_TEXT = pick(
-            "Поддержи разработку — значок рядом с ником, градиент на ник "
-                    + "и закрытый чат.",
-            "Підтримай розробку — значок поруч із ніком, градієнт на нік "
-                    + "і закритий чат.",
-            "Support the making of it: a badge beside your name, a gradient on "
-                    + "the name and the private chat.");
 
-    static final String REMIND_MORE = pick("Подробнее", "Докладніше", "Tell me more");
 
-    static final String REMIND_NEVER = pick(
-            "Больше не напоминать", "Більше не нагадувати", "Never remind me");
 
     static final String STREAK_TEST = pick(
             "Отправить тестовое сообщение", "Надіслати тестове повідомлення",
@@ -1166,9 +1116,12 @@ final class Text {
 
     static final String LINKS = pick("Ссылки", "Посилання", "Links");
 
-    static final String CHANNEL = pick("Канал", "Канал", "Channel");
+    static final String ABOUT = pick("О моде", "Про мод", "About");
+    static final String ABOUT_AUTHOR = pick("Автор", "Автор", "Author");
+    static final String ABOUT_BASED = pick("Основан на MargyT от narezany",
+            "Заснований на MargyT від narezany", "Based on MargyT by narezany");
 
-    static final String FORUM = pick("Форум", "Форум", "Forum");
+
 
     // ----------------------------------------------------------- the streaks
 
@@ -1248,28 +1201,13 @@ final class Text {
     static final String SOURCE = pick("Исходники", "Вихідники", "The source");
 
 
-    static final String CHANNEL_TITLE = pick("Канал", "Канал", "Channel");
 
-    static final String CHANNEL_NEWS_A = pick("Новости/", "Новини/", "News/");
 
-    static final String CHANNEL_NEWS_B = pick("обновления", "оновлення", "updates");
 
-    static final String CHANNEL_SUBSCRIBE = pick("Подписаться", "Підписатися", "Subscribe");
 
-    static final String THANKS = pick("Благодарности", "Подяки", "Thanks");
 
-    static final String THANKS_NOTE = pick(
-            "Люди, без которых мода бы не было.",
-            "Люди, без яких мода б не було.",
-            "The people the mod would not exist without.");
 
-    static final String THANKS_OWNER = pick(
-            "Владелец мода", "Власник мода", "The mod's owner");
 
-    static final String THANKS_AI = pick(
-            "Помог с разработкой",
-            "Допоміг із розробкою",
-            "Helped with development");
 
     static final String BADGES = pick("Значки", "Значки", "Badges");
 
@@ -1278,10 +1216,6 @@ final class Text {
             "значок значки порядок підтвердження акаунт",
             "badge badges order proof account");
 
-    static final String THANKS_CLAUDE = pick(
-            "Написал большую часть того, что в моде есть",
-            "Написав більшу частину того, що в моді є",
-            "Wrote most of what is in the mod");
 
     static final String PROVE_AUTO_GOING = pick(
             "Ставлю код в описание и жду сервер. Около минуты.",
@@ -1319,30 +1253,12 @@ final class Text {
             "Сервер не побачив код у профілі. Опис повернув.",
             "The server did not see the code on the profile. The bio is back.");
 
-    static final String THANKS_TTCUZ = pick(
-            "Автор ttcuz, часть функций пришла оттуда",
-            "Автор ttcuz, частина функцій прийшла звідти",
-            "Wrote ttcuz, where a share of the features came from");
 
-    static final String DONATE = pick("Поддержать", "Підтримати", "Support the project");
 
-    static final String DONATE_NOTE = pick(
-            "Каждый ваш рубль помогает держать проект на плаву и развивать открытое "
-                    + "сообщество моддинга. Спасибо.",
-            "Кожен ваш рубль допомагає тримати проєкт на плаву та розвивати відкриту "
-                    + "спільноту модингу. Дякуємо.",
-            "Every rouble keeps the project afloat and goes back into the open source "
-                    + "modding community. Thank you.");
 
-    static final String CARD = pick("Карта", "Картка", "Card");
 
-    static final String TAP_TO_COPY = pick(
-            "Нажми, чтобы скопировать", "Натисни, щоб скопіювати", "Tap to copy");
 
-    static final String YOOMONEY = pick("ЮMoney", "ЮMoney", "YooMoney");
 
-    static final String YOOMONEY_NOTE = pick(
-            "Перевод напрямую", "Переказ напряму", "Straight to the transfer page");
 
     static final String NO_BROWSER = pick(
             "Нечем открыть ссылку", "Нема чим відкрити посилання", "Nothing here opens links");

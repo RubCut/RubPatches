@@ -429,27 +429,6 @@ fun HomeScreen(settings: () -> Unit) {
                         }
                     }
                 }
-                item {
-                    Card(
-                        onClick = { Launch.link(context, catalog?.channel ?: "") },
-                        shape = RoundedCornerShape(28.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer),
-                    ) {
-                        Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Roundel(Icons.AutoMirrored.Rounded.Send,
-                                container = MaterialTheme.colorScheme.secondary,
-                                content = MaterialTheme.colorScheme.onSecondary, size = 48.dp)
-                            Spacer(Modifier.width(16.dp))
-                            Column {
-                                Text(words.channelTitle, style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold)
-                                Text(words.channelText, style = MaterialTheme.typography.bodyMedium)
-                            }
-                        }
-                    }
-                }
             }
         }
     }

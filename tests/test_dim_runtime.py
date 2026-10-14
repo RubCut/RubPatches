@@ -108,7 +108,7 @@ STUBS = {
         static boolean header=true;static boolean hasFeedHeader(android.view.View v){return header;} }''',
 }
 
-STUBS['cat/narezany/rubtt/NavBar.java']='package cat.narezany.rubtt;class NavBar{static boolean wears(android.view.View v){return false;}}'
+STUBS['cat/narezany/rubtt/NavBar.java']='package cat.narezany.rubtt;class NavBar{static boolean wears(android.view.View v){return false;}static boolean holdsWorn(android.view.View v){return false;}}'
 STUBS['android/os/Build.java']='package android.os;public class Build{public static class VERSION{public static int SDK_INT=34;}}'
 STUBS['cat/narezany/rubtt/ProfileLayout.java']='package cat.narezany.rubtt;class ProfileLayout {static boolean profile;static boolean visible(android.view.View root){return profile;}}'
 STUBS['android/view/View.java']=STUBS['android/view/View.java'].replace('public boolean isAttachedToWindow(){return true;}', 'public boolean isAttachedToWindow(){return true;}public boolean hasWindowFocus(){return true;}')
