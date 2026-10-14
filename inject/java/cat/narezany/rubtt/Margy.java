@@ -134,6 +134,7 @@ public final class Margy {
         if (context != null) {
             sContext = context.getApplicationContext();
             migrateOnce(sContext);
+            try { Launcher.reconcile(sContext); } catch (Throwable ignored) { }
             warmLikes();
         }
     }

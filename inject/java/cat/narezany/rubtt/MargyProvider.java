@@ -83,7 +83,7 @@ public final class MargyProvider extends ContentProvider {
     public static Uri share(Context context, File file) {
         try {
             if (!file.isFile()) return null;
-            return Uri.parse("content://" + context.getPackageName() + ".margyt/"
+            return Uri.parse("content://" + context.getPackageName() + ".rubtt/"
                     + file.getName());
         } catch (Throwable ignored) {
             return null;

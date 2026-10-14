@@ -100,6 +100,51 @@ public final class Launcher {
         return prefs == null || prefs.getBoolean(KEY_NAME, true);
     }
 
+    /**
+     * Make sure the home screen has something to open.
+     *
+     * Switching icons turns entries off, and those states survive an update:
+     * if the entry that was on is gone from the new apk (a custom picture a
+     * build without one cannot carry), nothing is left on and tapping the
+     * icon opens the app's info instead of the app. Run at start-up, before
+     * anything needs the answer: when every known entry is off, the choice
+     * standing is switched on again.
+     */
+    public static void reconcile(Context context) {
+        if (context == null) return;
+        try {
+            PackageManager packages = context.getPackageManager();
+            String self = context.getPackageName();
+            java.util.ArrayList<String> names = new java.util.ArrayList<String>();
+            names.add(Shots.DEFAULT);
+            for (String component : Shots.COMPONENTS) names.add(component);
+            names.add(ICON_CUSTOM);
+            names.add(ICON_CUSTOM_NAMED);
+            // the names before the rebrand, whose stale states must never
+            // shadow the new ones
+            names.add("cat.narezany.margyt.IconCustom");
+            names.add("cat.narezany.margyt.IconCustomNamed");
+            for (String name : names) {
+                try {
+                    android.content.pm.ActivityInfo info = packages.getActivityInfo(
+                            new ComponentName(self, name),
+                            PackageManager.MATCH_DISABLED_COMPONENTS);
+                    if (info == null) continue;
+                    int state = packages.getComponentEnabledSetting(new ComponentName(self, name));
+                    if (state == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                            || (state == PackageManager.COMPONENT_ENABLED_STATE_DEFAULT && info.enabled)) {
+                        return;
+                    }
+                } catch (Throwable ignored) {
+                    // not in this apk: its states died with it
+                }
+            }
+            choose(context, chosen());
+        } catch (Throwable error) {
+            Diary.note("icon: " + error);
+        }
+    }
+
     public static void setCustomName(Context context, boolean on) {
         SharedPreferences prefs = prefs();
         if (prefs != null) prefs.edit().putBoolean(KEY_NAME, on).apply();
