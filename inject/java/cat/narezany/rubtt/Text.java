@@ -677,13 +677,15 @@ final class Text {
 
     static final String NAV_CAPSULE = pick("Нижняя панель в стиле Material 3",
             "Нижня панель у стилі Material 3", "Material 3 bottom bar");
+    static final String NAV_TRANSPARENT = pick("Прозрачный фон панели",
+            "Прозорий фон панелі", "Transparent bar background");
 
     static final String MD3_FEED = pick("Лента в стиле Material 3", "Стрічка у стилі Material 3",
             "Material 3 feed");
     static final String MD3_PROFILE = pick("Профиль в стиле Material 3", "Профіль у стилі Material 3",
             "Material 3 profile");
-    static final String MD3_ICONS = pick("Округлые иконки у кнопок видео", "Округлі іконки біля кнопок відео",
-            "Rounded icons on a video's buttons");
+    static final String MD3_ICONS = pick("Material-иконки вместо иконок TikTok", "Material-іконки замість іконок TikTok",
+            "Material icons instead of TikTok's");
     static final String MD3_INBOX = pick("Входящие в стиле Material 3", "Вхідні у стилі Material 3",
             "Material 3 inbox");
 
