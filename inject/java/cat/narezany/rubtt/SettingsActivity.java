@@ -85,20 +85,9 @@ public class SettingsActivity extends Activity {
      */
     private static boolean pending;
 
-    /** Where the mod, its people and its money live. */
-    private static final String CHANNEL = "https://t.me/margytiktok";
-    private static final String FORUM = "https://t.me/margeletforum";
-    private static final String OWNER_TELEGRAM = "https://t.me/narezany";
-    private static final String OWNER_TIKTOK =
-            "https://tiktok.com/@narezany?_r=1&_t=ZT-99hPDJ26hji_";
-    /** Where a receipt goes: the channel's own messages, not somebody's inbox. */
-    private static final String CHANNEL_WRITE = "https://t.me/margytiktok?direct";
-    private static final String TTCUZ = "https://t.me/ttcuzmod";
-    private static final String GIT = "https://git.narez.xyz/narezany/RubTT";
+    private static final String GIT = "https://github.com/RubCut/RubPatches";
     private static final String DOCS_PLUGINS =
-            "https://git.narez.xyz/narezany/RubTT/src/branch/main/docs/plugins.md";
-    private static final String YOOMONEY = "https://yoomoney.ru/to/4100118196133693";
-    private static final String CARD_NUMBER = "2204120143055305";
+            "https://github.com/RubCut/RubPatches/blob/main/docs/plugins.md";
 
     private boolean countriesOpen;
     private boolean accentOpen;
@@ -109,7 +98,6 @@ public class SettingsActivity extends Activity {
     private boolean fontOpen;
     private boolean iconOpen;
     private ScrollView page;
-    private boolean thanksOpen;
     private int settingsGroup;
     private boolean mineOpen;
     private java.util.List<Mine.Held> ordering;
@@ -118,7 +106,6 @@ public class SettingsActivity extends Activity {
     /** Set once the badges have been rearranged by hand and not yet saved. */
     private boolean rearranged;
     /** The card the donation button brings the screen down to. */
-    private View donateAnchor;
     private final Runnable badgeUpdates = () -> {
         if (!isFinishing() && !isDestroyed()) rebuild();
     };
@@ -166,7 +153,6 @@ public class SettingsActivity extends Activity {
 
         setContentView(root);
         rebuild();
-        maybeAskForSupport();
         if(getIntent().getBooleanExtra("margyt_tutorial",false))root.postDelayed(()->Tutorial.show(this),350L);
     }
 
@@ -227,13 +213,6 @@ public class SettingsActivity extends Activity {
         disclosureBodies.clear();disclosureArrows.clear();renderDisclosureKey=null;
         column.removeAllViews();
         column.addView(backArrow());
-        if (settingsGroup == DONATE_PAGE) {
-            column.addView(title(Text.DONATE_BANNER));
-            donatePage();
-            showRestartBar();
-            restoreScroll(0);
-            return;
-        }
         if (settingsGroup == FLAGS_PAGE) {
             column.addView(title(Text.DEV_FLAGS));
             flagsPage();
@@ -252,7 +231,6 @@ public class SettingsActivity extends Activity {
 
         if (settingsGroup == 0) {
             if (Badges.freeStillOpen() && !Mine.hasFree()) column.addView(freeBanner());
-            column.addView(donateBanner());
             column.addView(groupNavigation());
             column.addView(wrap(actionRow("info",Local.of("Обучение"),null,() -> Tutorial.show(this))));
             column.addView(versions());
@@ -597,9 +575,6 @@ public class SettingsActivity extends Activity {
         notifications.addView(actionRow("settings",Text.NOTIFY_SETTINGS,null,()->ModNotifications.settings(this)));
         column.addView(wrap(notifications));
 
-        column.addView(section(Text.CHANNEL));
-        column.addView(channelBanner());
-
         column.addView(section(Text.UPDATE));
         LinearLayout updates = card();
         updates.addView(actionRow("download", Text.UPDATE_CHECK,
@@ -617,9 +592,7 @@ public class SettingsActivity extends Activity {
 
         column.addView(section(Text.LINKS));
         LinearLayout links = card();
-        links.addView(linkRow("group", Text.FORUM, "@margeletforum", FORUM));
-        links.addView(line());
-        links.addView(linkRow("extension", Text.SOURCE, "narezany/RubTT", GIT));
+        links.addView(linkRow("extension", Text.SOURCE, "RubCut/RubPatches", GIT));
         column.addView(wrap(links));
 
         column.addView(section(Text.DIAGNOSTICS));
@@ -643,16 +616,12 @@ public class SettingsActivity extends Activity {
         if (DevMode.isOn()) addDeveloperRows(diary);
         column.addView(wrap(diary));
 
-        column.addView(section(Text.THANKS));
-        LinearLayout support = card();
-        support.addView(thanksHead());
-        if (thanksOpen) {
-            support.addView(line());
-            View details = thanks();
-            support.addView(appear(details));
-        }
-        donateAnchor = wrap(support);
-        column.addView(donateAnchor);
+        column.addView(section(Text.ABOUT));
+        LinearLayout about = card();
+        about.addView(actionRow("person", Text.ABOUT_AUTHOR, "RubCut", null));
+        about.addView(line());
+        about.addView(quiet(Text.ABOUT_BASED));
+        column.addView(wrap(about));
 
         column.addView(section(Text.FUN_DEP));
         LinearLayout dep = card();
@@ -874,9 +843,6 @@ public class SettingsActivity extends Activity {
     // ------------------------------------------------- what RubTT brings along
 
     /** Counted in preferences: asked on the third visit and then never again. */
-    private static final String VISITS = "settings_visits";
-    private static final String ASKED = "settings_asked";
-    private static final int ON_VISIT = 3;
 
     private java.util.List<Integer> gradientColours;
     private int gradientSlot;
@@ -885,84 +851,6 @@ public class SettingsActivity extends Activity {
      * The first thing on the screen, and the only thing here that asks for
      * something. Short, because a long one is an advertisement.
      */
-    private View donateBanner() {
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(18), dp(16), dp(18), dp(16));
-
-        GradientDrawable background = new GradientDrawable();
-        background.setCornerRadius(Math.max(skin.radius, dp(18)));
-        background.setColor(skin.card);
-        card.setBackground(background);
-
-        TextView head = new TextView(this);
-        head.setText(Text.DONATE_BANNER);
-        head.setTextColor(skin.text);
-        head.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
-        head.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-        card.addView(head);
-
-        TextView body = new TextView(this);
-        body.setText(Text.DONATE_BANNER_TEXT);
-        body.setTextColor(skin.text);
-        body.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        body.setPadding(0, dp(4), 0, 0);
-        card.addView(body);
-
-        TextView how = new TextView(this);
-        how.setText(Text.DONATE_BANNER_HOW);
-        how.setTextColor(skin.muted());
-        how.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        how.setPadding(0, dp(8), 0, 0);
-        card.addView(how);
-
-        TextView go = new TextView(this);
-        go.setText(Text.DONATE_BANNER_BUTTON);
-        go.setTextColor(onAccent());
-        go.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-        go.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-        go.setGravity(Gravity.CENTER);
-        go.setPadding(0, dp(11), 0, dp(11));
-        GradientDrawable pill = new GradientDrawable();
-        pill.setColor(Accent.colour());
-        pill.setCornerRadius(dp(14));
-        go.setBackground(pill);
-        go.setOnClickListener(v -> showDonations());
-
-        TextView write = new TextView(this);
-        write.setText(Text.DONATE_BANNER_WRITE);
-        write.setTextColor(skin.text);
-        write.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-        write.setGravity(Gravity.CENTER);
-        write.setPadding(0, dp(11), 0, dp(11));
-        GradientDrawable quiet = new GradientDrawable();
-        quiet.setColor(0x00000000);
-        quiet.setCornerRadius(dp(14));
-        quiet.setStroke(dp(1), skin.muted());
-        write.setBackground(quiet);
-        write.setOnClickListener(v -> open(CHANNEL_WRITE));
-
-        LinearLayout buttons = new LinearLayout(this);
-        buttons.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams below = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        below.topMargin = dp(14);
-
-        LinearLayout.LayoutParams half =
-                new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        LinearLayout.LayoutParams second =
-                new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        second.leftMargin = dp(8);
-        buttons.addView(go, half);
-        buttons.addView(write, second);
-        card.addView(buttons, below);
-
-        LinearLayout holder = new LinearLayout(this);
-        holder.setPadding(dp(20), dp(14), dp(20), dp(2));
-        holder.addView(card, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        return holder;
-    }
 
     /**
      * Ask once, on the third time this screen is opened.
@@ -971,25 +859,6 @@ public class SettingsActivity extends Activity {
      * been asked. Somebody who opens the settings twenty times should be left
      * alone after the first answer.
      */
-    private void maybeAskForSupport() {
-        try {
-            android.content.SharedPreferences prefs =
-                    getSharedPreferences(Margy.PREFS, MODE_PRIVATE);
-            if (prefs.getBoolean(ASKED, false)) return;
-
-            int visits = prefs.getInt(VISITS, 0) + 1;
-            prefs.edit().putInt(VISITS, visits).apply();
-            if (visits < ON_VISIT) return;
-            prefs.edit().putBoolean(ASKED, true).apply();
-
-            column.post(() -> Popup.ask(this, Text.REMIND_TITLE, Text.REMIND_TEXT,
-                    Text.REMIND_MORE, this::showDonations,
-                    Text.REMIND_NEVER, null,
-                    null, null));
-        } catch (Throwable error) {
-            Diary.note("settings: " + error);
-        }
-    }
 
     private void tookFree(boolean ok, String trouble) {
         if (needsProof(ok, trouble)) return;
@@ -1196,13 +1065,7 @@ public class SettingsActivity extends Activity {
 
     /** Open the thanks, on the shelf they live on, and take the screen down to them. */
     /** Not one of the shelves: the page the "donate" button opens, and nothing else does. */
-    private static final int DONATE_PAGE = 99;
 
-    private void showDonations() {
-        settingsGroup = DONATE_PAGE;
-        searchQuery = "";
-        rebuild();
-    }
 
     /**
      * How to get the badge, as three things to do in order.
@@ -1212,42 +1075,7 @@ public class SettingsActivity extends Activity {
      * looking at credits, wondering what to do next. This says it: pay here,
      * copy this, write there.
      */
-    private void donatePage() {
-        LinearLayout what = card();
-        what.addView(quiet(Text.DONATE_BANNER_TEXT));
-        column.addView(wrap(what));
 
-        column.addView(section(Text.DONATE_STEP_PAY));
-        LinearLayout pay = card();
-        pay.addView(linkRow("star", Text.YOOMONEY, Text.YOOMONEY_NOTE, YOOMONEY));
-        pay.addView(line());
-        pay.addView(cardRow());
-        column.addView(wrap(pay));
-
-        column.addView(section(Text.DONATE_STEP_ID));
-        LinearLayout mine = card();
-        mine.addView(idRow(Text.ACCOUNT_ID, Account.id()));
-        mine.addView(quiet(Text.DONATE_ID_NOTE));
-        column.addView(wrap(mine));
-
-        column.addView(section(Text.DONATE_STEP_WRITE));
-        LinearLayout write = card();
-        write.addView(actionRow("chat", Text.DONATE_BANNER_WRITE, Text.DONATE_WRITE_NOTE,
-                () -> open(CHANNEL_WRITE)));
-        write.addView(quiet(Text.DONATE_AFTER));
-        column.addView(wrap(write));
-    }
-
-    private View cardRow() {
-        LinearLayout card = row();
-        LinearLayout cardText = new LinearLayout(this);
-        cardText.setOrientation(LinearLayout.VERTICAL);
-        cardText.addView(label(spaced(CARD_NUMBER)));
-        cardText.addView(detail(Text.CARD + "  ·  " + Text.TAP_TO_COPY));
-        card.addView(cardText, grow());
-        card.setOnClickListener(v -> copy(Text.CARD, CARD_NUMBER));
-        return sized(card, 64);
-    }
 
     private void rebuildAfterSwitchAnimation() {
         if (rebuildQueued) column.removeCallbacks(delayedRebuild);
@@ -2845,101 +2673,12 @@ public class SettingsActivity extends Activity {
     }
 
     /** The channel card: the whole card is a button to the mod's Telegram channel. */
-    private View channelBanner() {
-        ChannelBanner banner = new ChannelBanner(this);
-        banner.setOnClickListener(v -> open(ChannelBanner.URL));
-        LinearLayout box = new LinearLayout(this);
-        box.setPadding(dp(12), dp(2), dp(12), dp(10));
-        box.addView(banner, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        return box;
-    }
 
-    private View thanksHead() {
-        LinearLayout row = row();
-        row.addView(icon("favorite_border"));
-        row.addView(label(Text.THANKS), grow());
-
-        row.addView(disclosure(thanksOpen,"thanksOpen"));
-
-        row.setOnClickListener(v -> {
-            disclosureKey = "thanksOpen";
-            thanksOpen = !thanksOpen;
-            rebuildAfterReveal(thanksOpen);
-        });
-        return sized(row, 52);
-    }
 
     /** Who made this, and the two ways to pay for it. */
-    private View thanks() {
-        LinearLayout rows = new LinearLayout(this);
-        rows.setOrientation(LinearLayout.VERTICAL);
-        rows.setPadding(0, dp(6), 0, dp(10));
-
-        rows.addView(quiet(Text.THANKS_NOTE));
-        rows.addView(owner());
-        rows.addView(person("Claude Opus 5", Text.THANKS_CLAUDE, null));
-        rows.addView(person("someone's mf", Text.THANKS_TTCUZ, TTCUZ));
-
-        rows.addView(line());
-
-        TextView heading = new TextView(this);
-        heading.setText(Text.DONATE);
-        heading.setTextColor(skin.text);
-        heading.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-        heading.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        heading.setPadding(dp(16), dp(14), dp(16), dp(2));
-        rows.addView(heading);
-
-        rows.addView(quiet(Text.DONATE_NOTE));
-
-        rows.addView(cardRow());
-
-        rows.addView(linkRow("star", Text.YOOMONEY, Text.YOOMONEY_NOTE, YOOMONEY));
-        return rows;
-    }
 
     /** The one row with two places to go, so it asks which. */
-    private View owner() {
-        LinearLayout row = row();
 
-        LinearLayout text = new LinearLayout(this);
-        text.setOrientation(LinearLayout.VERTICAL);
-        text.addView(label("@narezany"));
-        text.addView(detail(Text.THANKS_OWNER));
-        row.addView(text, grow());
-        row.addView(away());
-
-        row.setOnClickListener(v -> {
-            try {
-                new ModDialog.Builder(this, skin)
-                        .setTitle("@narezany")
-                        .setItems(new CharSequence[]{"Telegram", "TikTok"}, (dialog, which) ->
-                                open(which == 0 ? OWNER_TELEGRAM : OWNER_TIKTOK))
-                        .setNegativeButton(Text.CANCEL, null)
-                        .show();
-            } catch (Throwable error) {
-                open(OWNER_TELEGRAM);
-            }
-        });
-        return sized(row, 60);
-    }
-
-    private View person(String name, String what, final String url) {
-        LinearLayout row = row();
-
-        LinearLayout text = new LinearLayout(this);
-        text.setOrientation(LinearLayout.VERTICAL);
-        text.addView(label(name));
-        text.addView(detail(what));
-        row.addView(text, grow());
-
-        if (url != null) {
-            row.addView(away());
-            row.setOnClickListener(v -> open(url));
-        }
-        return sized(row, 60);
-    }
 
     /** The mark on a row that leaves the app. */
     private View away() {
@@ -3777,7 +3516,7 @@ public class SettingsActivity extends Activity {
                 || section.equals(BURN)) return 3;
         if (section.equals(Text.PINNED_FRIENDS) || section.equals(Text.STREAKS)
                 || section.equals(Text.NOTIFICATIONS)) return 7;
-        if (section.equals(Text.THANKS) || section.equals(Text.UPDATE) || section.equals(Text.CHANNEL)
+        if (section.equals(Text.ABOUT) || section.equals(Text.UPDATE)
                 || section.equals(Text.LINKS)) return 5;
         return 4; // downloads, backup, diagnostics, diary
     }
@@ -3806,7 +3545,7 @@ public class SettingsActivity extends Activity {
                 || section.equals(Text.DOWNLOADS) || section.equals(Text.BADGES) || section.equals(Text.ACCOUNT)
                 || section.equals(Text.FUN_SCREAMERS) || section.equals(Text.FUN_CAT)
                 || section.equals(Text.DIAGNOSTICS) || section.equals(Text.DIARY)
-                || section.equals(Text.THANKS) || section.equals(Text.LINKS) || section.equals(Text.CHANNEL);
+                || section.equals(Text.ABOUT) || section.equals(Text.LINKS);
     }
 
     private static final String BURN = Local.of("Защита экрана");

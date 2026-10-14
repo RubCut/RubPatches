@@ -14,16 +14,14 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.Logout
-import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Science
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.foundation.layout.size
@@ -54,7 +52,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cat.narezany.rubp.BuildConfig
 import cat.narezany.rubp.Strings
 import cat.narezany.rubp.data.Prefs
-import cat.narezany.rubp.data.Telegram
 import cat.narezany.rubp.work.Engine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -72,20 +69,9 @@ fun SettingsScreen(back: () -> Unit) {
     val scope = rememberCoroutineScope()
     var choosing by remember { mutableStateOf("") }
     var kept by remember { mutableStateOf(0L) }
-    var signing by remember { mutableStateOf("") }   // "", "waiting", "unavailable"
     var checked by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { kept = withContext(Dispatchers.IO) { Engine.kept(context) } }
-    // whether the person is still a supporter is the server's to say, each time
-    LaunchedEffect(prefs.telegramToken) {
-        if (prefs.telegramToken.isNotEmpty()) {
-            val who = withContext(Dispatchers.IO) { Telegram.again(prefs.telegramToken) }
-            if (who != null) store.set {
-                it.copy(telegramName = who.name.ifEmpty { it.telegramName }, supporter = who.supporter,
-                    beta = it.beta && who.supporter)
-            }
-        }
-    }
 
     Scaffold(
         topBar = {
@@ -143,63 +129,9 @@ fun SettingsScreen(back: () -> Unit) {
                     })
             }
 
-            Group(words.account) {
-                if (prefs.telegramToken.isEmpty()) {
-                    row(Icons.AutoMirrored.Rounded.Send, words.telegramSignIn, when (signing) {
-                        "waiting" -> words.telegramWaiting
-                        "unavailable" -> words.telegramUnavailable
-                        else -> words.telegramSignInNote
-                    }, pressed = {
-                        if (signing != "waiting") {
-                            signing = "waiting"
-                            scope.launch {
-                                val begun = withContext(Dispatchers.IO) { Telegram.begin() }
-                                if (begun == null) {
-                                    signing = "unavailable"
-                                    return@launch
-                                }
-                                Launch.link(context, begun.link)
-                                // the answer comes when the person presses Start in the bot
-                                repeat(90) {
-                                    delay(2000)
-                                    val who = withContext(Dispatchers.IO) { Telegram.check(begun.code) }
-                                    if (who != null) {
-                                        store.set {
-                                            it.copy(telegramToken = who.token, telegramName = who.name,
-                                                supporter = who.supporter)
-                                        }
-                                        signing = ""
-                                        return@launch
-                                    }
-                                }
-                                signing = ""
-                            }
-                        }
-                    }) {
-                        if (signing == "waiting") CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
-                    }
-                } else {
-                    row(Icons.AutoMirrored.Rounded.Send, words.telegramSignedIn(prefs.telegramName),
-                        if (prefs.supporter) words.supporterYes else words.supporterNo)
-                    if (prefs.supporter) {
-                        row(Icons.Rounded.Science, words.betaUpdates, words.betaUpdatesNote,
-                            pressed = { store.set { it.copy(beta = !it.beta) }; Shelf.refresh(context) }) {
-                            Switch(checked = prefs.beta, onCheckedChange = { on ->
-                                store.set { it.copy(beta = on) }
-                                Shelf.refresh(context)
-                            })
-                        }
-                    }
-                    row(Icons.AutoMirrored.Rounded.Logout, words.telegramSignOut, words.signOutNote, pressed = {
-                        store.set { it.copy(telegramToken = "", telegramName = "", supporter = false, beta = false) }
-                        Shelf.refresh(context)
-                    })
-                }
-            }
-
             Group(words.about) {
-                row(Icons.Rounded.Info, words.version(BuildConfig.VERSION_NAME), "@margymods",
-                    pressed = { Launch.link(context, "https://t.me/margymods") })
+                row(Icons.Rounded.Info, words.version(BuildConfig.VERSION_NAME), "RubCut")
+                row(Icons.Rounded.Extension, words.basedOnMargy, null)
             }
             Spacer(Modifier.height(24.dp))
         }

@@ -159,6 +159,26 @@ final class NavBar {
         return capsule != null && capsule.worn;
     }
 
+    /** Whether a worn capsule's bar sits inside this view: its containers wear no shields either. */
+    static boolean holdsWorn(View ancestor) {
+        if (ancestor == null) return false;
+        try {
+            for (java.util.Map.Entry<View, Capsule> entry : BARS.entrySet()) {
+                View bar = entry.getKey();
+                Capsule capsule = entry.getValue();
+                if (bar == null || capsule == null || !capsule.worn) continue;
+                if (bar == ancestor) return true;
+                Object parent = bar.getParent();
+                for (int i = 0; i < 40 && parent instanceof View; i++) {
+                    if (parent == ancestor) return true;
+                    parent = ((View) parent).getParent();
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
+    }
+
     // ----------------------------------------------------------- finding the bar
 
     private static final WeakHashMap<View, Capsule> BARS = new WeakHashMap<View, Capsule>();
