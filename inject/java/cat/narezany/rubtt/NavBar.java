@@ -475,6 +475,9 @@ final class NavBar {
         /** The background TikTok gave the bar, kept while the capsule is worn. */
         private Drawable own;
         private boolean ownKept;
+        /** TikTok's chrome strips at and below the bar's bottom edge, backgrounds nulled while worn. */
+        private final java.util.ArrayList<View> chrome = new java.util.ArrayList<View>();
+        private final java.util.ArrayList<Drawable> chromeWas = new java.util.ArrayList<Drawable>();
         private Bitmap face;
         private android.graphics.BitmapShader faceShader;
         private final Paint facePaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
@@ -623,6 +626,7 @@ final class NavBar {
                 worn = true;
                 changed = true;
             }
+            clearChrome(bar);
             if (changed) arrange(bar);
             place();
             if (changed || moving) bar.invalidate();
@@ -637,11 +641,74 @@ final class NavBar {
             tabs = new Tab[0];
             if (listening) bar.setOnTouchListener(null);
             listening = false;
+            restoreChrome();
             if (ownKept && bar.getBackground() == null) bar.setBackground(own);
             own = null;
             ownKept = false;
             sampledFrom = null;
             bar.invalidate();
+        }
+
+        /** TikTok's own chrome under the new bar: full-width strips at the
+         * bar's bottom edge and below it keep no background while the capsule
+         * is worn, so nothing of the old bar shows under the new one. Always
+         * on -- only the capsule's own shell answers to the transparency
+         * switch. Everything remembered is put back when it leaves. */
+        private void clearChrome(ViewGroup bar) {
+            try {
+                int wide = bar.getWidth(), tall = bar.getHeight();
+                if (wide > 0 && tall > 0) {
+                    for (int i = 0; i < bar.getChildCount(); i++) {
+                        clearStrip(bar.getChildAt(i), wide, tall - 4);
+                    }
+                }
+                Object parent = bar.getParent();
+                if (parent instanceof ViewGroup) {
+                    ViewGroup group = (ViewGroup) parent;
+                    int top = bar.getTop();
+                    for (int i = 0; i < group.getChildCount(); i++) {
+                        View child = group.getChildAt(i);
+                        if (child == bar || child.getVisibility() != View.VISIBLE) continue;
+                        if (child.getWidth() < group.getWidth() * 0.9f) continue;
+                        if (child.getTop() < top) continue;
+                        clearStrip(child, 0, 0);
+                    }
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+
+        /** A full-width strip reaching down to the given bottom keeps no background. */
+        private void clearStrip(View child, int wide, int bottom) {
+            try {
+                if (child == null || child.getVisibility() != View.VISIBLE) return;
+                if (wide > 0) {
+                    if (child.getWidth() < wide * 0.9f) return;
+                    if (child.getBottom() < bottom) return;
+                }
+                Drawable bg = child.getBackground();
+                if (bg == null) return;
+                if (chrome.indexOf(child) < 0) {
+                    chrome.add(child);
+                    chromeWas.add(bg);
+                }
+                child.setBackground(null);
+            } catch (Throwable ignored) {
+            }
+        }
+
+        private void restoreChrome() {
+            try {
+                for (int i = 0; i < chrome.size(); i++) {
+                    View child = chrome.get(i);
+                    if (child != null && child.getBackground() == null) {
+                        child.setBackgroundDrawable(chromeWas.get(i));
+                    }
+                }
+            } catch (Throwable ignored) {
+            }
+            chrome.clear();
+            chromeWas.clear();
         }
 
         private void release(View tab) {
