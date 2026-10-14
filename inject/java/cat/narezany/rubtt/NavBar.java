@@ -479,6 +479,10 @@ final class NavBar {
         private final java.util.ArrayList<View> backings = new java.util.ArrayList<View>();
         private final java.util.ArrayList<Drawable> backingsWas = new java.util.ArrayList<Drawable>();
         private long backingLooked;
+        /** Dark full-height layers behind the bar, and what they painted before. */
+        private final java.util.ArrayList<View> unders = new java.util.ArrayList<View>();
+        private final java.util.ArrayList<Drawable> undersWas = new java.util.ArrayList<Drawable>();
+        private long undersLooked;
         private Bitmap face;
         private android.graphics.BitmapShader faceShader;
         private final Paint facePaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
@@ -500,6 +504,25 @@ final class NavBar {
         private long readAt;
         private boolean animates = true;
         private static final long READ_EVERY = 250L;
+
+        /**
+         * The bar the capsule sits on, told to draw again twice a second
+         * whether anything moves or not. The capsule hooks the screen's
+         * pre-draw, which only fires while something is being drawn: with a
+         * still picture nothing fires, and whatever TikTok repaints in the
+         * meantime stays until the next touch. The pulse keeps the checking
+         * going, so the clearing holds always and not only at some moments.
+         */
+        private View pulsed;
+        private final Runnable pulse = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    if (pulsed != null) pulsed.invalidate();
+                } catch (Throwable ignored) {
+                }
+            }
+        };
 
         void settle(ViewGroup bar) {
             long now = SystemClock.uptimeMillis();
@@ -604,6 +627,21 @@ final class NavBar {
                 changed = true;
             }
             clearBacking(bar);
+            clearUnder(bar);
+            if (pulsed != bar) {
+                if (pulsed != null) {
+                    try {
+                        pulsed.removeCallbacks(pulse);
+                    } catch (Throwable ignored) {
+                    }
+                }
+                pulsed = bar;
+            }
+            try {
+                bar.removeCallbacks(pulse);
+                bar.postDelayed(pulse, 500L);
+            } catch (Throwable ignored) {
+            }
             Bitmap picture = face(bar);
             if (picture != face) {
                 face = picture;
@@ -642,10 +680,18 @@ final class NavBar {
             tabs = new Tab[0];
             if (listening) bar.setOnTouchListener(null);
             listening = false;
+            if (pulsed != null) {
+                try {
+                    pulsed.removeCallbacks(pulse);
+                } catch (Throwable ignored) {
+                }
+                pulsed = null;
+            }
             if (ownKept && bar.getBackground() == null) bar.setBackground(own);
             own = null;
             ownKept = false;
             restoreBacking();
+            restoreUnder();
             sampledFrom = null;
             bar.invalidate();
         }
@@ -744,6 +790,104 @@ final class NavBar {
                 ViewGroup group = (ViewGroup) view;
                 for (int i = 0; i < group.getChildCount(); i++) collect(group.getChildAt(i), id, into);
             } catch (Throwable ignored) {
+            }
+        }
+
+        /**
+         * The page keeps full-height layers of its own dark colour behind
+         * everything, and the window keeps one too, so a bar made see-through
+         * shows their black rather than the picture. While the capsule is
+         * worn every dark layer that reaches across the bar's strip -- the
+         * window's own included, and the system strip under it -- keeps no
+         * background, so nothing is left between the picture and the capsule.
+         * Layers of the bar itself and of the picture are never touched, and
+         * everything remembered is put back when the capsule leaves.
+         */
+        private void clearUnder(ViewGroup bar) {
+            try {
+                for (View view : unders) {
+                    if (view == null || !view.isAttachedToWindow()) continue;
+                    if (view.getBackground() != null) view.setBackground(null);
+                }
+                long now = SystemClock.uptimeMillis();
+                if (now - undersLooked < 2000L) return;
+                undersLooked = now;
+                View root = bar.getRootView();
+                if (!(root instanceof ViewGroup)) return;
+                int screen = root.getWidth() > 0 ? root.getWidth() : bar.getWidth();
+                int[] at = new int[2];
+                bar.getLocationOnScreen(at);
+                under(root, bar, screen, at[1], at[1] + bar.getHeight(), 0);
+            } catch (Throwable ignored) {
+            }
+        }
+
+        private void under(View view, View bar, int screen, int top, int bottom, int seen) {
+            if (seen > 800 || view == null || view == bar) return;
+            if (view.getVisibility() != View.VISIBLE) return;
+            if (!(view instanceof android.view.SurfaceView)
+                    && !(view instanceof android.view.TextureView)) {
+                int[] loc = new int[2];
+                view.getLocationOnScreen(loc);
+                int vb = loc[1] + view.getHeight();
+                boolean wide = view.getWidth() >= screen * 0.9f;
+                boolean covers = wide && loc[1] <= top + 30 && vb >= bottom - 4;
+                boolean inside = wide && loc[1] >= top - 10 && vb <= bottom + 60;
+                Drawable bg = view.getBackground();
+                if ((covers || inside) && bg != null && dark(bg)) {
+                    if (unders.indexOf(view) < 0) {
+                        unders.add(view);
+                        undersWas.add(bg);
+                    }
+                    view.setBackground(null);
+                }
+            }
+            if (!(view instanceof ViewGroup)) return;
+            ViewGroup group = (ViewGroup) view;
+            for (int i = 0; i < group.getChildCount() && seen + i <= 800; i++)
+                under(group.getChildAt(i), bar, screen, top, bottom, seen + i + 1);
+        }
+
+        private void restoreUnder() {
+            try {
+                for (int i = 0; i < unders.size(); i++) {
+                    View view = unders.get(i);
+                    if (view == null) continue;
+                    if (view.getBackground() == null) view.setBackground(undersWas.get(i));
+                }
+            } catch (Throwable ignored) {
+            }
+            unders.clear();
+            undersWas.clear();
+        }
+
+        /** How dark a background has to be to count as the black behind the bar. */
+        private static final double BLACK_BELOW = 0.25;
+        /** The darkness sampled off each background once, so frames stay cheap. */
+        private static final WeakHashMap<Drawable, Integer> SHADE = new WeakHashMap<Drawable, Integer>();
+
+        /** Whether a background paints dark: sampled off a single pixel once. */
+        private static boolean dark(Drawable bg) {
+            try {
+                Integer known = SHADE.get(bg);
+                int colour;
+                if (known != null) {
+                    colour = known.intValue();
+                } else {
+                    android.graphics.Rect bounds = bg.getBounds();
+                    android.graphics.Bitmap one = android.graphics.Bitmap.createBitmap(
+                            1, 1, android.graphics.Bitmap.Config.ARGB_8888);
+                    bg.setBounds(0, 0, 1, 1);
+                    bg.draw(new Canvas(one));
+                    bg.setBounds(bounds);
+                    colour = one.getPixel(0, 0);
+                    SHADE.put(bg, Integer.valueOf(colour));
+                }
+                double bright = (0.299 * Color.red(colour) + 0.587 * Color.green(colour)
+                        + 0.114 * Color.blue(colour)) / 255.0;
+                return bright < BLACK_BELOW;
+            } catch (Throwable ignored) {
+                return false;
             }
         }
 
