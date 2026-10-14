@@ -41,8 +41,8 @@
      },
      "patch": {
       "url": "https://raw.githubusercontent.com/RubCut/RubPatches/main/patches/rubtt-2.0.5.mpatch",
-      "sha256": "01fda4307eff7199bd94ca6b7849aad1b9e6a5f0fe762ed05ed40da0e0371978",
-      "size": 71838560
+      "sha256": "442797df726addb06326459277f7dd0b927f4a54df2582076640ae962b88ee18",
+      "size": 71836468
      },
      "result": {
       "size": 395035562
