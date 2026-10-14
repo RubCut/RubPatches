@@ -71,7 +71,7 @@ wrong one. A colour that differs between themes is normally a resource with a
 near a theme. The names are no help either; this build has them stripped. The
 theme is in the **styles**: every colour in TikTok's design system is a theme
 attribute, and the two themes are two styles giving the same attribute two
-different values. `margyt/nightly.py` reads the style table, pairs them up, and
+different values. `rubtt/nightly.py` reads the style table, pairs them up, and
 writes the answer into the mod as a sorted list of colours it is allowed to
 touch. Nothing else is on the list, so nothing else can be repainted by
 accident.
@@ -89,7 +89,7 @@ Not by flattening it. Every shade is moved by the same step that takes the
 brand pink to the chosen colour, in hue, saturation and value at once, so the
 pink itself lands exactly on the accent, a light pink comes out a light accent,
 and the two ends of a gradient stay two ends of a gradient. Alpha is never
-touched. `margyt/palette.py` decides what belongs to the family; the hue window
+touched. `rubtt/palette.py` decides what belongs to the family; the hue window
 is deliberately narrow enough to leave TikTok's other brand colour, the cyan
 `#25F4EE`, exactly where it is.
 
@@ -276,14 +276,14 @@ the manifest, every hook, and what is deliberately not there.
 <details>
 <summary><b>Its own name and icon</b></summary>
 
-`RubTT`, in the mint the whole line uses — `#8DD1B0`, straight off the Margy
-banner — with a white note where Margy has a white paper plane.
+`RubTT`, in the mint the whole line uses — `#8DD1B0` — with a white note.
 
-The icon is not added as a new resource; the files behind TikTok's own icon are
-rewritten where they lie. The adaptive icon's two layers become vector
-drawables compiled by this repository, and each legacy density gets a bitmap
-scaled to exactly the size the one it replaces was. The resource id, the table
-entry and the density each file was chosen for never move.
+TikTok's own icon files are never touched. The patcher (`patcher/`, app
+**RubP**) adds the chosen picture as a resource of its own and declares two
+`activity-alias` entries for it — with and without the chosen name — both off
+until picked in **Settings and privacy → RubTT**, where the choice also lives
+next to the built-in icon list. The launcher reads the alias, so the picture
+reaches the home screen on every Android version, adaptive icons included.
 
 The same rule covers everything the mod draws. The badge and the Material icons
 on the settings screen are compiled into the mod's own dex as base64 PNGs
@@ -442,11 +442,11 @@ it.
 | what | how |
 |---|---|
 | the zip | rewritten entry by entry, each one still compressed the way it arrived; `resources.arsc` stays stored and four-byte aligned |
-| `AndroidManifest.xml` | parsed and rebuilt by `margyt/axml.py`, which round-trips aapt2's own output byte for byte |
+| `AndroidManifest.xml` | parsed and rebuilt by `rubtt/axml.py`, which round-trips aapt2's own output byte for byte |
 | `resources.arsc` | read to find where things live, and written only in place: a colour repainted where it lies, never a byte moved |
 | the icon | the files behind the existing resource are replaced, so no new id is ever needed |
-| the accent | `margyt/palette.py` moves the whole family of reds onto the chosen colour, in the table and in every compiled xml that draws one |
-| the theme | `margyt/nightly.py` reads the style table to find which colours TikTok itself repaints between light and dark, and writes that set into the mod |
+| the accent | `rubtt/palette.py` moves the whole family of reds onto the chosen colour, in the table and in every compiled xml that draws one |
+| the theme | `rubtt/nightly.py` reads the style table to find which colours TikTok itself repaints between light and dark, and writes that set into the mod |
 | the dex | the files that hold something worth rewriting go through baksmali and smali; the rest are copied |
 | the mod | javac and d8, in as the next `classesN.dex` — the run has to be unbroken or the runtime stops reading |
 | the landing sites | every static a rewrite points at is checked against the mod's own dex before the apk is written: smali assembles a call to a method nobody wrote without a word, and the runtime only finds out on the screen that reaches it |
@@ -477,8 +477,8 @@ version. And a **universal** apk of TikTok — on APKMirror the variant of type
 its own to read.
 
 ```bash
-git clone https://git.narez.xyz/narezany/RubTT
-cd RubTT
+git clone https://github.com/RubCut/RubPatches
+cd RubPatches
 ./build.sh path/to/tiktok.apk
 ```
 
@@ -557,16 +557,16 @@ only thing here that wants aapt2.
 | | |
 |---|---|
 | `build.sh` | the whole thing, one command |
-| `margyt/axml.py` | binary XML: parse, edit, write |
-| `margyt/arsc.py` | the resource table, read and patched in place |
-| `margyt/apkzip.py` | the zip, rewritten entry by entry |
-| `margyt/dexpatch.py` | every rewrite, and what it is anchored on |
-| `margyt/palette.py` | which colours the accent takes over, and what it turns them into |
-| `margyt/nightly.py` | which colours TikTok itself repaints between light and dark |
-| `margyt/icon.py` | the icon, replaced file by file |
-| `margyt/png.py` | just enough PNG to resize an icon, so Pillow is not needed |
-| `margyt/vector.py` | vector drawables, compiled without aapt2 |
-| `margyt/plugin.py` | packs a folder into an `.mtp`, with the same pinned toolchain |
+| `rubtt/axml.py` | binary XML: parse, edit, write |
+| `rubtt/arsc.py` | the resource table, read and patched in place |
+| `rubtt/apkzip.py` | the zip, rewritten entry by entry |
+| `rubtt/dexpatch.py` | every rewrite, and what it is anchored on |
+| `rubtt/palette.py` | which colours the accent takes over, and what it turns them into |
+| `rubtt/nightly.py` | which colours TikTok itself repaints between light and dark |
+| `rubtt/icon.py` | the icon, replaced file by file |
+| `rubtt/png.py` | just enough PNG to resize an icon, so Pillow is not needed |
+| `rubtt/vector.py` | vector drawables, compiled without aapt2 |
+| `rubtt/plugin.py` | packs a folder into an `.mtp`, with the same pinned toolchain |
 | `inject/java/` | the mod itself: its screen, and the methods the rewrites land in |
 | `badges.json` | the badges, read from here by every install |
 | `version.json` | what the latest release is, read from here by every install |
@@ -576,7 +576,7 @@ only thing here that wants aapt2.
 | `icon_out/` | the app icon: the 512px master the build scales from, and the density set |
 | `tests/` | the fixture apk and what is asserted about it |
 
-`margyt/dexpatch.py` is the file to read before moving the mod to a newer
+`rubtt/dexpatch.py` is the file to read before moving the mod to a newer
 TikTok. Everything else is either ours outright or finds its own targets; the
 rewrites are the part that has to find them again in a rebuilt apk.
 
