@@ -35,14 +35,14 @@ class MainActivity : ComponentActivity() {
             val now by prefs.now.collectAsStateWithLifecycle()
             PatcherTheme(now) {
                 CompositionLocalProvider(LocalWords provides Strings.of(now.language)) {
-                    // "" is the list, "settings" the settings, anything else a mod's id
+                    // "" is the mod, "settings" the settings
                     var screen by rememberSaveable { mutableStateOf("") }
                     val ask = rememberLauncherForActivityResult(
                         ActivityResultContracts.RequestPermission()) { }
                     LaunchedEffect(Unit) {
                         if (Build.VERSION.SDK_INT >= 33) ask.launch(Manifest.permission.POST_NOTIFICATIONS)
                     }
-                    BackHandler(screen.isNotEmpty()) { screen = "" }
+                    BackHandler(screen == "settings") { screen = "" }
                     AnimatedContent(
                         targetState = screen,
                         transitionSpec = {
@@ -55,9 +55,8 @@ class MainActivity : ComponentActivity() {
                         label = "screen",
                     ) { shown ->
                         when (shown) {
-                            "" -> HomeScreen(open = { screen = it }, settings = { screen = "settings" })
                             "settings" -> SettingsScreen(back = { screen = "" })
-                            else -> ModScreen(id = shown, back = { screen = "" })
+                            else -> HomeScreen(settings = { screen = "settings" })
                         }
                     }
                 }
