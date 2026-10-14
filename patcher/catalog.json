@@ -3,8 +3,8 @@
  "patcher": {
   "version": "1.8",
   "url": "https://raw.githubusercontent.com/RubCut/RubPatches/main/releases/rubp-1.8.apk",
-  "sha256": "3a9072638055a32e76aa3469c5338fa16e59f1d261eb16a5719683e1ec649df8",
-  "size": 1506953,
+  "sha256": "e048eaf8c070217186d58d3f9075e0f2f896d93fb4dd272f2030bd1c1e9c0a29",
+  "size": 1490569,
   "notes": {
    "ru": "RubP: только обычный TikTok, сначала настройка параметров, потом сборка.",
    "uk": "RubP: тільки звичайний TikTok, спочатку налаштування параметрів, потім збірка.",
