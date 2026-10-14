@@ -607,6 +607,7 @@ final class NavBar {
                 bar.setBackground(null);
                 changed = true;
             }
+            clearFore(bar);
             Bitmap picture = face(bar);
             if (picture != face) {
                 face = picture;
@@ -614,7 +615,9 @@ final class NavBar {
                         android.graphics.Shader.TileMode.CLAMP, android.graphics.Shader.TileMode.CLAMP);
                 changed = true;
             }
-            int under = under(bar, now), tint = Accent.colour();
+            int under = cinema(bar, now);
+            if (under == 0) under = under(bar, now);
+            int tint = Accent.colour();
             if (under != ground || tint != accent) {
                 ground = under;
                 accent = tint;
@@ -651,6 +654,7 @@ final class NavBar {
             listening = false;
             restoreChrome();
             restoreStrips();
+            restoreFore();
             for (View hidden : scrims) {
                 try {
                     if (hidden == null) continue;
@@ -715,6 +719,7 @@ final class NavBar {
                     chromeWas.add(bg);
                 }
                 child.setBackground(null);
+                clearFore(child);
             } catch (Throwable ignored) {
             }
         }
@@ -766,6 +771,7 @@ final class NavBar {
                     Drawable bg = known.getBackground();
                     if (known == scrim && bg != null && scrimWas == null) scrimWas = bg;
                     if (bg != null) known.setBackground(null);
+                    clearFore(known);
                     // the gradient may be drawn by the view itself: hide it outright
                     known.setVisibility(View.INVISIBLE);
                 }
@@ -787,6 +793,9 @@ final class NavBar {
         private final java.util.ArrayList<View> strips = new java.util.ArrayList<View>();
         private final java.util.ArrayList<Integer> stripsWas = new java.util.ArrayList<Integer>();
         private long stripsLooked;
+        /** Foregrounds painted over everything in a view, background or not. */
+        private final java.util.ArrayList<View> fores = new java.util.ArrayList<View>();
+        private final java.util.ArrayList<Drawable> foreWas = new java.util.ArrayList<Drawable>();
 
         /**
          * The strip TikTok keeps for its own bar: a plain view sitting where
@@ -845,6 +854,56 @@ final class NavBar {
             stripsWas.clear();
         }
 
+        /**
+         * A foreground paints over everything the view holds, background or
+         * video, so TikTok's dimming often lives there rather than in a
+         * background. Nulled while worn where the bar sits, put back after.
+         */
+        private void clearFore(View view) {
+            try {
+                if (view == null || view.getVisibility() != View.VISIBLE) return;
+                Drawable fg;
+                try {
+                    fg = view.getForeground();
+                } catch (Throwable missing) {
+                    return;
+                }
+                if (fg == null) return;
+                if (fores.indexOf(view) < 0) {
+                    fores.add(view);
+                    foreWas.add(fg);
+                }
+                try {
+                    view.setForeground(null);
+                } catch (Throwable ignored) {
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+
+        private void restoreFore() {
+            try {
+                for (int i = 0; i < fores.size(); i++) {
+                    View view = fores.get(i);
+                    if (view == null) continue;
+                    Drawable now = null;
+                    try {
+                        now = view.getForeground();
+                    } catch (Throwable missing) {
+                    }
+                    if (now == null) {
+                        try {
+                            view.setForeground(foreWas.get(i));
+                        } catch (Throwable ignored) {
+                        }
+                    }
+                }
+            } catch (Throwable ignored) {
+            }
+            fores.clear();
+            foreWas.clear();
+        }
+
         /** How dark a background has to be to count as the black behind the bar. */
         private static final double BLACK_BELOW = 0.25;
         /** The darkness sampled off each background once, so frames stay cheap. */
@@ -876,6 +935,7 @@ final class NavBar {
                     int[] loc = new int[2];
                     box.getLocationOnScreen(loc);
                     if (loc[1] + box.getHeight() < bottom - 4) continue;
+                    clearFore(box);
                     Drawable bg = probe;
                     if (!dark(bg)) continue;
                     if (chrome.indexOf(box) < 0) {
@@ -883,6 +943,7 @@ final class NavBar {
                         chromeWas.add(bg);
                     }
                     box.setBackground(null);
+                    clearFore(box);
                 }
             } catch (Throwable ignored) {
             }
@@ -946,6 +1007,79 @@ final class NavBar {
             return true;
         }
 
+        /** The video playing now, if any. Looked up again while the page changes. */
+        private android.view.TextureView cinema;
+        private long cinemaLooked;
+        private int cinemaTint;
+        private long cinemaTintAt;
+
+        /**
+         * The colour of the frame now playing, or nought when no video is in
+         * sight. The shell takes after the picture, so around the tabs is the
+         * video, never the black of the page under it. Sampled off a small
+         * copy twice a second; a light frame makes a light shell.
+         */
+        private int cinema(ViewGroup bar, long now) {
+            try {
+                if (now - cinemaTintAt >= 500L) {
+                    cinemaTintAt = now;
+                    if (cinema == null || !cinema.isAttachedToWindow() || now - cinemaLooked > 2000L) {
+                        cinemaLooked = now;
+                        cinema = biggest(bar.getRootView());
+                        if (cinema == null) cinemaTint = 0;
+                    }
+                    if (cinema != null && cinema.isAttachedToWindow()
+                            && cinema.getWidth() > 0 && cinema.getHeight() > 0) {
+                        try {
+                            android.graphics.Bitmap frame = cinema.getBitmap(32, 32);
+                            if (frame != null) {
+                                int[] pixels = new int[32 * 32];
+                                frame.getPixels(pixels, 0, 32, 0, 0, 32, 32);
+                                long red = 0, green = 0, blue = 0;
+                                for (int pixel : pixels) {
+                                    red += Color.red(pixel);
+                                    green += Color.green(pixel);
+                                    blue += Color.blue(pixel);
+                                }
+                                cinemaTint = Color.rgb((int) (red / 1024),
+                                        (int) (green / 1024), (int) (blue / 1024)) | 0xFF000000;
+                            }
+                        } catch (Throwable ignored) {
+                        }
+                    }
+                }
+            } catch (Throwable ignored) {
+            }
+            return cinemaTint;
+        }
+
+        /** The largest picture playing under this screen, or null. */
+        private static android.view.TextureView biggest(View root) {
+            try {
+                android.view.TextureView best = null;
+                int area = 0, seen = 0;
+                java.util.ArrayDeque<View> queue = new java.util.ArrayDeque<View>();
+                if (root != null) queue.add(root);
+                while (!queue.isEmpty() && seen++ < 600) {
+                    View view = queue.poll();
+                    if (view instanceof android.view.TextureView) {
+                        int each = view.getWidth() * view.getHeight();
+                        if (each > area) {
+                            area = each;
+                            best = (android.view.TextureView) view;
+                        }
+                    }
+                    if (view instanceof ViewGroup) {
+                        ViewGroup group = (ViewGroup) view;
+                        for (int i = 0; i < group.getChildCount(); i++) queue.add(group.getChildAt(i));
+                    }
+                }
+                return best;
+            } catch (Throwable ignored) {
+                return null;
+            }
+        }
+
         /**
          * The colour the capsule's own colours are mixed from: whatever is
          * painted under the bar on the page now showing, so that a light
@@ -956,8 +1090,7 @@ final class NavBar {
          * of the bar's own ancestors; but the bar is not part of the page it
          * is seen over, and both were dark on a light profile.
          */
-        private int under(View bar, long now) {
-            if (now - sampledAt < LOOK_AGAIN) return ground;
+        private int under(View bar, long now) {            if (now - sampledAt < LOOK_AGAIN) return ground;
             sampledAt = now;
             return Md3.under(bar) | 0xFF000000;
         }
@@ -972,7 +1105,7 @@ final class NavBar {
             }
             float room = Math.min(bottom - top - 6f * unit, 52f * unit);
             float middle = (top + bottom) / 2f;
-            body.set(8f * unit, middle - room / 2f, wide - 8f * unit, middle + room / 2f);
+            body.set(0f, middle - room / 2f, wide, middle + room / 2f);
             float inside = 4f * unit, left = body.left + inside, right = body.right - inside;
             int centre = tabs.length / 2;
             if (tabs.length % 2 == 1 && tabs[centre].kind == CREATE) {
