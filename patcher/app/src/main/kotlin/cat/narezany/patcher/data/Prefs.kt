@@ -18,6 +18,13 @@ class Prefs private constructor(private val store: SharedPreferences) {
         val telegramToken: String = "",
         val telegramName: String = "",
         val supporter: Boolean = false,
+        val customPackage: String = "",
+        val customLabel: String = "",
+        val customIcon: String = "",
+        val localPatch: String = "",
+        val lspatch: Boolean = false,
+        val lspatchModules: Set<String> = emptySet(),
+        val sigbypass: Int = 0,
     )
 
     private val flow = MutableStateFlow(read())
@@ -33,6 +40,13 @@ class Prefs private constructor(private val store: SharedPreferences) {
         telegramToken = store.getString("telegram_token", "") ?: "",
         telegramName = store.getString("telegram_name", "") ?: "",
         supporter = store.getBoolean("supporter", false),
+        customPackage = store.getString("custom_package", "") ?: "",
+        customLabel = store.getString("custom_label", "") ?: "",
+        customIcon = store.getString("custom_icon", "") ?: "",
+        localPatch = store.getString("local_patch", "") ?: "",
+        lspatch = store.getBoolean("lspatch", false),
+        lspatchModules = store.getStringSet("lspatch_modules", emptySet()) ?: emptySet(),
+        sigbypass = store.getInt("sigbypass", 0),
     )
 
     fun set(change: (Now) -> Now) {
@@ -47,6 +61,13 @@ class Prefs private constructor(private val store: SharedPreferences) {
             .putString("telegram_token", next.telegramToken)
             .putString("telegram_name", next.telegramName)
             .putBoolean("supporter", next.supporter)
+            .putString("custom_package", next.customPackage)
+            .putString("custom_label", next.customLabel)
+            .putString("custom_icon", next.customIcon)
+            .putString("local_patch", next.localPatch)
+            .putBoolean("lspatch", next.lspatch)
+            .putStringSet("lspatch_modules", next.lspatchModules)
+            .putInt("sigbypass", next.sigbypass)
             .apply()
         flow.value = next
     }

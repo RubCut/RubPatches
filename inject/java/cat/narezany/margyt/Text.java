@@ -597,6 +597,13 @@ final class Text {
             "Участвовать в конкурсе", "Взяти участь у конкурсі", "Enter the contest");
 
     static final String ICON_DEFAULT = pick("Обычная", "Звичайна", "The usual one");
+    static final String ICON_CUSTOM = pick("Своя", "Своя", "Your own");
+    static final String ICON_NAME_CUSTOM = pick("Своё название", "Своя назва", "A name of your own");
+    static final String LSPATCH_MODULES = pick("LSPatch-модули", "LSPatch-модулі", "LSPatch modules");
+    static final String LSPATCH_MODULES_NOTE = pick(
+            "Встроены патчером. Переключение применится после перезапуска.",
+            "Вбудовані патчером. Перемикання застосується після перезапуску.",
+            "Baked in by the patcher. A switch applies on the next start.");
 
     // -------------------------------------------------------- the donation
 

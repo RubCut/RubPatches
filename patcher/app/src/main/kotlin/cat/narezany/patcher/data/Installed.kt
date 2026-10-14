@@ -29,19 +29,22 @@ sealed class Installed {
 
         /** [wait]: off the main thread, where reading a whole apk to know it is no trouble. */
         fun of(context: Context, mod: Mod, wait: Boolean = false): Installed {
+            // a custom package name means the mod lives under it, and the app
+            // under the standard name is somebody else's business entirely
+            val packageName = Prefs.of(context).now.value.customPackage.ifBlank { mod.packageName }
             val manager = context.packageManager
             val info = try {
-                manager.getApplicationInfo(mod.packageName, PackageManager.GET_META_DATA)
+                manager.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
             } catch (missing: PackageManager.NameNotFoundException) {
                 return Nothing
             }
             val said = info.metaData?.get(VERSION)?.toString()
             if (!said.isNullOrEmpty()) return Ours(said)
-            if (mod.ownPackage) {
+            if (mod.ownPackage && packageName == mod.packageName) {
                 // A mod that does not say which version it is, is known by
                 // its file: the same bytes as a release are that release.
                 val updated = try {
-                    manager.getPackageInfo(mod.packageName, 0).lastUpdateTime
+                    manager.getPackageInfo(packageName, 0).lastUpdateTime
                 } catch (gone: Exception) {
                     0L
                 }
@@ -49,7 +52,7 @@ sealed class Installed {
                 return Ours(mod.releases.firstOrNull { it.whole && it.apkSha256 == hash }?.version)
             }
             // a release from before it said: known by being signed as this app is
-            return if (manager.checkSignatures(context.packageName, mod.packageName)
+            return if (manager.checkSignatures(context.packageName, packageName)
                     == PackageManager.SIGNATURE_MATCH) Ours(null) else Theirs
         }
     }

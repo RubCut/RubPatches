@@ -42,17 +42,24 @@ private val Dark = darkColorScheme(
 
 @Composable
 fun PatcherTheme(prefs: Prefs.Now, content: @Composable () -> Unit) {
+    val oled = prefs.theme == "oled"
     val dark = when (prefs.theme) {
         "light" -> false
-        "dark" -> true
+        "dark", "oled" -> true
         else -> isSystemInDarkTheme()
     }
     val context = LocalContext.current
-    val colours = when {
+    var colours = when {
         prefs.dynamic && Build.VERSION.SDK_INT >= 31 ->
             if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         dark -> Dark
         else -> Light
     }
+    if (oled) colours = colours.copy(
+        background = Color.Black, surface = Color.Black,
+        surfaceContainerLowest = Color.Black, surfaceContainerLow = Color(0xFF0A0A0A),
+        surfaceContainer = Color(0xFF121212), surfaceContainerHigh = Color(0xFF1D1D1D),
+        surfaceContainerHighest = Color(0xFF262626),
+    )
     MaterialTheme(colorScheme = colours, content = content)
 }

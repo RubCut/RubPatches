@@ -194,12 +194,20 @@ public class SettingsActivity extends Activity {
 
     private void dressTheWindow() {
         try {
+            // draw edge to edge: the column already steps down past the status
+            // bar by exactly its height, and a window that steps down on its
+            // own too leaves the two added together as a gap above the arrow
+            if (android.os.Build.VERSION.SDK_INT >= 30) {
+                getWindow().setDecorFitsSystemWindows(false);
+            }
             getWindow().setStatusBarColor(skin.page);
             getWindow().setNavigationBarColor(skin.page);
-            if (!skin.dark()) {
-                getWindow().getDecorView().setSystemUiVisibility(
-                        View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+            int flags = !skin.dark() ? View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR : 0;
+            if (android.os.Build.VERSION.SDK_INT < 30) {
+                flags |= View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN;
             }
+            if (flags != 0) getWindow().getDecorView().setSystemUiVisibility(flags);
         } catch (Throwable ignored) {
         }
     }
@@ -526,6 +534,12 @@ public class SettingsActivity extends Activity {
         column.addView(section(Text.PLUGINS));
         LinearLayout plugins = card();
         plugins.addView(actionRow("add", Local.of("Добавить плагин"), null, this::showPluginAdd));
+        if (LspModules.hasAny(this)) {
+            plugins.addView(line());
+            plugins.addView(actionRow("extension", Text.LSPATCH_MODULES,
+                    LspModules.names(this).size() + " · " + Text.LSPATCH_MODULES_NOTE,
+                    this::showLspModules));
+        }
         List<Plugins.Info> installed = Plugins.list();
         List<ScriptPlugins.Program> commands=ScriptPlugins.list(this);
         if(installed.isEmpty()&&commands.isEmpty())plugins.addView(quiet(Local.of("Пока нет установленных плагинов")));
@@ -1984,7 +1998,7 @@ public class SettingsActivity extends Activity {
         rows.setOrientation(LinearLayout.VERTICAL);
 
         String now = Launcher.chosen();
-        String[] all = Launcher.all();
+        String[] all = Launcher.all(this);
         for (int i = 0; i < all.length; i++) {
             final String which = all[i];
             if (i > 0) rows.addView(line());
@@ -1993,7 +2007,7 @@ public class SettingsActivity extends Activity {
             row.setGravity(Gravity.CENTER_VERTICAL);
 
             android.widget.ImageView shot = new android.widget.ImageView(this);
-            android.graphics.Bitmap picture = Launcher.preview(which);
+            android.graphics.Bitmap picture = Launcher.preview(this, which);
             if (picture != null) shot.setImageBitmap(picture);
             shot.setScaleType(ImageView.ScaleType.FIT_CENTER);
             LinearLayout.LayoutParams size =
@@ -2009,8 +2023,55 @@ public class SettingsActivity extends Activity {
             });
             rows.addView(sized(row, 56));
         }
+        if (Launcher.hasCustomName(this)) {
+            rows.addView(line());
+            rows.addView(toggleRow("text_fields", Text.ICON_NAME_CUSTOM,
+                    Launcher.customNameOn(), on -> Launcher.setCustomName(this, on)));
+        }
         rows.addView(line());
         return rows;
+    }
+
+
+    /**
+     * The modules the patcher baked into this apk, each with a switch.
+     *
+     * LSPatch loads them all at startup; the switch puts an empty file where
+     * the loader would copy the module, so the copy is skipped and the module
+     * never wakes up. That is decided at startup, so a switch asks for a
+     * restart -- the row says so itself.
+     */
+    private void showLspModules() {
+        final java.util.List<LspModules.Entry> modules = LspModules.list(this);
+        Panel panel = Panel.with(this, skin, Text.LSPATCH_MODULES);
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        for (final LspModules.Entry module : modules) {
+            String detail = module.packageName;
+            if (module.version != null && !module.version.isEmpty()) {
+                detail = detail.isEmpty() ? module.version
+                        : module.packageName + " · " + module.version;
+            }
+            LinearLayout row = row();
+            row.addView(icon("extension"));
+            LinearLayout text = new LinearLayout(this);
+            text.setOrientation(LinearLayout.VERTICAL);
+            text.addView(label(module.name));
+            if (!detail.isEmpty()) text.addView(detail(detail));
+            row.addView(text, grow());
+            final M3Switch toggle = new M3Switch(this);
+            toggle.colours(Accent.colour(), skin.muted(), skin.card);
+            toggle.setContentDescription(module.name);
+            toggle.setChecked(module.enabled);
+            toggle.setOnChanged(checked ->
+                    LspModules.setEnabled(this, module.file, checked));
+            row.addView(toggle);
+            row.setOnClickListener(v -> toggle.performClick());
+            list.addView(sized(row, 56));
+        }
+        panel.view(list);
+        panel.quiet(Text.CLOSE, null);
+        panel.show();
     }
 
 
@@ -2059,16 +2120,65 @@ public class SettingsActivity extends Activity {
 
     private void askColour(String title, int initial, ColourPicked picked) {
         Panel panel = Panel.with(this,skin,title);
+        // the picker from the accent dialog, with the hex kept as a second
+        // way in: either side moves the other, and OK takes the hex when it
+        // parses, the picker otherwise
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        final AccentColourPicker picker = new AccentColourPicker(this, initial);
+        final View sample = new View(this);
+        LinearLayout.LayoutParams sampleParams = new LinearLayout.LayoutParams(dp(56), dp(28));
+        sampleParams.gravity = Gravity.CENTER_HORIZONTAL;
+        sampleParams.bottomMargin = dp(8);
+        content.addView(sample, sampleParams);
+        content.addView(picker, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(238)));
+        panel.view(content);
         EditText input = panel.field("#RRGGBB");
         input.setText(String.format(Locale.US, "#%06X", initial & 0xFFFFFF));
+        sample.setBackgroundColor(initial | 0xFF000000);
+        final boolean[] sync = {false};
+        final String[] synced = {String.format(Locale.US, "#%06X", initial & 0xFFFFFF)};
+        picker.onColourChanged(colour -> {
+            sample.setBackgroundColor(colour);
+            if (sync[0]) return;
+            sync[0] = true;
+            synced[0] = String.format(Locale.US, "#%06X", colour & 0xFFFFFF);
+            input.setText(synced[0]);
+            input.setError(null);
+            sync[0] = false;
+        });
+        input.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) { }
+            @Override public void onTextChanged(CharSequence s, int a, int b, int c) { }
+            @Override public void afterTextChanged(android.text.Editable s) {
+                if (sync[0]) return;
+                try {
+                    int colour = android.graphics.Color.parseColor(s.toString().trim());
+                    sync[0] = true;
+                    picker.setColour(colour);
+                    sample.setBackgroundColor(colour | 0xFF000000);
+                    input.setError(null);
+                    sync[0] = false;
+                } catch (IllegalArgumentException ignored) {
+                    // half-typed hex: the picker simply stays where it was
+                }
+            }
+        });
         panel.primaryKeepOpen(getString(android.R.string.ok), () -> {
+                    String typed = input.getText().toString().trim();
                     try {
-                        int colour = android.graphics.Color.parseColor(
-                                input.getText().toString().trim());
+                        int colour = android.graphics.Color.parseColor(typed);
                         picked.set(colour);
                         panel.close();
                     } catch (IllegalArgumentException error) {
-                        input.setError(Local.of("Укажите цвет в формате #RRGGBB"));
+                        if (typed.equalsIgnoreCase(synced[0])) {
+                            // the hex was never touched: the picker is the answer
+                            picked.set(picker.colour());
+                            panel.close();
+                        } else {
+                            input.setError(Local.of("Укажите цвет в формате #RRGGBB"));
+                        }
                     }
                 });
         panel.quiet(Text.CANCEL,null); panel.show();

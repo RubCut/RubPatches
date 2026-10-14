@@ -71,6 +71,7 @@ class Strings(
     val themeSystem: String,
     val themeLight: String,
     val themeDark: String,
+    val themeOled: String,
     val dynamicColour: String,
     val dynamicColourNote: String,
     val updates: String,
@@ -107,6 +108,24 @@ class Strings(
     val patch: String,
     val finishedApk: String,
     val signOutNote: String,
+    val stageCustomize: String,
+    val customize: String,
+    val customizeNote: String,
+    val customPackage: String,
+    val customPackageNote: String,
+    val customLabel: String,
+    val localPatch: String,
+    val localPatchNote: String,
+    val customLabelNote: String,
+    val customIcon: String,
+    val customIconNote: String,
+    val lspatchTitle: String,
+    val lspatchNote: String,
+    val lspatchModules: String,
+    val lspatchModulesNote: (Int) -> String,
+    val sigbypass: String,
+    val sigbypassLevels: List<String>,
+    val clear: String,
 ) {
     fun stage(stage: Engine.Stage) = when (stage) {
         Engine.Stage.ORIGINAL -> stageOriginal
@@ -114,6 +133,7 @@ class Strings(
         Engine.Stage.PATCH -> stagePatch
         Engine.Stage.MAKING -> stageMaking
         Engine.Stage.APK -> stageApk
+        Engine.Stage.CUSTOMIZE -> stageCustomize
     }
 
     /** A text given in several languages, in this one, or English, or whatever there is. */
@@ -193,6 +213,7 @@ class Strings(
             themeSystem = "Как в системе",
             themeLight = "Светлая",
             themeDark = "Тёмная",
+            themeOled = "OLED (чёрная)",
             dynamicColour = "Цвета телефона",
             dynamicColourNote = "Брать палитру из обоев (Android 12 и новее)",
             updates = "Обновления",
@@ -229,6 +250,24 @@ class Strings(
             patch = "Патч",
             finishedApk = "Готовый апк",
             signOutNote = "Выйти из аккаунта",
+            stageCustomize = "Настраивается апк",
+            customize = "Кастомизация",
+            customizeNote = "Применяется к следующей сборке: своё имя пакета, название, иконка и встроенный LSPatch с модулями.",
+            customPackage = "Имя пакета",
+            customPackageNote = "Пусто — как у мода. Другое имя ставится рядом с оригиналом.",
+            customLabel = "Название приложения",
+            localPatch = "Свой файл патча",
+            localPatchNote = "Пусто — патч с сервера. Можно выбрать свой .mpatch",
+            customLabelNote = "Пусто — как у мода. Включается тумблером рядом со своей иконкой в настройках мода",
+            customIcon = "Иконка",
+            customIconNote = "PNG-картинка вместо иконки приложения",
+            lspatchTitle = "Встроить LSPatch",
+            lspatchNote = "LSPosed внутри апк, без рута (форк JingMatrix). Выбранные модули зашиваются в приложение.",
+            lspatchModules = "Модули",
+            lspatchModulesNote = { if (it == 0) "Не выбраны" else "Выбрано: $it" },
+            sigbypass = "Обход проверки подписи",
+            sigbypassLevels = listOf("Выключен", "Только менеджер пакетов", "Полный"),
+            clear = "Сбросить",
         )
 
         private val UK = Strings(
@@ -290,6 +329,7 @@ class Strings(
             themeSystem = "Як у системі",
             themeLight = "Світла",
             themeDark = "Темна",
+            themeOled = "OLED (чорна)",
             dynamicColour = "Кольори телефона",
             dynamicColourNote = "Брати палітру зі шпалер (Android 12 і новіше)",
             updates = "Оновлення",
@@ -326,6 +366,24 @@ class Strings(
             patch = "Патч",
             finishedApk = "Готовий апк",
             signOutNote = "Вийти з акаунта",
+            stageCustomize = "Налаштовується апк",
+            customize = "Кастомізація",
+            customizeNote = "Застосовується до наступної збірки: своє ім'я пакета, назва, іконка та вбудований LSPatch з модулями.",
+            customPackage = "Ім'я пакета",
+            customPackageNote = "Пусто — як у мода. Інше ім'я ставиться поряд з оригіналом.",
+            customLabel = "Назва застосунку",
+            localPatch = "Свій файл патча",
+            localPatchNote = "Пусто — патч із сервера. Можна вибрати свій .mpatch",
+            customLabelNote = "Пусто — як у мода. Вмикається перемикачем поруч зі своєю іконкою в налаштуваннях мода",
+            customIcon = "Іконка",
+            customIconNote = "PNG-картинка замість іконки застосунку",
+            lspatchTitle = "Вбудувати LSPatch",
+            lspatchNote = "LSPosed всередині апк, без рута (форк JingMatrix). Обрані модулі зашиваються в застосунок.",
+            lspatchModules = "Модулі",
+            lspatchModulesNote = { if (it == 0) "Не обрані" else "Обрано: $it" },
+            sigbypass = "Обхід перевірки підпису",
+            sigbypassLevels = listOf("Вимкнено", "Лише менеджер пакетів", "Повний"),
+            clear = "Скинути",
         )
 
         private val EN = Strings(
@@ -387,6 +445,7 @@ class Strings(
             themeSystem = "The system's",
             themeLight = "Light",
             themeDark = "Dark",
+            themeOled = "OLED (pitch black)",
             dynamicColour = "The phone's colours",
             dynamicColourNote = "Take the palette from the wallpaper (Android 12 and later)",
             updates = "Updates",
@@ -423,6 +482,24 @@ class Strings(
             patch = "Patch",
             finishedApk = "Finished apk",
             signOutNote = "Sign out of the account",
+            stageCustomize = "Customizing the apk",
+            customize = "Customization",
+            customizeNote = "Applied to the next build: your own package name, label, icon, and LSPatch embedded with modules.",
+            customPackage = "Package name",
+            customPackageNote = "Empty — the mod's own. A different name installs beside the original.",
+            customLabel = "App label",
+            localPatch = "Your own patch file",
+            localPatchNote = "Empty — the server\u2019s patch. A local .mpatch can be picked",
+            customLabelNote = "Empty — the mod's own. Switched in the mod's settings, by the custom icon",
+            customIcon = "Icon",
+            customIconNote = "A PNG picture to replace the app's icon",
+            lspatchTitle = "Embed LSPatch",
+            lspatchNote = "LSPosed inside the apk, no root (the JingMatrix fork). Chosen modules are baked into the app.",
+            lspatchModules = "Modules",
+            lspatchModulesNote = { if (it == 0) "None chosen" else "Chosen: $it" },
+            sigbypass = "Signature check bypass",
+            sigbypassLevels = listOf("Off", "Package manager only", "Full"),
+            clear = "Clear",
         )
     }
 }

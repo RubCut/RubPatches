@@ -30,3 +30,22 @@ tasks.register<JavaExec>("patch") {
         project.findProperty("out") as String?,
     ))
 }
+
+tasks.register<JavaExec>("customize") {
+    description = "Rename, relabel, re-icon and lspatch an apk on this computer: " +
+        "-Pbase=… -Pout=… [-Ppackage=…] [-Plabel=…] [-Picon=…] [-Plspatch=…] [-Pmodule=a.apk,b.apk] [-Psigbypass=2]"
+    mainClass.set("cat.narezany.patcher.core.CliKt")
+    classpath = sourceSets["main"].runtimeClasspath + cli
+    jvmArgs("-Xmx2g")
+    args(buildList {
+        add("customize")
+        add(project.findProperty("base") as String? ?: "")
+        add(project.findProperty("out") as String? ?: "")
+        (project.findProperty("package") as String?)?.let { add("--package=$it") }
+        (project.findProperty("label") as String?)?.let { add("--label=$it") }
+        (project.findProperty("icon") as String?)?.let { add("--icon=$it") }
+        (project.findProperty("lspatch") as String?)?.let { add("--lspatch=$it") }
+        (project.findProperty("module") as String?)?.split(',')?.forEach { add("--module=$it") }
+        (project.findProperty("sigbypass") as String?)?.let { add("--sigbypass=$it") }
+    })
+}

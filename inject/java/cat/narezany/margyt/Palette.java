@@ -62,27 +62,38 @@ public final class Palette {
         // already the accent: an accent that sits inside the family (a pink, a
         // red) would otherwise be moved again every time it passes through here
         if ((colour & 0xFFFFFF) == (accent & 0xFFFFFF)) return colour;
-        try {
-            if (!captures(colour, reference)) return colour;
+        synchronized (TO) {
+            try {
+                if (!captures(colour, reference)) return colour;
 
-            float[] here = hsv(colour);
-            float[] from = hsv(reference);
-            float[] to = hsv(accent);
+                Color.colorToHSV(colour, HERE);
+                Color.colorToHSV(reference, FROM);
+                Color.colorToHSV(accent, TO);
 
-            float hue = to[0] + (here[0] - from[0]);
-            hue = ((hue % 360f) + 360f) % 360f;
-            // a ratio rather than a difference: half as saturated as the pink
-            // comes out half as saturated as the accent, whatever it is
-            float saturation = from[1] == 0f ? to[1] : to[1] * (here[1] / from[1]);
-            float value = from[2] == 0f ? to[2] : to[2] * (here[2] / from[2]);
+                float hue = TO[0] + (HERE[0] - FROM[0]);
+                hue = ((hue % 360f) + 360f) % 360f;
+                // a ratio rather than a difference: half as saturated as the pink
+                // comes out half as saturated as the accent, whatever it is
+                float saturation = FROM[1] == 0f ? TO[1] : TO[1] * (HERE[1] / FROM[1]);
+                float value = FROM[2] == 0f ? TO[2] : TO[2] * (HERE[2] / FROM[2]);
 
-            return Color.HSVToColor(Color.alpha(colour),
-                    new float[]{hue, clamp(saturation), clamp(value)});
-        } catch (Throwable ignored) {
-            // nothing about a colour is worth taking an app down for
-            return colour;
+                HERE[0] = hue;
+                HERE[1] = clamp(saturation);
+                HERE[2] = clamp(value);
+                return Color.HSVToColor(Color.alpha(colour), HERE);
+            } catch (Throwable ignored) {
+                // nothing about a colour is worth taking an app down for
+                return colour;
+            }
         }
     }
+
+    // one shared sheet of scratch rather than four float arrays a call: this
+    // sits in the drawing path of half the app, and misses of the answer table
+    // should not be paying the garbage collector for them
+    private static final float[] HERE = new float[3];
+    private static final float[] FROM = new float[3];
+    private static final float[] TO = new float[3];
 
     /**
      * TikTok's other two hues: the cyan half of the brand and the green of

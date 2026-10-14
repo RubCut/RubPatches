@@ -123,6 +123,9 @@ public final class Margy {
         if (likesWarmed) return;
         likesWarmed = true;
         try { Accent.prewarmLikeAnimations(null); } catch (Throwable ignored) { }
+        // the switches on baked-in LSPatch modules stand in the cache, and
+        // the cache may not have survived since they were set
+        try { LspModules.apply(sContext); } catch (Throwable ignored) { }
     }
 
     /** Set from the settings screen, where a context is never in doubt. */

@@ -108,6 +108,7 @@ fun SettingsScreen(back: () -> Unit) {
                 row(Icons.Rounded.DarkMode, words.theme, when (prefs.theme) {
                     "light" -> words.themeLight
                     "dark" -> words.themeDark
+                    "oled" -> words.themeOled
                     else -> words.themeSystem
                 }, pressed = { choosing = "theme" })
                 row(Icons.Rounded.Palette, words.dynamicColour, words.dynamicColourNote,
@@ -211,7 +212,8 @@ fun SettingsScreen(back: () -> Unit) {
     }
     if (choosing == "theme") {
         Choice(words.theme,
-            listOf(Prefs.SYSTEM to words.themeSystem, "light" to words.themeLight, "dark" to words.themeDark),
+            listOf(Prefs.SYSTEM to words.themeSystem, "light" to words.themeLight,
+                "dark" to words.themeDark, "oled" to words.themeOled),
             prefs.theme, close = { choosing = "" }) { picked -> store.set { it.copy(theme = picked) } }
     }
 }
