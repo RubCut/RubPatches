@@ -30,14 +30,14 @@ public class Bitmap {public enum CompressFormat{PNG} public boolean compress(Com
             "android/graphics/BitmapFactory.java": """package android.graphics;
 public class BitmapFactory {public static Bitmap decodeByteArray(byte[] b,int o,int n){return null;}}
 """,
-            "cat/narezany/margyt/Margy.java": """package cat.narezany.margyt;
+            "cat/narezany/rubtt/Margy.java": """package cat.narezany.rubtt;
 import android.content.Context; import java.io.File;
 public class Margy {static Context c;static Context context(){return c;} }
 """,
-            "cat/narezany/margyt/RecolourCache.java": (
-                ROOT / "inject/java/cat/narezany/margyt/RecolourCache.java"
+            "cat/narezany/rubtt/RecolourCache.java": (
+                ROOT / "inject/java/cat/narezany/rubtt/RecolourCache.java"
             ).read_text(encoding="utf-8"),
-            "cat/narezany/margyt/Test.java": """package cat.narezany.margyt;
+            "cat/narezany/rubtt/Test.java": """package cat.narezany.rubtt;
 import java.io.File; import java.nio.charset.StandardCharsets;
 public class Test {
  static void check(boolean yes){if(!yes)throw new AssertionError();}
@@ -79,4 +79,4 @@ public class Test {
             files = [str(path) for path in (root / "src").rglob("*.java")]
             subprocess.run(["javac", "-encoding", "UTF-8", "-d", str(root / "classes"), *files], check=True)
             subprocess.run(["java", "-cp", str(root / "classes"),
-                            "cat.narezany.margyt.Test", str(root / "data")], check=True)
+                            "cat.narezany.rubtt.Test", str(root / "data")], check=True)

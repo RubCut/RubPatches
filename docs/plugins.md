@@ -1,11 +1,11 @@
-# MargyT plugins
+# RubTT plugins
 
 A plugin is code that runs inside TikTok, in the same process the app does,
 loaded by the mod when the app starts.
 
 Margy's plugins are Python. These are not, and the reason is repacking rather
 than taste. Margy is a fork: it builds its own apk, so a Python runtime goes in
-at build time. MargyT edits an apk somebody else built — carrying CPython's
+at build time. RubTT edits an apk somebody else built — carrying CPython's
 native libraries and its standard library into a 340 MB archive whose alignment
 is not ours to decide is a different project with a doubtful ending.
 `DexClassLoader` is an ordinary Android API that costs nothing and needs no
@@ -73,7 +73,7 @@ hooks added in later versions of the mod do not break it.
 package cat.narezany.hello;
 
 import android.content.Context;
-import cat.narezany.margyt.plugin.MargyPlugin;
+import cat.narezany.rubtt.plugin.MargyPlugin;
 
 public final class Hello extends MargyPlugin {
     @Override
@@ -129,7 +129,7 @@ issue rather than reaching in with reflection that will break.
 ## Building one
 
 ```bash
-python3 -m margyt.plugin examples/hello
+python3 -m rubtt.plugin examples/hello
 ```
 
 That compiles `java/` against `android.jar` and the plugin api, dexes it, and
@@ -154,7 +154,7 @@ examples/hello/
 
 ## Installing one
 
-**Settings and privacy → MargyT → Plugins → Install a plugin**, and pick the
+**Settings and privacy → RubTT → Plugins → Install a plugin**, and pick the
 `.mtp`. It is unpacked into the app's own files, so no storage permission is
 involved and the picker is the only way in.
 
@@ -169,7 +169,7 @@ changes shape. A plugin declares the oldest it works with as `min_api`, and the
 loader refuses anything newer than it knows rather than calling a hook that no
 longer means what the plugin thought.
 
-| api | MargyT | What changed |
+| api | RubTT | What changed |
 |---|---|---|
 | 1 | 0.4 | The first one: start, the three activity hooks, colour, region. |
 

@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/banner.png" alt="MargyT" width="640">
+<img src="assets/banner.png" alt="RubTT" width="640">
 
 **A TikTok mod for Android.**
 The second in the line after [Margy](https://github.com/narezany/Margelet).
@@ -19,7 +19,7 @@ Keeps TikTok's own package, `com.zhiliaoapp.musically`, so it goes in **instead
 of** the official app rather than beside it: uninstall TikTok first, then
 install this. arm64 only. No root.
 
-Everything the mod adds is on one screen: **Settings and privacy → MargyT**,
+Everything the mod adds is on one screen: **Settings and privacy → RubTT**,
 the first row. There is no second icon on the home screen — the mod goes in
 through TikTok's own settings and nowhere else.
 
@@ -98,7 +98,7 @@ files — 104 distinct shades — plus the 72 places the bytecode spells a colou
 out as a constant.
 
 Those last 72 are the only ones that can still change afterwards: the mod sends
-them through itself, so the palette in **Settings and privacy → MargyT** moves
+them through itself, so the palette in **Settings and privacy → RubTT** moves
 them while the app runs. The rest are read by the framework out of the resource
 table, inside its own code, and no client without root rewrites a 25 MB table
 it has already mapped. So the palette reaches the code and `--accent` reaches
@@ -230,7 +230,7 @@ build, no update for anybody.
 <details>
 <summary><b>Updates that announce themselves</b></summary>
 
-[version.json](version.json) says what the latest MargyT is and where its apk
+[version.json](version.json) says what the latest RubTT is and where its apk
 lives. The mod reads it the same way it reads the badges, offers the update in
 a dialog of its own, downloads it and hands it to the installer.
 
@@ -248,7 +248,7 @@ the file instead, read-only, out of one directory, for that one intent.
 
 Other people's code, running inside this one. A plugin is a zip — `.mtp` —
 holding a manifest, a dex and an icon; installing one from
-**Settings and privacy → MargyT → Plugins** unpacks it into the app's own
+**Settings and privacy → RubTT → Plugins** unpacks it into the app's own
 files, and the switch loads it with `DexClassLoader` and starts calling its
 hooks. There is no storage permission involved: the document picker is the only
 way in.
@@ -268,7 +268,7 @@ There is no sandbox and there cannot be one: a plugin has everything TikTok
 has. The settings screen says so where the list is, and so does the
 documentation.
 
-`python3 -m margyt.plugin examples/hello` builds one, with the toolchain the
+`python3 -m rubtt.plugin examples/hello` builds one, with the toolchain the
 apk build already downloads. **[docs/plugins.md](docs/plugins.md)** is the rest:
 the manifest, every hook, and what is deliberately not there.
 </details>
@@ -276,7 +276,7 @@ the manifest, every hook, and what is deliberately not there.
 <details>
 <summary><b>Its own name and icon</b></summary>
 
-`MargyT`, in the mint the whole line uses — `#8DD1B0`, straight off the Margy
+`RubTT`, in the mint the whole line uses — `#8DD1B0`, straight off the Margy
 banner — with a white note where Margy has a white paper plane.
 
 The icon is not added as a new resource; the files behind TikTok's own icon are
@@ -294,7 +294,7 @@ rather than added to `res/`, because adding one resource means rewriting a
 <details>
 <summary><b>A row in TikTok's own settings</b></summary>
 
-**Settings and privacy → MargyT**, at the top of the list, drawn like the rows
+**Settings and privacy → RubTT**, at the top of the list, drawn like the rows
 around it.
 
 The row is not written into the bytecode that builds that list, and it could
@@ -369,7 +369,7 @@ invoke-virtual {v0}, Landroid/telephony/TelephonyManager;->getSimCountryIso()Lja
 becomes
 
 ```smali
-invoke-static {v0}, Lcat/narezany/margyt/Region;->getSimCountryIso(Landroid/telephony/TelephonyManager;)Ljava/lang/String;
+invoke-static {v0}, Lcat/narezany/rubtt/Region;->getSimCountryIso(Landroid/telephony/TelephonyManager;)Ljava/lang/String;
 ```
 
 The instruction format (35c), the register count and the return type all match,
@@ -477,8 +477,8 @@ version. And a **universal** apk of TikTok — on APKMirror the variant of type
 its own to read.
 
 ```bash
-git clone https://git.narez.xyz/narezany/MargyT
-cd MargyT
+git clone https://git.narez.xyz/narezany/RubTT
+cd RubTT
 ./build.sh path/to/tiktok.apk
 ```
 

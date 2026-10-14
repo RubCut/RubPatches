@@ -195,8 +195,8 @@ def page(title, body, said=""):
 
 
 def sign_in_page(trouble=""):
-    return page("MargyT", """
-        <h1>MargyT</h1>
+    return page("RubTT", """
+        <h1>RubTT</h1>
         <p class=dim>Панель</p>
         <form class=card method=post action="/admin/in">
           <label>Имя</label><input name=user autocomplete=username>
@@ -264,8 +264,8 @@ def main_page(badges, plugins, gradients=(), said="", crashes=()):
             % (when(one["at"]), html.escape(one["mod"] or "?"),
                html.escape(one["what"] or "?"), html.escape(one["body"])))
 
-    return page("MargyT", """
-        <h1>MargyT</h1>
+    return page("RubTT", """
+        <h1>RubTT</h1>
         <p class=dim>Значки, плагины и градиенты</p>
 
         <h2>Значки</h2>
@@ -288,7 +288,7 @@ def main_page(badges, plugins, gradients=(), said="", crashes=()):
             <div><label>название (ru)</label><input name=title_ru></div>
             <div><label>название (uk)</label><input name=title_uk></div>
           </div>
-          <label>текст</label><input name=text placeholder="поддержал разработку MargyT">
+          <label>текст</label><input name=text placeholder="поддержал разработку RubTT">
           <div class=row>
             <div><label>текст (ru)</label><input name=text_ru></div>
             <div><label>текст (uk)</label><input name=text_uk></div>
@@ -354,7 +354,7 @@ def badge_page(badge, wearers, said=""):
            html.escape(badge["id"]), html.escape(uid))
         for uid, shown, proved in wearers)
 
-    return page("MargyT", """
+    return page("RubTT", """
         <h1>%s</h1>
         <p class=dim><img class=dot src='/icon/%s'> #%s</p>
 

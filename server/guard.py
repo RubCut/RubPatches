@@ -150,11 +150,11 @@ def failed(ip, token):
                        " ON CONFLICT(who) DO UPDATE SET until = excluded.until,"
                        " times = excluded.times, at = excluded.at",
                        (who, now + length, times + 1, now))
-            _tell("shut", "Панель MargyT: %d неверных паролей подряд с адреса %s. "
+            _tell("shut", "Панель RubTT: %d неверных паролей подряд с адреса %s. "
                           "Этому адресу вход закрыт на %s."
                   % (TRIES, ip or "?", _span(length)))
         elif everywhere == EVERYONE:
-            _tell("everyone", "Панель MargyT: пароль подбирают с разных адресов, "
+            _tell("everyone", "Панель RubTT: пароль подбирают с разных адресов, "
                               "%d неверных попыток за четверть часа. Незнакомым "
                               "браузерам вход закрыт, пока это не прекратится; "
                               "ваш браузер войдёт как обычно." % everywhere)
@@ -178,7 +178,7 @@ def passed(ip, token):
         else:
             fresh = secrets.token_hex(32)
             db.execute("INSERT INTO known (mark, seen) VALUES (?, ?)", (_mark(fresh), now))
-            _tell("new", "Панель MargyT: вход с нового браузера, адрес %s. "
+            _tell("new", "Панель RubTT: вход с нового браузера, адрес %s. "
                          "Если это не вы, смените пароль в панели: это выкинет "
                          "всех, кто вошёл." % (ip or "?"))
         db.commit()

@@ -2,7 +2,7 @@ package cat.narezany.hello;
 
 import android.content.Context;
 
-import cat.narezany.margyt.plugin.MargyPlugin;
+import cat.narezany.rubtt.plugin.MargyPlugin;
 
 /**
  * The smallest plugin that does something you can see.
@@ -13,9 +13,9 @@ import cat.narezany.margyt.plugin.MargyPlugin;
  *
  * Build it with
  *
- *     python3 -m margyt.plugin examples/hello
+ *     python3 -m rubtt.plugin examples/hello
  *
- * and install the .mtp through Settings and privacy -> MargyT -> Plugins.
+ * and install the .mtp through Settings and privacy -> RubTT -> Plugins.
  */
 public final class Hello extends MargyPlugin {
 

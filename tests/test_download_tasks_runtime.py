@@ -6,10 +6,10 @@ class DownloadTasksRuntimeTest(unittest.TestCase):
  def test_registry_cancel_retry_and_atomic_output(self):
   with tempfile.TemporaryDirectory() as d:
    w=pathlib.Path(d);sources={}
-   for n in ('DownloadTasks','Net'):sources['cat/narezany/margyt/'+n+'.java']=(ROOT/('inject/java/cat/narezany/margyt/'+n+'.java')).read_text(encoding='utf-8')
-   sources['cat/narezany/margyt/Diary.java']='package cat.narezany.margyt;class Diary {static void note(String s){}}'
-   sources['cat/narezany/margyt/Account.java']='package cat.narezany.margyt;class Account {static String uid="111",name="alice";static String liveId(){return uid;}static String profileHandle(){return name;}}'
-   sources['cat/narezany/margyt/TasksHarness.java']='''package cat.narezany.margyt;import java.net.*;import java.io.*;public class TasksHarness {
+   for n in ('DownloadTasks','Net'):sources['cat/narezany/rubtt/'+n+'.java']=(ROOT/('inject/java/cat/narezany/rubtt/'+n+'.java')).read_text(encoding='utf-8')
+   sources['cat/narezany/rubtt/Diary.java']='package cat.narezany.rubtt;class Diary {static void note(String s){}}'
+   sources['cat/narezany/rubtt/Account.java']='package cat.narezany.rubtt;class Account {static String uid="111",name="alice";static String liveId(){return uid;}static String profileHandle(){return name;}}'
+   sources['cat/narezany/rubtt/TasksHarness.java']='''package cat.narezany.rubtt;import java.net.*;import java.io.*;public class TasksHarness {
     static byte[] payload=new byte[200000];static int advertised=payload.length;static int retries;
     static class Connection extends HttpURLConnection {Connection(URL u){super(u);}public void connect(){}public void disconnect(){}public boolean usingProxy(){return false;}public int getResponseCode(){return 200;}public int getContentLength(){return advertised;}public InputStream getInputStream(){return new ByteArrayInputStream(payload);}}
     static void check(boolean b,String s){if(!b)throw new AssertionError(s);}
@@ -29,4 +29,4 @@ class DownloadTasksRuntimeTest(unittest.TestCase):
    __import__("android_doubles").with_mod(sources)
    for n,s in sources.items():p=w/n;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(s,encoding='utf-8')
    run=subprocess.run(['javac','-source','8','-target','8','-encoding','UTF-8','-d',d]+[str(w/n) for n in sources],capture_output=True,text=True);self.assertEqual(0,run.returncode,run.stderr)
-   run=subprocess.run(['java','-cp',d,'cat.narezany.margyt.TasksHarness',d],capture_output=True,text=True);self.assertEqual(0,run.returncode,run.stderr)
+   run=subprocess.run(['java','-cp',d,'cat.narezany.rubtt.TasksHarness',d],capture_output=True,text=True);self.assertEqual(0,run.returncode,run.stderr)

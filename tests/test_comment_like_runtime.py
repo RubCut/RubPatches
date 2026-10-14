@@ -43,13 +43,13 @@ STUBS = {
       public int getCurrentTextColor(){return colour;} public android.content.res.ColorStateList getTextColors(){return colors;}
     }''',
     'android/widget/EditText.java': '''package android.widget; public class EditText extends TextView {public EditText(){super("");}}''',
-    'cat/narezany/margyt/Margy.java': '''package cat.narezany.margyt; class Margy {static String PREFS="m";static android.content.Context context(){return null;}}''',
-    'cat/narezany/margyt/AccountAppearance.java': '''package cat.narezany.margyt; class AccountAppearance {static android.content.SharedPreferences prefs(android.content.Context c){return null;}}''',
-    'cat/narezany/margyt/Accent.java': '''package cat.narezany.margyt; class Accent {static final int TIKTOK=0xfffe2c55; static int colour(){return 0xff39b9c7;}static void forget(){}static void refreshLikeViews(){}}''',
-    'cat/narezany/margyt/Palette.java': '''package cat.narezany.margyt; class Palette {static boolean captures(int a,int b){return (a&0xffffff)==(b&0xffffff);}static int map(int a,int b,int c){return captures(a,b)?(a&0xff000000)|(c&0xffffff):a;}}''',
+    'cat/narezany/rubtt/Margy.java': '''package cat.narezany.rubtt; class Margy {static String PREFS="m";static android.content.Context context(){return null;}}''',
+    'cat/narezany/rubtt/AccountAppearance.java': '''package cat.narezany.rubtt; class AccountAppearance {static android.content.SharedPreferences prefs(android.content.Context c){return null;}}''',
+    'cat/narezany/rubtt/Accent.java': '''package cat.narezany.rubtt; class Accent {static final int TIKTOK=0xfffe2c55; static int colour(){return 0xff39b9c7;}static void forget(){}static void refreshLikeViews(){}}''',
+    'cat/narezany/rubtt/Palette.java': '''package cat.narezany.rubtt; class Palette {static boolean captures(int a,int b){return (a&0xffffff)==(b&0xffffff);}static int map(int a,int b,int c){return captures(a,b)?(a&0xff000000)|(c&0xffffff):a;}}''',
 }
 
-HARNESS = r'''package cat.narezany.margyt;
+HARNESS = r'''package cat.narezany.rubtt;
 import android.view.*;import android.widget.*;
 public class CommentLikeHarness {
  static void check(boolean b,String m){if(!b)throw new AssertionError(m);}
@@ -70,17 +70,17 @@ class CommentLikeRuntimeTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             work=pathlib.Path(directory); sources=dict(STUBS)
             for name in ('LikeColors.java','NativeRead.java'):
-                path=ROOT/'inject/java/cat/narezany/margyt'/name
+                path=ROOT/'inject/java/cat/narezany/rubtt'/name
                 if name=='NativeRead.java':
-                    sources['cat/narezany/margyt/NativeRead.java']='package cat.narezany.margyt; class NativeRead {}'
-                else:sources['cat/narezany/margyt/'+name]=path.read_text(encoding='utf-8')
+                    sources['cat/narezany/rubtt/NativeRead.java']='package cat.narezany.rubtt; class NativeRead {}'
+                else:sources['cat/narezany/rubtt/'+name]=path.read_text(encoding='utf-8')
             sources['android/widget/ImageView.java']='package android.widget; public class ImageView extends android.view.View {}'
-            sources['cat/narezany/margyt/CommentLikeHarness.java']=HARNESS
+            sources['cat/narezany/rubtt/CommentLikeHarness.java']=HARNESS
             __import__("android_doubles").with_mod(sources)
             for name,content in sources.items():
                 target=work/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_text(content,encoding='utf-8')
             built=subprocess.run(['javac','-source','8','-target','8','-encoding','UTF-8','-d',str(work)]+[str(work/name) for name in sources],capture_output=True,text=True)
             self.assertEqual(0,built.returncode,built.stderr)
-            run=subprocess.run(['java','-cp',str(work),'cat.narezany.margyt.CommentLikeHarness'],capture_output=True,text=True)
+            run=subprocess.run(['java','-cp',str(work),'cat.narezany.rubtt.CommentLikeHarness'],capture_output=True,text=True)
             self.assertEqual(0,run.returncode,run.stderr)
 

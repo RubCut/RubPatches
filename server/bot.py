@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The MargyT bot.
+"""The RubTT bot.
 
 Two things: whose TikTok profile is this -- the name, the picture and the
 badges -- and here is an icon I drew.
@@ -438,7 +438,7 @@ def known_face(url):
 
 
 HELP = (
-    "<b>MargyT</b>\n\n"
+    "<b>RubTT</b>\n\n"
     "<b>профиль</b> &lt;ник в тиктоке или айди&gt; — ник, аватарка и значки\n"
     "<b>иконка</b> — пришли картинку документом и свой айди, попадёт владельцу\n\n"
     "В любом чате можно написать <code>@%s ник</code> — покажет то же самое."
@@ -477,7 +477,7 @@ def handle(update):
         code = text.split("p_", 1)[1].strip()
         name = from_who.get("first_name") or from_who.get("username") or ""
         if from_who.get("id") and patcher.claim(code, from_who["id"], name):
-            return say(chat, "Готово. Возвращайся в <b>Margy Patcher</b>.")
+            return say(chat, "Готово. Возвращайся в <b>RubP</b>.")
         return say(chat, "Этот вход уже не действует. Нажми «Войти через Telegram» "
                          "в патчере ещё раз.")
 

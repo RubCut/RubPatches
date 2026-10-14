@@ -1,8 +1,8 @@
 {
- "_comment": "What Margy Patcher reads to know which mods there are, what each is made from and where the patch is. Read from the project's own git server, so a link here can be changed for everybody without an update.",
+ "_comment": "What RubP reads to know which mods there are, what each is made from and where the patch is. Read from the project's own git server, so a link here can be changed for everybody without an update.",
  "patcher": {
   "version": "1.1",
-  "url": "https://git.narez.xyz/narezany/MargyT/releases/download/patcher-v1.1/margy-patcher.apk",
+  "url": "https://git.narez.xyz/narezany/RubTT/releases/download/patcher-v1.1/margy-patcher.apk",
   "sha256": "e35cb6835aafb2e70c381c67d0217689edd45206dd52f9d8c0a8ac0e917080c9",
   "size": 1363657,
   "notes": {
@@ -14,9 +14,9 @@
  "channel": "https://t.me/margymods",
  "mods": [
   {
-   "id": "margyt",
-   "name": "MargyT",
-   "icon": "margyt",
+   "id": "rubtt",
+   "name": "RubTT",
+   "icon": "rubtt",
    "package": "com.zhiliaoapp.musically",
    "about": {
     "ru": "Мод TikTok: оформление Material 3, скачивание без водяного знака, подмена региона, значки и многое другое.",
@@ -40,7 +40,7 @@
       ]
      },
      "patch": {
-      "url": "https://git.narez.xyz/narezany/MargyT/releases/download/v2.0.5/margyt-2.0.5.mpatch",
+      "url": "https://git.narez.xyz/narezany/RubTT/releases/download/v2.0.5/margyt-2.0.5.mpatch",
       "sha256": "b200084e75ca80633f37c416eca44f916a8416724c4fccd832c584685329b48d",
       "size": 71795912
      },
@@ -58,7 +58,7 @@
   },
   {
    "id": "margyt-lite",
-   "name": "MargyT Lite",
+   "name": "RubTT Lite",
    "icon": "margyt-lite",
    "package": "com.zhiliaoapp.musically.go",
    "about": {
@@ -83,7 +83,7 @@
       ]
      },
      "patch": {
-      "url": "https://git.narez.xyz/narezany/MargyT/releases/download/lite-v0.1/margyt-lite-0.1.mpatch",
+      "url": "https://git.narez.xyz/narezany/RubTT/releases/download/lite-v0.1/margyt-lite-0.1.mpatch",
       "sha256": "73dfad5b880930720d0486ba4620d1e6c3ab3ae6a4c2802fe641519496a80646",
       "size": 32509991
      },

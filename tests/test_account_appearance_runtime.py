@@ -2,7 +2,7 @@
 import pathlib,shutil,subprocess,tempfile,unittest
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 STUBS={
-'cat/narezany/margyt/FeedRail.java':'package cat.narezany.margyt;class FeedRail{static void reloadSettings(){}}',
+'cat/narezany/rubtt/FeedRail.java':'package cat.narezany.rubtt;class FeedRail{static void reloadSettings(){}}',
 'android/content/SharedPreferences.java':'''package android.content;public interface SharedPreferences {java.util.Map<String,?> getAll();String getString(String k,String d);boolean getBoolean(String k,boolean d);int getInt(String k,int d);boolean contains(String k);Editor edit();interface Editor {Editor putString(String k,String v);Editor putBoolean(String k,boolean v);Editor putInt(String k,int v);Editor putLong(String k,long v);Editor putFloat(String k,float v);Editor remove(String k);void apply();}}''',
 'android/content/Context.java':'''package android.content;public class Context {public static int MODE_PRIVATE=0;public java.io.File files;public java.util.Map<String,Memory> stores=new java.util.HashMap<>();public java.io.File getFilesDir(){return files;}public SharedPreferences getSharedPreferences(String n,int m){Memory p=stores.get(n);if(p==null){p=new Memory();stores.put(n,p);}return p;}
  public static class Memory implements SharedPreferences {java.util.Map<String,Object> values=new java.util.HashMap<>();public java.util.Map<String,?> getAll(){return new java.util.HashMap<>(values);}public String getString(String k,String d){return values.containsKey(k)?(String)values.get(k):d;}public boolean getBoolean(String k,boolean d){return values.containsKey(k)?(Boolean)values.get(k):d;}public int getInt(String k,int d){return values.containsKey(k)?(Integer)values.get(k):d;}public boolean contains(String k){return values.containsKey(k);}public Editor edit(){return new Editor(){java.util.Map<String,Object> writes=new java.util.HashMap<>();public Editor putString(String k,String v){writes.put(k,v);return this;}public Editor putBoolean(String k,boolean v){writes.put(k,v);return this;}public Editor putInt(String k,int v){writes.put(k,v);return this;}public Editor putLong(String k,long v){writes.put(k,v);return this;}public Editor putFloat(String k,float v){writes.put(k,v);return this;}public Editor remove(String k){writes.put(k,null);return this;}public void apply(){for(java.util.Map.Entry<String,Object> e:writes.entrySet())if(e.getValue()==null)values.remove(e.getKey());else values.put(e.getKey(),e.getValue());}};}}}''',
@@ -10,35 +10,35 @@ STUBS={
 'android/os/Looper.java':'package android.os;public class Looper {public static Looper getMainLooper(){return null;}}',
 'android/os/SystemClock.java':'package android.os;public class SystemClock {public static long uptimeMillis(){return 100000;}}',
 'android/app/Activity.java':'package android.app;public class Activity {}',
-'cat/narezany/margyt/SettingsActivity.java':'package cat.narezany.margyt;class SettingsActivity extends android.app.Activity {void accountAppearanceChanged(){}}',
-'cat/narezany/margyt/Screen.java':'package cat.narezany.margyt;class Screen {static android.app.Activity now(){return null;}}',
-'cat/narezany/margyt/Margy.java':'package cat.narezany.margyt;class Margy {static String PREFS="mod";static android.content.Context ctx;static android.content.Context context(){return ctx;}}',
-'cat/narezany/margyt/AppearanceColors.java':'package cat.narezany.margyt;class AppearanceColors {static void reload(){}}',
-'cat/narezany/margyt/Fonts.java':'package cat.narezany.margyt;class Fonts {static void reload(){}}',
-'cat/narezany/margyt/Themes.java':'package cat.narezany.margyt;class Themes {static void forget(){}static void repaintVisible(){}}',
-'cat/narezany/margyt/Accent.java':'package cat.narezany.margyt;class Accent {static void refreshLikeViews(){}}',
-'cat/narezany/margyt/LikeColors.java':'package cat.narezany.margyt;class LikeColors {static void reload(){}}',
-'cat/narezany/margyt/Badge.java':'package cat.narezany.margyt;class Badge {static void refreshProfiles(){}}',
-'cat/narezany/margyt/Plugins.java':'package cat.narezany.margyt;class Plugins {static String uid;static void accountChanged(String value){uid=value;}}',
-'cat/narezany/margyt/Diary.java':'package cat.narezany.margyt;class Diary {static java.util.List<String> said=new java.util.ArrayList<>();static void note(String value){if(value.startsWith("settings: one set"))said.add(value);else throw new AssertionError(value);}}',
-'cat/narezany/margyt/BioProof.java':'package cat.narezany.margyt;class BioProof {static void recover(){}}',
-'cat/narezany/margyt/Avatars.java':'package cat.narezany.margyt;class Avatars {static void rememberCurrent(com.ss.android.ugc.aweme.profile.model.User u){}}',
+'cat/narezany/rubtt/SettingsActivity.java':'package cat.narezany.rubtt;class SettingsActivity extends android.app.Activity {void accountAppearanceChanged(){}}',
+'cat/narezany/rubtt/Screen.java':'package cat.narezany.rubtt;class Screen {static android.app.Activity now(){return null;}}',
+'cat/narezany/rubtt/Margy.java':'package cat.narezany.rubtt;class Margy {static String PREFS="mod";static android.content.Context ctx;static android.content.Context context(){return ctx;}}',
+'cat/narezany/rubtt/AppearanceColors.java':'package cat.narezany.rubtt;class AppearanceColors {static void reload(){}}',
+'cat/narezany/rubtt/Fonts.java':'package cat.narezany.rubtt;class Fonts {static void reload(){}}',
+'cat/narezany/rubtt/Themes.java':'package cat.narezany.rubtt;class Themes {static void forget(){}static void repaintVisible(){}}',
+'cat/narezany/rubtt/Accent.java':'package cat.narezany.rubtt;class Accent {static void refreshLikeViews(){}}',
+'cat/narezany/rubtt/LikeColors.java':'package cat.narezany.rubtt;class LikeColors {static void reload(){}}',
+'cat/narezany/rubtt/Badge.java':'package cat.narezany.rubtt;class Badge {static void refreshProfiles(){}}',
+'cat/narezany/rubtt/Plugins.java':'package cat.narezany.rubtt;class Plugins {static String uid;static void accountChanged(String value){uid=value;}}',
+'cat/narezany/rubtt/Diary.java':'package cat.narezany.rubtt;class Diary {static java.util.List<String> said=new java.util.ArrayList<>();static void note(String value){if(value.startsWith("settings: one set"))said.add(value);else throw new AssertionError(value);}}',
+'cat/narezany/rubtt/BioProof.java':'package cat.narezany.rubtt;class BioProof {static void recover(){}}',
+'cat/narezany/rubtt/Avatars.java':'package cat.narezany.rubtt;class Avatars {static void rememberCurrent(com.ss.android.ugc.aweme.profile.model.User u){}}',
 'com/ss/android/ugc/aweme/profile/model/User.java':'package com.ss.android.ugc.aweme.profile.model;public class User {public String uid,name,handle;public User(String u,String n,String h){uid=u;name=n;handle=h;}public String getUid(){return uid;}public String getNickname(){return name;}public String getUniqueId(){return handle;}}',
 'com/ss/android/ugc/profile/platform/base/data/UserProfileInfo.java':'package com.ss.android.ugc.profile.platform.base.data;public class UserProfileInfo extends com.ss.android.ugc.aweme.profile.model.User {public UserProfileInfo(String u,String n,String h){super(u,n,h);}}',
 'com/ss/android/ugc/aweme/IAccountUserService.java':'package com.ss.android.ugc.aweme;public interface IAccountUserService {String getCurUserId();String getCurSecUserId();com.ss.android.ugc.aweme.profile.model.User getCurUser();}',
 }
-STUBS['cat/narezany/margyt/FeedRail.java']='package cat.narezany.margyt;class FeedRail{static void reloadSettings(){}}'
-STUBS['cat/narezany/margyt/Version.java']='package cat.narezany.margyt;class Version{static final boolean LITE=false,TEST=false;static final String MOD="0";}'
-STUBS['cat/narezany/margyt/FeedBlacklist.java']='package cat.narezany.margyt;class FeedBlacklist{static void reload(){}}'
-STUBS['cat/narezany/margyt/PlayerTools.java']='package cat.narezany.margyt;class PlayerTools{static void accountChanged(){} static void cancelSmooth(){}}'
-STUBS['cat/narezany/margyt/VideoActions.java']='package cat.narezany.margyt;class VideoActions{static void accountChanged(){} static void bindNative(Object c){} static void selected(Object c,Object p){}}'
-STUBS['cat/narezany/margyt/PinnedFriends.java']='package cat.narezany.margyt;class PinnedFriends{static void reload(){}}'
-STUBS['cat/narezany/margyt/ProfileLayout.java']='package cat.narezany.margyt;class ProfileLayout{static void reload(){}}'
-STUBS['cat/narezany/margyt/MessageTimes.java']='package cat.narezany.margyt;class MessageTimes{static void reload(){}}'
-STUBS['cat/narezany/margyt/ModNotifications.java']='package cat.narezany.margyt;class ModNotifications{static void reload(){}}'
-STUBS['cat/narezany/margyt/Repost.java']='package cat.narezany.margyt;class Repost{static void reload(){} static void anchor(Object c){} static boolean visibility(Object v,int value){return false;}static boolean replacing(Object v){return false;}}'
+STUBS['cat/narezany/rubtt/FeedRail.java']='package cat.narezany.rubtt;class FeedRail{static void reloadSettings(){}}'
+STUBS['cat/narezany/rubtt/Version.java']='package cat.narezany.rubtt;class Version{static final boolean LITE=false,TEST=false;static final String MOD="0";}'
+STUBS['cat/narezany/rubtt/FeedBlacklist.java']='package cat.narezany.rubtt;class FeedBlacklist{static void reload(){}}'
+STUBS['cat/narezany/rubtt/PlayerTools.java']='package cat.narezany.rubtt;class PlayerTools{static void accountChanged(){} static void cancelSmooth(){}}'
+STUBS['cat/narezany/rubtt/VideoActions.java']='package cat.narezany.rubtt;class VideoActions{static void accountChanged(){} static void bindNative(Object c){} static void selected(Object c,Object p){}}'
+STUBS['cat/narezany/rubtt/PinnedFriends.java']='package cat.narezany.rubtt;class PinnedFriends{static void reload(){}}'
+STUBS['cat/narezany/rubtt/ProfileLayout.java']='package cat.narezany.rubtt;class ProfileLayout{static void reload(){}}'
+STUBS['cat/narezany/rubtt/MessageTimes.java']='package cat.narezany.rubtt;class MessageTimes{static void reload(){}}'
+STUBS['cat/narezany/rubtt/ModNotifications.java']='package cat.narezany.rubtt;class ModNotifications{static void reload(){}}'
+STUBS['cat/narezany/rubtt/Repost.java']='package cat.narezany.rubtt;class Repost{static void reload(){} static void anchor(Object c){} static boolean visibility(Object v,int value){return false;}static boolean replacing(Object v){return false;}}'
 
-HARNESS='''package cat.narezany.margyt;import android.content.*;import com.ss.android.ugc.aweme.profile.model.User;
+HARNESS='''package cat.narezany.rubtt;import android.content.*;import com.ss.android.ugc.aweme.profile.model.User;
 public class AppearanceHarness {
  static void check(boolean value,String message){if(!value)throw new AssertionError(message);}
  static class Service implements com.ss.android.ugc.aweme.IAccountUserService {User user;Service(User u){user=u;}public String getCurUserId(){return user==null?"":user.uid;}public String getCurSecUserId(){return "sec";}public User getCurUser(){return user;}}
@@ -93,7 +93,7 @@ class AppearanceRuntimeTest(unittest.TestCase):
  def test_two_accounts_and_logout(self):
   with tempfile.TemporaryDirectory() as directory:
    work=pathlib.Path(directory);sources=dict(STUBS)
-   accent=(ROOT/'inject/java/cat/narezany/margyt/Accent.java').read_text(encoding='utf-8')
+   accent=(ROOT/'inject/java/cat/narezany/rubtt/Accent.java').read_text(encoding='utf-8')
    def method(signature):
     start=accent.index(signature);pos=accent.index('{',start);depth=1;end=pos+1
     while depth:
@@ -101,14 +101,14 @@ class AppearanceRuntimeTest(unittest.TestCase):
      elif accent[end]=='}':depth-=1
      end+=1
     return accent[start:end]
-   sources['cat/narezany/margyt/Accent.java']='package cat.narezany.margyt;import android.content.*;class Accent {static int cached;static final int BUILT_WITH=99;static final String KEY="accent",KEY_MATERIAL="accent_material";static int fromWallpaper(){return 0;}static void forget(){}static void refreshLikeViews(){}'+''.join(method(sig) for sig in ('static void reload()', 'public static int colour()', 'public static void set(', 'private static boolean follows(', 'private static SharedPreferences prefs()'))+'}'
+   sources['cat/narezany/rubtt/Accent.java']='package cat.narezany.rubtt;import android.content.*;class Accent {static int cached;static final int BUILT_WITH=99;static final String KEY="accent",KEY_MATERIAL="accent_material";static int fromWallpaper(){return 0;}static void forget(){}static void refreshLikeViews(){}'+''.join(method(sig) for sig in ('static void reload()', 'public static int colour()', 'public static void set(', 'private static boolean follows(', 'private static SharedPreferences prefs()'))+'}'
    for name in ('Account','AccountAppearance'):
-    sources['cat/narezany/margyt/'+name+'.java']=(ROOT/('inject/java/cat/narezany/margyt/'+name+'.java')).read_text(encoding='utf-8')
-   sources['cat/narezany/margyt/AppearanceHarness.java']=HARNESS
+    sources['cat/narezany/rubtt/'+name+'.java']=(ROOT/('inject/java/cat/narezany/rubtt/'+name+'.java')).read_text(encoding='utf-8')
+   sources['cat/narezany/rubtt/AppearanceHarness.java']=HARNESS
    __import__("android_doubles").with_mod(sources)
    for name,content in sources.items():
     target=work/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_text(content,encoding='utf-8')
    built=subprocess.run(['javac','-source','8','-target','8','-encoding','UTF-8','-d',str(work)]+[str(work/name) for name in sources],capture_output=True,text=True)
    self.assertEqual(0,built.returncode,built.stderr)
-   run=subprocess.run(['java','-cp',str(work),'cat.narezany.margyt.AppearanceHarness',str(work/'files')],capture_output=True,text=True)
+   run=subprocess.run(['java','-cp',str(work),'cat.narezany.rubtt.AppearanceHarness',str(work/'files')],capture_output=True,text=True)
    self.assertEqual(0,run.returncode,run.stderr)

@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "cat.narezany.patcher"
+    namespace = "cat.narezany.rubp"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "cat.narezany.patcher"
+        applicationId = "cat.narezany.rubp"
         minSdk = 26
         targetSdk = 35
         versionCode = 9

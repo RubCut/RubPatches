@@ -1,5 +1,5 @@
 {
-  "_comment": "Badges MargyT draws after a name. The app reads this file from the repository at startup and every five minutes, so a badge is added by editing it here -- no new build, no update.",
+  "_comment": "Badges RubTT draws after a name. The app reads this file from the repository at startup and every five minutes, so a badge is added by editing it here -- no new build, no update.",
   "_fields": {
     "id": "anything, as long as it is unique",
     "users": "TikTok account ids, the numeric ones that do not change with the username",
@@ -17,10 +17,10 @@
         "7551880794956989495"
       ],
       "colour": "8DD1B0",
-      "title": "MargyT",
-      "text": "The owner of Margy and MargyT",
-      "text_ru": "Владелец Margy и MargyT",
-      "text_uk": "Власник Margy і MargyT",
+      "title": "RubTT",
+      "text": "The owner of Margy and RubTT",
+      "text_ru": "Владелец Margy и RubTT",
+      "text_uk": "Власник Margy і RubTT",
       "button": "Got it",
       "button_ru": "Понятно",
       "button_uk": "Зрозуміло"
@@ -31,8 +31,8 @@
         "6525428607760733199"
       ],
       "colour": "64B5F6",
-      "title": "MargyT",
-      "text": "помог с разработкой MargyT",
+      "title": "RubTT",
+      "text": "помог с разработкой RubTT",
       "button": "Got it",
       "button_ru": "Понятно",
       "button_uk": "Зрозуміло"
@@ -43,7 +43,7 @@
         "7547438221832160262"
       ],
       "colour": "E57373",
-      "title": "MargyT",
+      "title": "RubTT",
       "text": "мемодел, хайпует плесень",
       "button": "Got it",
       "button_ru": "Понятно",
@@ -66,10 +66,10 @@
         "7307204820577387525"
       ],
       "colour": "B388FF",
-      "title": "MargyT",
-      "text": "drew an icon MargyT ships with",
-      "text_ru": "нарисовал иконку, которая есть в MargyT",
-      "text_uk": "намалював іконку, яка є в MargyT",
+      "title": "RubTT",
+      "text": "drew an icon RubTT ships with",
+      "text_ru": "нарисовал иконку, которая есть в RubTT",
+      "text_uk": "намалював іконку, яка є в RubTT",
       "button": "Got it",
       "button_ru": "Понятно",
       "button_uk": "Зрозуміло"
@@ -82,10 +82,10 @@
         "7660087479496016903"
       ],
       "colour": "FF6FA5",
-      "title": "MargyT",
-      "text": "supported the making of MargyT",
-      "text_ru": "поддержал разработку MargyT",
-      "text_uk": "підтримав розробку MargyT",
+      "title": "RubTT",
+      "text": "supported the making of RubTT",
+      "text_ru": "поддержал разработку RubTT",
+      "text_uk": "підтримав розробку RubTT",
       "button": "Got it",
       "button_ru": "Понятно",
       "button_uk": "Зрозуміло"
@@ -97,7 +97,7 @@
         "7662504626076730386"
       ],
       "colour": "FFE9A0",
-      "title": "MargyT",
+      "title": "RubTT",
       "text": "толстопузая маргиТ",
       "button": "uhh nope",
       "button_ru": "нет",

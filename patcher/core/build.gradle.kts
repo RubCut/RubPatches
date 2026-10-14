@@ -21,7 +21,7 @@ dependencies {
 
 tasks.register<JavaExec>("patch") {
     description = "Apply a patch on this computer: -Pbase=… -Ppatch=… -Pout=…"
-    mainClass.set("cat.narezany.patcher.core.CliKt")
+    mainClass.set("cat.narezany.rubp.core.CliKt")
     classpath = sourceSets["main"].runtimeClasspath + cli
     jvmArgs("-Xmx1g")
     args(listOfNotNull(
@@ -34,7 +34,7 @@ tasks.register<JavaExec>("patch") {
 tasks.register<JavaExec>("customize") {
     description = "Rename, relabel, re-icon and lspatch an apk on this computer: " +
         "-Pbase=… -Pout=… [-Ppackage=…] [-Plabel=…] [-Picon=…] [-Plspatch=…] [-Pmodule=a.apk,b.apk] [-Psigbypass=2]"
-    mainClass.set("cat.narezany.patcher.core.CliKt")
+    mainClass.set("cat.narezany.rubp.core.CliKt")
     classpath = sourceSets["main"].runtimeClasspath + cli
     jvmArgs("-Xmx2g")
     args(buildList {

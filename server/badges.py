@@ -1064,7 +1064,7 @@ def face(which):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "margyt"
+    server_version = "rubtt"
     sys_version = ""
 
     #: a connection that says nothing for this long is dropped, so a socket
@@ -1287,7 +1287,7 @@ class Handler(BaseHTTPRequestHandler):
                     handle.write(raw)
 
             # the name heads the popup, the text is the sentence under it.
-            # Every badge was called "MargyT" because of this line
+            # Every badge was called "RubTT" because of this line
             db = connect()
             db.execute(
                 "INSERT INTO badge (id, colour, image, title, title_ru, title_uk,"
