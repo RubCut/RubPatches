@@ -505,6 +505,25 @@ final class NavBar {
         private boolean animates = true;
         private static final long READ_EVERY = 250L;
 
+        /**
+         * The bar the capsule sits on, told to draw again twice a second
+         * whether anything moves or not. The capsule hooks the screen's
+         * pre-draw, which only fires while something is being drawn: with a
+         * still picture nothing fires, and whatever TikTok repaints in the
+         * meantime stays until the next touch. The pulse keeps the checking
+         * going, so the clearing holds always and not only at some moments.
+         */
+        private View pulsed;
+        private final Runnable pulse = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    if (pulsed != null) pulsed.invalidate();
+                } catch (Throwable ignored) {
+                }
+            }
+        };
+
         void settle(ViewGroup bar) {
             long now = SystemClock.uptimeMillis();
             boolean changed = gather(bar);
@@ -615,9 +634,7 @@ final class NavBar {
                         android.graphics.Shader.TileMode.CLAMP, android.graphics.Shader.TileMode.CLAMP);
                 changed = true;
             }
-            int under = cinema(bar, now);
-            if (under == 0) under = under(bar, now);
-            int tint = Accent.colour();
+            int under = under(bar, now), tint = Accent.colour();
             if (under != ground || tint != accent) {
                 ground = under;
                 accent = tint;
@@ -638,6 +655,22 @@ final class NavBar {
             clearScrim(bar);
             clearDark(bar);
             clearStrips(bar);
+            openUp(bar);
+            clearUnder(bar);
+            if (pulsed != bar) {
+                if (pulsed != null) {
+                    try {
+                        pulsed.removeCallbacks(pulse);
+                    } catch (Throwable ignored) {
+                    }
+                }
+                pulsed = bar;
+            }
+            try {
+                bar.removeCallbacks(pulse);
+                bar.postDelayed(pulse, 500L);
+            } catch (Throwable ignored) {
+            }
             if (changed) arrange(bar);
             place();
             if (changed || moving) bar.invalidate();
@@ -652,6 +685,13 @@ final class NavBar {
             tabs = new Tab[0];
             if (listening) bar.setOnTouchListener(null);
             listening = false;
+            if (pulsed != null) {
+                try {
+                    pulsed.removeCallbacks(pulse);
+                } catch (Throwable ignored) {
+                }
+                pulsed = null;
+            }
             restoreChrome();
             restoreStrips();
             restoreFore();
@@ -668,6 +708,8 @@ final class NavBar {
             scrim = null;
             scrimWas = null;
             scrimVisibility = View.VISIBLE;
+            restoreUnder();
+            lower();
             if (ownKept && bar.getBackground() == null) bar.setBackground(own);
             own = null;
             ownKept = false;
@@ -797,14 +839,54 @@ final class NavBar {
         private final java.util.ArrayList<View> fores = new java.util.ArrayList<View>();
         private final java.util.ArrayList<Drawable> foreWas = new java.util.ArrayList<Drawable>();
 
+        /** The largest picture playing under this screen, or null. */
+        private static android.view.TextureView largest(View root) {
+            try {
+                android.view.TextureView best = null;
+                int area = 0, seen = 0;
+                int rootW = root != null ? root.getWidth() : 0;
+                java.util.ArrayDeque<View> queue = new java.util.ArrayDeque<View>();
+                if (root != null) queue.add(root);
+                while (!queue.isEmpty() && seen++ < 800) {
+                    View view = queue.poll();
+                    if (view instanceof android.view.TextureView
+                            && view.getVisibility() == View.VISIBLE && view.isAttachedToWindow()) {
+                        int[] loc = new int[2];
+                        view.getLocationOnScreen(loc);
+                        // a page of the feed that is off the side of the screen plays no picture here
+                        if (loc[0] < rootW && loc[0] + view.getWidth() > 0) {
+                            int each = view.getWidth() * view.getHeight();
+                            if (each > area) {
+                                area = each;
+                                best = (android.view.TextureView) view;
+                            }
+                        }
+                    }
+                    if (view instanceof ViewGroup) {
+                        ViewGroup group = (ViewGroup) view;
+                        for (int i = 0; i < group.getChildCount(); i++) queue.add(group.getChildAt(i));
+                    }
+                }
+                return best;
+            } catch (Throwable ignored) {
+                return null;
+            }
+        }
+
         /**
-         * The strip TikTok keeps for its own bar: a plain view sitting where
-         * the bar sits that draws its colour itself instead of keeping one as
-         * a background is hidden while the capsule is worn, so nothing of the
-         * old bar shows. Containers are never touched, and never a surface a
-         * video plays on: a touch still lands on the tab it looks like, and
-         * the picture stays. Everything remembered is put back when the
-         * capsule leaves.
+         * The strip TikTok keeps for its own bar: a view sitting where the
+         * bar sits that draws its colour itself instead of keeping one as a
+         * background is hidden while the capsule is worn, so nothing of the
+         * old bar shows. The whole window is walked, because TikTok keeps
+         * such a strip deep inside the feed, far from the bar's own parent.
+         *
+         * Only a view lying fully inside the bar's strip qualifies, never
+         * one that merely crosses it: the feed's own overlays span the
+         * screen and touch the strip, and hiding one would kill the touch
+         * it carries. A container qualifies only when it is a hairline, so
+         * the old bar's top divider goes with the rest. Never a surface a
+         * video plays on, never the bar or anything in it. Everything
+         * remembered is put back when the capsule leaves.
          */
         private void clearStrips(ViewGroup bar) {
             try {
@@ -812,34 +894,39 @@ final class NavBar {
                 if (now - stripsLooked < 2000L) return;
                 stripsLooked = now;
                 View root = bar.getRootView();
-                int screen = root != null && root.getWidth() > 0 ? root.getWidth() : bar.getWidth();
+                if (!(root instanceof ViewGroup)) return;
+                int screen = root.getWidth() > 0 ? root.getWidth() : bar.getWidth();
                 int[] at = new int[2];
                 bar.getLocationOnScreen(at);
                 int top = at[1] - 4, bottom = at[1] + bar.getHeight() + 4;
-                java.util.ArrayList<ViewGroup> homes = new java.util.ArrayList<ViewGroup>();
-                Object parent = bar.getParent();
-                if (parent instanceof ViewGroup) homes.add((ViewGroup) parent);
-                if (root instanceof ViewGroup && root != parent) homes.add((ViewGroup) root);
-                for (ViewGroup home : homes) {
-                    for (int i = 0; i < home.getChildCount(); i++) {
-                        View child = home.getChildAt(i);
-                        if (child == null || child == bar || child.getVisibility() != View.VISIBLE) continue;
-                        if (child instanceof ViewGroup) continue;
-                        if (child instanceof android.view.SurfaceView) continue;
-                        if (child instanceof android.view.TextureView) continue;
-                        if (child.getWidth() < screen * 0.9f) continue;
-                        int[] loc = new int[2];
-                        child.getLocationOnScreen(loc);
-                        if (loc[1] + child.getHeight() < top || loc[1] > bottom) continue;
-                        if (strips.indexOf(child) < 0) {
-                            strips.add(child);
-                            stripsWas.add(Integer.valueOf(child.getVisibility()));
-                        }
-                        child.setVisibility(View.INVISIBLE);
-                    }
-                }
+                strip(root, bar, screen, top, bottom, 0);
             } catch (Throwable ignored) {
             }
+        }
+
+        private void strip(View view, View bar, int screen, int top, int bottom, int seen) {
+            if (seen > 800 || view == null || view == bar) return;
+            if (view.getVisibility() != View.VISIBLE) return;
+            if (!(view instanceof android.view.SurfaceView)
+                    && !(view instanceof android.view.TextureView)) {
+                int[] loc = new int[2];
+                view.getLocationOnScreen(loc);
+                boolean inside = loc[1] >= top - 8 && loc[1] + view.getHeight() <= bottom + 8;
+                boolean hairline = view.getHeight() <= 8;
+                if (inside && view.getWidth() >= screen * 0.9f
+                        && (!(view instanceof ViewGroup) || hairline)) {
+                    if (strips.indexOf(view) < 0) {
+                        strips.add(view);
+                        stripsWas.add(Integer.valueOf(view.getVisibility()));
+                    }
+                    view.setVisibility(View.INVISIBLE);
+                    return;
+                }
+            }
+            if (!(view instanceof ViewGroup)) return;
+            ViewGroup group = (ViewGroup) view;
+            for (int i = 0; i < group.getChildCount() && seen + i <= 800; i++)
+                strip(group.getChildAt(i), bar, screen, top, bottom, seen + i + 1);
         }
 
         private void restoreStrips() {
@@ -852,6 +939,188 @@ final class NavBar {
             }
             strips.clear();
             stripsWas.clear();
+        }
+
+        /** The picture itself, grown down to the bar's bottom, and the goal it is grown to. */
+        private View raised;
+        private int raisedWas;
+        private int raisedTo;
+        /** Ancestors the grown picture draws past, and their clipping as it was. */
+        private final java.util.ArrayList<ViewGroup> opened = new java.util.ArrayList<ViewGroup>();
+        private final java.util.ArrayList<Boolean> openedWas = new java.util.ArrayList<Boolean>();
+        private final java.util.ArrayList<Boolean> openedPadWas = new java.util.ArrayList<Boolean>();
+        private long raisedLooked;
+
+        /**
+         * TikTok stops its picture where its own bar starts, so under the
+         * capsule there is only the page's black. While the capsule is worn
+         * the picture itself is grown down to the bar's bottom, so the frame
+         * plays on under the capsule instead of stopping short of it. Only
+         * the picture is grown: its containers keep their bounds, so the
+         * captions and the rail stay where TikTok put them, and the grown
+         * picture draws past them because every ancestor up to the first
+         * full-height one clips nothing. TikTok lays the picture out again
+         * for every new video, so the growth is put back each frame it is
+         * missing, and taken away when the capsule leaves.
+         */
+        private void openUp(ViewGroup bar) {
+            try {
+                long now = SystemClock.uptimeMillis();
+                if (raised == null || !raised.isAttachedToWindow()
+                        || now - raisedLooked >= 1000L) {
+                    raisedLooked = now;
+                    lower();
+                    android.view.TextureView tape = largest(bar.getRootView());
+                    int[] at = new int[2];
+                    bar.getLocationOnScreen(at);
+                    int bottom = at[1] + bar.getHeight();
+                    if (tape != null) {
+                        int[] loc = new int[2];
+                        tape.getLocationOnScreen(loc);
+                        if (loc[1] + tape.getHeight() < bottom - 4 && loc[1] < bottom) {
+                            Object parent = tape.getParent();
+                            if (parent instanceof View) {
+                                int[] pl = new int[2];
+                                ((View) parent).getLocationOnScreen(pl);
+                                int target = bottom - pl[1];
+                                if (target > tape.getBottom()) {
+                                    raised = tape;
+                                    raisedWas = tape.getBottom();
+                                    raisedTo = target;
+                                    Object home = parent;
+                                    while (home instanceof View) {
+                                        View holder = (View) home;
+                                        int[] hl = new int[2];
+                                        holder.getLocationOnScreen(hl);
+                                        if (hl[1] + holder.getHeight() >= bottom - 4) break;
+                                        if (holder instanceof ViewGroup) {
+                                            ViewGroup group = (ViewGroup) holder;
+                                            if (opened.indexOf(group) < 0) {
+                                                opened.add(group);
+                                                openedWas.add(Boolean.valueOf(group.getClipChildren()));
+                                                openedPadWas.add(Boolean.valueOf(group.getClipToPadding()));
+                                            }
+                                        }
+                                        home = holder.getParent();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if (raised != null) {
+                    if (raised.getBottom() != raisedTo) {
+                        raised.setBottom(raisedTo);
+                        raised.invalidate();
+                    }
+                    for (int i = 0; i < opened.size(); i++) {
+                        ViewGroup group = opened.get(i);
+                        if (group.getClipChildren()) {
+                            group.setClipChildren(false);
+                            group.invalidate();
+                        }
+                        if (group.getClipToPadding()) {
+                            group.setClipToPadding(false);
+                            group.invalidate();
+                        }
+                    }
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+
+        /** The picture and the clipping of its ancestors are put back where they were. */
+        private void lower() {
+            try {
+                if (raised != null) {
+                    raised.setBottom(raisedWas);
+                    raised.invalidate();
+                }
+                for (int i = 0; i < opened.size(); i++) {
+                    ViewGroup group = opened.get(i);
+                    group.setClipChildren(openedWas.get(i).booleanValue());
+                    group.setClipToPadding(openedPadWas.get(i).booleanValue());
+                    group.invalidate();
+                }
+            } catch (Throwable ignored) {
+            }
+            raised = null;
+            opened.clear();
+            openedWas.clear();
+            openedPadWas.clear();
+        }
+
+        /** Dark full-height layers behind the bar, and what they painted before. */
+        private final java.util.ArrayList<View> unders = new java.util.ArrayList<View>();
+        private final java.util.ArrayList<Drawable> undersWas = new java.util.ArrayList<Drawable>();
+        private long undersLooked;
+
+        /**
+         * The page keeps full-height layers of its own dark colour behind
+         * everything, and the window keeps one too, so a bar made see-through
+         * shows their black rather than the picture. While the capsule is
+         * worn every dark layer that reaches across the bar's strip -- the
+         * window's own included, and the system strip under it -- keeps no
+         * background, so nothing is left between the picture and the capsule.
+         * Layers of the bar itself and of the picture are never touched, and
+         * everything remembered is put back when the capsule leaves.
+         */
+        private void clearUnder(ViewGroup bar) {
+            try {
+                for (View view : unders) {
+                    if (view == null || !view.isAttachedToWindow()) continue;
+                    if (view.getBackground() != null) view.setBackground(null);
+                }
+                long now = SystemClock.uptimeMillis();
+                if (now - undersLooked < 2000L) return;
+                undersLooked = now;
+                View root = bar.getRootView();
+                if (!(root instanceof ViewGroup)) return;
+                int screen = root.getWidth() > 0 ? root.getWidth() : bar.getWidth();
+                int[] at = new int[2];
+                bar.getLocationOnScreen(at);
+                under(root, bar, screen, at[1], at[1] + bar.getHeight(), 0);
+            } catch (Throwable ignored) {
+            }
+        }
+
+        private void under(View view, View bar, int screen, int top, int bottom, int seen) {
+            if (seen > 800 || view == null || view == bar) return;
+            if (view.getVisibility() != View.VISIBLE) return;
+            if (!(view instanceof android.view.SurfaceView)
+                    && !(view instanceof android.view.TextureView)) {
+                int[] loc = new int[2];
+                view.getLocationOnScreen(loc);
+                int vb = loc[1] + view.getHeight();
+                boolean wide = view.getWidth() >= screen * 0.9f;
+                boolean covers = wide && loc[1] <= top + 30 && vb >= bottom - 4;
+                boolean inside = wide && loc[1] >= top - 10 && vb <= bottom + 60;
+                Drawable bg = view.getBackground();
+                if ((covers || inside) && bg != null && dark(bg)) {
+                    if (unders.indexOf(view) < 0) {
+                        unders.add(view);
+                        undersWas.add(bg);
+                    }
+                    view.setBackground(null);
+                }
+            }
+            if (!(view instanceof ViewGroup)) return;
+            ViewGroup group = (ViewGroup) view;
+            for (int i = 0; i < group.getChildCount() && seen + i <= 800; i++)
+                under(group.getChildAt(i), bar, screen, top, bottom, seen + i + 1);
+        }
+
+        private void restoreUnder() {
+            try {
+                for (int i = 0; i < unders.size(); i++) {
+                    View view = unders.get(i);
+                    if (view == null) continue;
+                    if (view.getBackground() == null) view.setBackground(undersWas.get(i));
+                }
+            } catch (Throwable ignored) {
+            }
+            unders.clear();
+            undersWas.clear();
         }
 
         /**
@@ -1007,79 +1276,6 @@ final class NavBar {
             return true;
         }
 
-        /** The video playing now, if any. Looked up again while the page changes. */
-        private android.view.TextureView cinema;
-        private long cinemaLooked;
-        private int cinemaTint;
-        private long cinemaTintAt;
-
-        /**
-         * The colour of the frame now playing, or nought when no video is in
-         * sight. The shell takes after the picture, so around the tabs is the
-         * video, never the black of the page under it. Sampled off a small
-         * copy twice a second; a light frame makes a light shell.
-         */
-        private int cinema(ViewGroup bar, long now) {
-            try {
-                if (now - cinemaTintAt >= 500L) {
-                    cinemaTintAt = now;
-                    if (cinema == null || !cinema.isAttachedToWindow() || now - cinemaLooked > 2000L) {
-                        cinemaLooked = now;
-                        cinema = biggest(bar.getRootView());
-                        if (cinema == null) cinemaTint = 0;
-                    }
-                    if (cinema != null && cinema.isAttachedToWindow()
-                            && cinema.getWidth() > 0 && cinema.getHeight() > 0) {
-                        try {
-                            android.graphics.Bitmap frame = cinema.getBitmap(32, 32);
-                            if (frame != null) {
-                                int[] pixels = new int[32 * 32];
-                                frame.getPixels(pixels, 0, 32, 0, 0, 32, 32);
-                                long red = 0, green = 0, blue = 0;
-                                for (int pixel : pixels) {
-                                    red += Color.red(pixel);
-                                    green += Color.green(pixel);
-                                    blue += Color.blue(pixel);
-                                }
-                                cinemaTint = Color.rgb((int) (red / 1024),
-                                        (int) (green / 1024), (int) (blue / 1024)) | 0xFF000000;
-                            }
-                        } catch (Throwable ignored) {
-                        }
-                    }
-                }
-            } catch (Throwable ignored) {
-            }
-            return cinemaTint;
-        }
-
-        /** The largest picture playing under this screen, or null. */
-        private static android.view.TextureView biggest(View root) {
-            try {
-                android.view.TextureView best = null;
-                int area = 0, seen = 0;
-                java.util.ArrayDeque<View> queue = new java.util.ArrayDeque<View>();
-                if (root != null) queue.add(root);
-                while (!queue.isEmpty() && seen++ < 600) {
-                    View view = queue.poll();
-                    if (view instanceof android.view.TextureView) {
-                        int each = view.getWidth() * view.getHeight();
-                        if (each > area) {
-                            area = each;
-                            best = (android.view.TextureView) view;
-                        }
-                    }
-                    if (view instanceof ViewGroup) {
-                        ViewGroup group = (ViewGroup) view;
-                        for (int i = 0; i < group.getChildCount(); i++) queue.add(group.getChildAt(i));
-                    }
-                }
-                return best;
-            } catch (Throwable ignored) {
-                return null;
-            }
-        }
-
         /**
          * The colour the capsule's own colours are mixed from: whatever is
          * painted under the bar on the page now showing, so that a light
@@ -1105,7 +1301,7 @@ final class NavBar {
             }
             float room = Math.min(bottom - top - 6f * unit, 52f * unit);
             float middle = (top + bottom) / 2f;
-            body.set(0f, middle - room / 2f, wide, middle + room / 2f);
+            body.set(8f * unit, middle - room / 2f, wide - 8f * unit, middle + room / 2f);
             float inside = 4f * unit, left = body.left + inside, right = body.right - inside;
             int centre = tabs.length / 2;
             if (tabs.length % 2 == 1 && tabs[centre].kind == CREATE) {
