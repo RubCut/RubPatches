@@ -478,6 +478,10 @@ final class NavBar {
         /** TikTok's chrome strips at and below the bar's bottom edge, backgrounds nulled while worn. */
         private final java.util.ArrayList<View> chrome = new java.util.ArrayList<View>();
         private final java.util.ArrayList<Drawable> chromeWas = new java.util.ArrayList<Drawable>();
+        /** TikTok's bottom gradient scrim over the video, flat black where the bar sits. */
+        private View scrim;
+        private Drawable scrimWas;
+        private long scrimLooked;
         private Bitmap face;
         private android.graphics.BitmapShader faceShader;
         private final Paint facePaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
@@ -627,6 +631,7 @@ final class NavBar {
                 changed = true;
             }
             clearChrome(bar);
+            clearScrim(bar);
             if (changed) arrange(bar);
             place();
             if (changed || moving) bar.invalidate();
@@ -642,6 +647,11 @@ final class NavBar {
             if (listening) bar.setOnTouchListener(null);
             listening = false;
             restoreChrome();
+            if (scrim != null && scrim.getBackground() == null && scrimWas != null) {
+                try { scrim.setBackgroundDrawable(scrimWas); } catch (Throwable ignored) { }
+            }
+            scrim = null;
+            scrimWas = null;
             if (ownKept && bar.getBackground() == null) bar.setBackground(own);
             own = null;
             ownKept = false;
@@ -709,6 +719,34 @@ final class NavBar {
             }
             chrome.clear();
             chromeWas.clear();
+        }
+
+        /** TikTok's bottom gradient scrim over the video: black where the
+         * bar sits, so it goes while the capsule is worn and comes back when
+         * it leaves. Found by its unobfuscated id, looked up again when gone. */
+        private void clearScrim(ViewGroup bar) {
+            try {
+                View known = scrim;
+                long now = SystemClock.uptimeMillis();
+                if (known == null || !known.isAttachedToWindow() || now - scrimLooked > 2000L) {
+                    scrimLooked = now;
+                    known = null;
+                    int id = bar.getResources().getIdentifier(
+                            "gradual_bottom", "id", bar.getContext().getPackageName());
+                    if (id != 0) {
+                        View root = bar.getRootView();
+                        if (root != null) known = root.findViewById(id);
+                    }
+                    scrim = known;
+                    scrimWas = null;
+                }
+                if (known == null || known.getVisibility() != View.VISIBLE) return;
+                Drawable bg = known.getBackground();
+                if (bg == null) return;
+                if (scrimWas == null) scrimWas = bg;
+                known.setBackground(null);
+            } catch (Throwable ignored) {
+            }
         }
 
         private void release(View tab) {
