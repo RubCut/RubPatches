@@ -561,6 +561,155 @@ final class Md3 {
         }
     }
 
+    /**
+     * One of the capsule's own Material glyphs as a picture TikTok's icon can
+     * hold, for the native bar to wear when the capsule is off. Carries
+     * whether it is the open or the shut one, so a tab that changes sides is
+     * noticed without TikTok having to rebuild anything.
+     */
+    private static final class GlyphPath extends Drawable {
+        final android.graphics.Path path;
+        final boolean open;
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        GlyphPath(android.graphics.Path path, boolean open) {
+            this.path = path;
+            this.open = open;
+            paint.setColor(0xFFFFFFFF);
+        }
+
+        @Override
+        public void draw(Canvas canvas) {
+            Rect box = getBounds();
+            if (box.isEmpty() || path == null) return;
+            int saved = canvas.save();
+            // the capsule's square is 960 a side with its top at -960
+            float side = Math.min(box.width(), box.height()) * 1.14f;
+            canvas.translate(box.exactCenterX() - side / 2f, box.exactCenterY() - side / 2f);
+            canvas.scale(side / 960f, side / 960f);
+            canvas.translate(0f, 960f);
+            canvas.drawPath(path, paint);
+            canvas.restoreToCount(saved);
+        }
+
+        @Override public void setAlpha(int alpha) { paint.setAlpha(alpha); }
+        @Override public void setColorFilter(ColorFilter filter) { paint.setColorFilter(filter); }
+        @Override public void setTint(int colour) { paint.setColor(colour); }
+        @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }
+    }
+
+    /** The picture inside one of TikTok's icon holders, or null when it is not one. */
+    private static Object tuxInside(Drawable shown) {
+        try {
+            if (shown == null || !shown.getClass().getName().equals(TUX_ICON)) return null;
+            if (!tuxAsked) {
+                tuxAsked = true;
+                java.lang.reflect.Field first = null;
+                for (java.lang.reflect.Field field : shown.getClass().getDeclaredFields()) {
+                    if (field.getType() != Drawable.class || java.lang.reflect.Modifier.isStatic(field.getModifiers())) continue;
+                    if (first == null || field.getName().compareTo(first.getName()) < 0) first = field;
+                }
+                if (first != null) first.setAccessible(true);
+                tuxPicture = first;
+            }
+            if (tuxPicture == null) return null;
+            return tuxPicture.get(shown);
+        } catch (Throwable error) {
+            Diary.detail("md3: icon: " + error);
+            tuxPicture = null;
+            return null;
+        }
+    }
+
+    private static android.widget.ImageView tuxView(View view, int depth) {
+        if (view == null || depth > 5) return null;
+        if (view instanceof android.widget.ImageView) {
+            Drawable shown = ((android.widget.ImageView) view).getDrawable();
+            if (shown != null && shown.getClass().getName().equals(TUX_ICON)) {
+                return (android.widget.ImageView) view;
+            }
+        }
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                android.widget.ImageView found = tuxView(group.getChildAt(i), depth + 1);
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * TikTok's own bottom bar wearing the capsule's Material glyphs, for when
+     * the capsule itself is off. Tabs the capsule has no glyph for keep
+     * TikTok's icon, and everything is given back when switched off.
+     */
+    static void swapNative(ViewGroup bar, boolean on) {
+        try {
+            if (bar == null) return;
+            int count = 0;
+            for (int i = 0; i < bar.getChildCount(); i++) {
+                View child = bar.getChildAt(i);
+                if (child.getVisibility() == View.VISIBLE && child instanceof ViewGroup) count++;
+            }
+            int at = 0;
+            for (int i = 0; i < bar.getChildCount(); i++) {
+                View child = bar.getChildAt(i);
+                if (child.getVisibility() != View.VISIBLE || !(child instanceof ViewGroup)) continue;
+                int kind = NavBar.tabKind((ViewGroup) child, at++, count);
+                android.graphics.Path glyph = on ? NavBar.tabGlyph(kind, child.isSelected()) : null;
+                android.widget.ImageView image = tuxView(child, 0);
+                if (image == null) continue;
+                Drawable shown = image.getDrawable();
+                if (shown == null) continue;
+                if (glyph == null) {
+                    restore(image, shown);
+                    continue;
+                }
+                Object inside = tuxInside(shown);
+                if (inside == null) continue;
+                if (inside instanceof GlyphPath) {
+                    if (((GlyphPath) inside).open == child.isSelected()) {
+                        image.setTag(PICTURE, shown);
+                        continue;
+                    }
+                } else {
+                    if (shown == image.getTag(PICTURE)) continue;
+                    image.setTag(PICTURE, shown);
+                    synchronized (HELD) {
+                        if (!HELD.containsKey(shown)) HELD.put(shown, (Drawable) inside);
+                    }
+                }
+                GlyphPath ours = new GlyphPath(glyph, child.isSelected());
+                ours.setBounds(((Drawable) inside).getBounds());
+                tuxPicture.set(shown, ours);
+                shown.invalidateSelf();
+            }
+        } catch (Throwable error) {
+            Diary.detail("md3: native bar: " + error);
+        }
+    }
+
+    /** Give one swapped picture back, if it is holding one of ours. */
+    private static void restore(android.widget.ImageView image, Drawable shown) {
+        try {
+            Object inside = tuxInside(shown);
+            if (inside instanceof GlyphPath) {
+                Drawable before;
+                synchronized (HELD) {
+                    before = HELD.remove(shown);
+                }
+                if (before != null && tuxPicture != null) {
+                    tuxPicture.set(shown, before);
+                    shown.invalidateSelf();
+                }
+            }
+        } catch (Throwable error) {
+            Diary.detail("md3: native bar: " + error);
+        }
+        image.setTag(PICTURE, null);
+    }
+
     /** The switch was turned: every icon is looked at afresh, whatever it was the last time. */
     private static void forgetIcons(View view, int depth) {
         if (view == null || depth > 5) return;

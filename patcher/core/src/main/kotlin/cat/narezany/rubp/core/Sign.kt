@@ -25,7 +25,9 @@ import java.util.Base64
 object Sign {
 
     private const val KEYSTORE = "rubp.p12"
-    private const val PASSWORD = "rubtt"
+    // the keystore password is key material, not branding: renaming it breaks
+    // every install that updates over a previous build. Hands off.
+    private const val PASSWORD = "margyt"
     private const val ALIAS = "margy"
 
     class Key(val cert: X509Certificate, val private: java.security.PrivateKey)

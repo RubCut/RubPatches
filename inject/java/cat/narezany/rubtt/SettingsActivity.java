@@ -299,6 +299,8 @@ public class SettingsActivity extends Activity {
         loading.addView(line());
         loading.addView(toggleRow("tune", Text.NAV_CAPSULE, NavBar.isEnabled(), NavBar::setEnabled));
         loading.addView(line());
+        loading.addView(toggleRow("tune", Text.NAV_TRANSPARENT, NavBar.isTransparent(), NavBar::setTransparent));
+        loading.addView(line());
         loading.addView(toggleRow("tune", Text.MD3_FEED, Md3.isOn(Md3.KEY_FEED), on -> Md3.set(Md3.KEY_FEED, on)));
         loading.addView(line());
         loading.addView(toggleRow("tune", Text.MD3_ICONS, Md3.isOn(Md3.KEY_ICONS), on -> Md3.set(Md3.KEY_ICONS, on)));

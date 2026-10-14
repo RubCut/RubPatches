@@ -54,6 +54,8 @@ final class NavBar {
     static final String KEY = "nav_capsule";
     /** Whether the bar stays in sight, dimmed like the rest, while the screen saver is on. */
     static final String KEY_KEEP = "nav_keep_dimmed";
+    /** The capsule's own backing off: the page shows through behind the tabs. */
+    static final String KEY_TRANSPARENT = "nav_transparent";
     /** How long a touch where the bar was brings it back for. */
     private static final long PEEK = 5000L;
 
@@ -65,6 +67,16 @@ final class NavBar {
     static void setKept(boolean kept) {
         SharedPreferences prefs = prefs();
         if (prefs != null) prefs.edit().putBoolean(KEY_KEEP, kept).apply();
+    }
+
+    static boolean isTransparent() {
+        SharedPreferences prefs = prefs();
+        return prefs != null && prefs.getBoolean(KEY_TRANSPARENT, false);
+    }
+
+    static void setTransparent(boolean transparent) {
+        SharedPreferences prefs = prefs();
+        if (prefs != null) prefs.edit().putBoolean(KEY_TRANSPARENT, transparent).apply();
     }
 
     private static final int HOME = 0, FRIENDS = 1, CREATE = 2, INBOX = 3, PROFILE = 4, OTHER = 5;
@@ -153,6 +165,8 @@ final class NavBar {
     private static WeakReference<ViewTreeObserver> watched = new WeakReference<ViewTreeObserver>(null);
     private static WeakReference<View> screen = new WeakReference<View>(null);
     private static long looked;
+    /** When TikTok's own bar was last looked at for the Material glyphs. */
+    private static long nativeAt;
 
     private static final ViewTreeObserver.OnPreDrawListener EVERY_FRAME = () -> {
         try {
@@ -170,6 +184,17 @@ final class NavBar {
             if (on && !any && root != null && now - looked > 2000L) {
                 looked = now;
                 look(root, TRIES);
+            }
+            // the capsule off and the icons Material: TikTok's own bar wears
+            // the capsule's glyphs instead, looked at twice a second like the rail
+            if (!on && now - nativeAt > 500L) {
+                nativeAt = now;
+                boolean icons = Md3.isOn(Md3.KEY_ICONS);
+                for (View known : BARS.keySet()) {
+                    if (known instanceof ViewGroup && known.isAttachedToWindow()) {
+                        Md3.swapNative((ViewGroup) known, icons);
+                    }
+                }
             }
         } catch (Throwable ignored) {
             // a bar taken apart in the middle of a frame is looked at again on the next
@@ -293,8 +318,7 @@ final class NavBar {
         return false;
     }
 
-    private static int kind(ViewGroup tab, int index, int count) {
-        String name = name(tab);
+    private static int kind(ViewGroup tab, int index, int count) {        String name = name(tab);
         if (name == null && count % 2 == 1 && index == count / 2) return CREATE;
         if (index == 0) return HOME;
         if (index == count - 1) return PROFILE;
@@ -304,6 +328,17 @@ final class NavBar {
             for (String word : FRIEND_WORDS) if (word.equals(said)) return FRIENDS;
         }
         return OTHER;
+    }
+
+    /** Which tab a child of the bar is, for the native icons to be swapped by. */
+    static int tabKind(ViewGroup tab, int index, int count) {
+        return kind(tab, index, count);
+    }
+
+    /** The Material glyph a native tab wears when the icons are Material, or null to keep TikTok's. */
+    static android.graphics.Path tabGlyph(int kind, boolean open) {
+        if (kind < 0 || kind >= OUTLINES.length) return null;
+        return outline(kind, open);
     }
 
     private static volatile Bitmap portrait;
@@ -696,13 +731,15 @@ final class NavBar {
             int quiet = mix(shell, ink, 0.80f);
 
             float round = body.height() / 2f;
-            fill.setColor(shell);
-            canvas.drawRoundRect(body, round, round, fill);
-            line.setStrokeWidth(unit);
-            line.setColor(edge);
-            box.set(body);
-            box.inset(unit / 2f, unit / 2f);
-            canvas.drawRoundRect(box, round, round, line);
+            if (!isTransparent()) {
+                fill.setColor(shell);
+                canvas.drawRoundRect(body, round, round, fill);
+                line.setStrokeWidth(unit);
+                line.setColor(edge);
+                box.set(body);
+                box.inset(unit / 2f, unit / 2f);
+                canvas.drawRoundRect(box, round, round, line);
+            }
 
             float middle = body.centerY(), icon = 24f * unit, gap = 6f * unit;
             for (Tab tab : tabs) {
