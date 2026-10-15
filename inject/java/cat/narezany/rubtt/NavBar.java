@@ -858,6 +858,7 @@ final class NavBar {
                     raisedLooked = now;
                     lower();
                     android.view.TextureView tape = largest(bar.getRootView());
+                    android.util.Log.d("RubTTDbg", "openUp: tape=" + (tape != null ? "found" : "null"));
                     int[] at = new int[2];
                     bar.getLocationOnScreen(at);
                     int bottom = at[1] + bar.getHeight();
@@ -874,6 +875,7 @@ final class NavBar {
                                     raised = tape;
                                     raisedWas = tape.getBottom();
                                     raisedTo = target;
+                                    android.util.Log.d("RubTTDbg", "openUp: raising from " + raisedWas + " to " + raisedTo);
                                     Object home = parent;
                                     while (home instanceof View) {
                                         View holder = (View) home;
@@ -900,17 +902,21 @@ final class NavBar {
                         raised.setBottom(raisedTo);
                         raised.invalidate();
                     }
+                    int fixed = 0;
                     for (int i = 0; i < opened.size(); i++) {
                         ViewGroup group = opened.get(i);
                         if (group.getClipChildren()) {
                             group.setClipChildren(false);
                             group.invalidate();
+                            fixed++;
                         }
                         if (group.getClipToPadding()) {
                             group.setClipToPadding(false);
                             group.invalidate();
+                            fixed++;
                         }
                     }
+                    android.util.Log.d("RubTTDbg", "openUp: bottom=" + raised.getBottom() + " clipOpened=" + fixed);
                 }
             } catch (Throwable ignored) {
             }
