@@ -1,7 +1,8 @@
-import unittest
+import shutil, unittest
 import test_settings_safety_runtime as safety
 method=safety.method
 class ScriptRuntimeTest(unittest.TestCase):
+ @unittest.skipUnless(shutil.which("javac") and shutil.which("java"),"JDK required")
  def test_actual_validation_and_compiled_colour_commands(self):
   body='\n'.join(method('ScriptPlugins.java',m) for m in [' static final class Program',' static void keys',' static String string',' static void depth',' static Program check',' public static String name',' public static int colour'])
   sources={

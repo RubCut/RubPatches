@@ -1,5 +1,5 @@
 """Stand-ins for the parts of Android the runtime tests are compiled against."""
-import pathlib, shutil, subprocess, tempfile, unittest
+import pathlib
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 STUBS={
 'android/content/Context.java':'package android.content;public class Context {public android.content.res.Resources getResources(){return new android.content.res.Resources();}}',

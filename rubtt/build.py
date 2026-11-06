@@ -570,7 +570,7 @@ class Build:
     def add_prerecoloured(self, apk: Apk) -> None:
         """Like animations recoloured for the palette now, not on the phone.
 
-        See margyt/prerecolour.py. One that cannot be handled here (an
+        See rubtt/prerecolour.py. One that cannot be handled here (an
         unsupported PNG, an oversized file) is skipped and keeps the runtime
         path, so this can only add speed, never remove a heart.
         """

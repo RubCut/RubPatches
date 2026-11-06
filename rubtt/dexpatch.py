@@ -1649,7 +1649,6 @@ def carries_an_anchor(dex: bytes) -> bool:
 def rewrite_speed_touch(root: str) -> Dict[str, int]:
     """Hear the touch that may start TikTok's hold-to-speed-up, for the rate the mod sets."""
     counts: Dict[str, int] = {}
-    found_class = False
     for dirpath, _dirs, files in os.walk(root):
         for name in files:
             if not name.endswith(".smali"):
@@ -1664,7 +1663,6 @@ def rewrite_speed_touch(root: str) -> Dict[str, int]:
             if not edge and SPEED_TOUCH_CLASS not in declaration:
                 continue
             label = "hold speed, edge touch" if edge else "hold speed, feed touch"
-            found_class = True
             start = text.find(SPEED_EDGE_METHOD if edge else SPEED_TOUCH_METHOD)
             if start < 0:
                 raise RuntimeError("TikTok feed touch callback has changed")

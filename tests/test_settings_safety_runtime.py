@@ -28,6 +28,8 @@ public static class Service{Object[] args;public void send(Context c,String a,St
 '''+source+send+'''public static void main(String[] a){if(sourceFor(Object.class)!=null)throw new AssertionError("Unsupported source contract accepted");StickerItem item=new StickerItem();if(!sendOnMain(new Context(),item,"conversation"))throw new AssertionError("Native send failed");Object[] values=service.args;for(int i:new int[]{1,2,6,7,9,10,11})if(values[i]!=null)throw new AssertionError("Unrelated argument populated: "+i);if(values[4]!=item || !"conversation".equals(values[8]) || !Boolean.FALSE.equals(values[12]))throw new AssertionError("Sender payload differs from native call");}}'''}
   self.run_java(sources)
  def run_java(self,sources):
+  if not (shutil.which('javac') and shutil.which('java')):
+   self.skipTest('JDK required')
   with tempfile.TemporaryDirectory() as d:
    root=pathlib.Path(d);files=[]
    __import__("android_doubles").with_mod(sources)

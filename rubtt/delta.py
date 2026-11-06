@@ -24,7 +24,7 @@ The patch is a zip, stored, of:
     d/N.d.xz      its difference bytes
     d/N.e.xz      its extra bytes
 
-Run as `python -m margyt.delta make TIKTOK.apk RELEASE.apk -o OUT.mpatch`, and
+Run as `python -m rubtt.delta make TIKTOK.apk RELEASE.apk -o OUT.mpatch`, and
 `... apply TIKTOK.apk PATCH OUT.apk` to do on a computer what the app does on a
 phone. Making needs the `bsdiff4` package; applying does not.
 """
@@ -297,7 +297,7 @@ def apply(base_path: str, patch_path: str, out_path: str, deflate_many, say=prin
 def main(argv: Optional[List[str]] = None) -> int:
     from .toolchain import Toolchain
 
-    parser = argparse.ArgumentParser(prog="margyt.delta", description=__doc__.split("\n")[0])
+    parser = argparse.ArgumentParser(prog="rubtt.delta", description=__doc__.split("\n")[0])
     parser.add_argument("--tools", default=os.path.join(os.path.dirname(os.path.dirname(
         os.path.abspath(__file__))), "tools"), help="where the build keeps its jars")
     commands = parser.add_subparsers(dest="command", required=True)

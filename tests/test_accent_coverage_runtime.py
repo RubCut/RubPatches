@@ -1,9 +1,10 @@
 """Execute accent shape/state handling and verify new typed smali hooks."""
-import unittest
+import shutil, unittest
 import test_settings_safety_runtime as safety
 method=safety.method
 from rubtt import dexpatch
 class AccentCoverageTest(unittest.TestCase):
+ @unittest.skipUnless(shutil.which("javac") and shutil.which("java"),"JDK required")
  def test_shapes_and_state_lists(self):
   body=''.join(method('Accent.java',m) for m in ('    private static Drawable movedShape','    private static ColorStateList moved(ColorStateList','    private static ColorStateList moveColours','    private static Object call','    private static ColorStateList repaintedColours'))
   sources={
@@ -32,6 +33,7 @@ public class Test {
  }
 }'''}
   safety.SafetyRuntimeTest().run_java(sources)
+ @unittest.skipUnless(shutil.which("javac") and shutil.which("java"),"JDK required")
  def test_typed_setters_have_matching_hooks(self):
   calls=[x for x in dexpatch.COLOUR_SOURCES if x[1] in ('setStroke','setBackgroundTintList','setTintList') or (x[1] in ('setColor','setTextColor','setHintTextColor') and 'ColorStateList;' in x[2])]
   self.assertEqual(10,len(calls))
@@ -41,6 +43,7 @@ public class Test {
    for _,pattern,target in rules:text=pattern.sub(target,text)
    self.assertIn('Accent;->'+name+replacement,text)
 
+ @unittest.skipUnless(shutil.which("javac") and shutil.which("java"),"JDK required")
  def test_native_icon_tint_preserves_large_heart_and_neutral_icons(self):
   body=method('Accent.java','    public static void setTintColor(')
   sources={

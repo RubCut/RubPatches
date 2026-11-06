@@ -488,12 +488,12 @@ minutes of taking them apart and putting them back, several at a time and as
 many as the machine has memory for.
 
 The builds after it are shorter, because three things are kept in
-`~/.cache/margyt-dex`: every dex taken apart, every patched dex under a name
-made from what was rewritten in it, and which of those a given set of rules
-led to. Change only the mod's Java and no dex is opened at all; change one
-hook and every dex is rewritten again but only the ones that came out
-different are reassembled. `MARGYT_NO_CACHE=1` ignores all of it,
-`MARGYT_WORKERS` says how many dex files to do at once.
+`~/.cache/margyt-dex` — the name is as old as the build — every dex taken
+apart, every patched dex under a name made from what was rewritten in it, and
+which of those a given set of rules led to. Change only the mod's Java and no
+dex is opened at all; change one hook and every dex is rewritten again but only
+the ones that came out different are reassembled. `MARGYT_NO_CACHE=1` ignores
+all of it, `MARGYT_WORKERS` says how many dex files to do at once.
 
 ```
 ==> Opening the apk
@@ -529,11 +529,13 @@ rather than handing you an apk that quietly does nothing.
 python3 -m unittest discover tests
 ```
 
-No toolchain, no network, about a second, fifty-nine of them. They run against
-`tests/data/fixture.apk` — seven kilobytes, built by aapt2 from `tests/fixture/`
-and checked in — which has what the real apk has: a label from a string
-resource, an adaptive icon whose layers are vectors, the icon at two densities,
-a launcher entry that is an alias rather than an activity.
+No toolchain, no network, about two seconds, 230 of them. Those that need a
+JDK to run the mod's own Java against small doubles of Android skip themselves
+without one. They run against `tests/data/fixture.apk` — five kilobytes, built
+by aapt2 from `tests/fixture/` and checked in — which has what the real apk
+has: a label from a string resource, an adaptive icon whose layers are vectors,
+the icon at two densities, a launcher entry that is an alias rather than an
+activity.
 
 Several of them exist because they caught something real: a string-pool insert
 that renumbered a manifest out from under an element being built, a dex

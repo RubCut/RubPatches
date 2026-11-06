@@ -20,7 +20,7 @@ resources do not resolve rather than that eight thousand shift.
 from __future__ import annotations
 
 import struct
-from typing import Dict, List
+from typing import List
 
 RES_TABLE = 0x0002
 RES_STRING_POOL = 0x0001
