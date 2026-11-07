@@ -1,0 +1,49 @@
+# Pulls MargyT's own source in, so a rebase can be done by hand offline.
+#
+# RubTT is a fork: `inject/java/cat/narezany/rubtt` is MargyT's
+# `inject/java/cat/narezany/margyt` with the package renamed, and `rubtt/` is
+# `margyt/`. The forge MargyT lives on is not always reachable from a working
+# machine, so this job clones it here and leaves the trees as a build artifact
+# -- the fork point and the newest tag side by side, which is everything a
+# three-way merge wants.
+#
+# Run it from the Actions tab when MargyT ships something worth taking.
+name: Bring upstream MargyT in
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/upstream-sync.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone MargyT and list its tags
+        run: |
+          git clone --quiet https://git.narez.xyz/narezany/MargyT upstream
+          git -C upstream tag --list 'v2*' | sort -V | tee tags.txt
+
+      - name: Cut the trees a merge needs
+        run: |
+          newest=$(grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' tags.txt | sort -V | tail -1)
+          echo "newest $newest"
+          for tag in v2.0.4 v2.0.5 "$newest"; do
+            mkdir -p "out/$tag"
+            git -C upstream archive "$tag" inject margyt docs VERSION VERSION-LITE \
+              version.json patcher/catalog.json examples | tar -x -C "out/$tag"
+          done
+          cp tags.txt out/
+          tar -czf margyt-upstream.tar.gz -C out .
+          ls -l margyt-upstream.tar.gz
+
+      - name: Leave it behind
+        uses: actions/upload-artifact@v4
+        with:
+          name: margyt-upstream
+          path: margyt-upstream.tar.gz
+          if-no-files-found: error
