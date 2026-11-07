@@ -1,0 +1,192 @@
+{
+ "_comment": "What Margy Patcher reads to know which mods there are, what each is made from and where the patch is. Read from the project's own git server, so a link here can be changed for everybody without an update.",
+ "patcher": {
+  "version": "2.2",
+  "url": "https://git.narez.xyz/narezany/MargyStore/releases/download/v2.2/margy-store.apk",
+  "sha256": "ddc7026c43c76d014b13c5a5f669931171f086870a1207a4464f8afb3601f1c4",
+  "size": 1720059,
+  "notes": {
+   "ru": "Margy Patcher теперь Margy Store: магазин приложений и модов с открытым кодом. Ставится отдельным приложением, патчер потом можно удалить.",
+   "uk": "Margy Patcher тепер Margy Store: магазин застосунків і модів з відкритим кодом. Ставиться окремим застосунком, патчер потім можна видалити.",
+   "en": "Margy Patcher is now Margy Store, a store of open source apps and mods. It installs as a separate app; remove the patcher after."
+  }
+ },
+ "channel": "https://t.me/margymods",
+ "mods": [
+  {
+   "id": "margyt",
+   "name": "MargyT",
+   "icon": "margyt",
+   "package": "com.zhiliaoapp.musically",
+   "about": {
+    "ru": "Мод TikTok: оформление Material 3, скачивание без водяного знака, подмена региона, значки и многое другое.",
+    "uk": "Мод TikTok: оформлення Material 3, завантаження без водяного знака, підміна регіону, значки та багато іншого.",
+    "en": "A TikTok mod: Material 3 looks, downloads without a watermark, a region of your choice, badges and a lot more."
+   },
+   "releases": [
+    {
+     "version": "2.1.1",
+     "beta": false,
+     "base": {
+      "name": "TikTok 47.2.41",
+      "sha256": "4bcad2a15ac82da68d373629a9520f855781c3ec46f0e2937e605040285ba75c",
+      "size": 346017026,
+      "sources": [
+       {
+        "name": "margy.narez.xyz",
+        "url": "https://margy.narez.xyz/original/tiktok-47-2-41.apk",
+        "direct": true
+       }
+      ]
+     },
+     "patch": {
+      "url": "https://git.narez.xyz/narezany/MargyT/releases/download/v2.1.1/margyt-2.1.1.mpatch",
+      "sha256": "a258cff29162f9c629fc3c883d47c56a31be766e8d6bbaf1e3d2a4ecb69715c8",
+      "size": 73273560
+     },
+     "result": {
+      "sha256": "384f4e00e71c633250fd17c17e2c55dec80685d02964c6a89d395ed0d89bf6a4",
+      "size": 395060415
+     },
+     "notes": {
+      "ru": "Профили снова целые у всех: имена, аватарки и кнопка изменения на месте. Меньше лагов при листании, флаги больше не выключаются сами. Свои стили интерфейса в файлах .mtui и бегающие тилкайо, которых можно гладить и кормить.",
+      "uk": "Профілі знову цілі в усіх: імена, аватарки й кнопка редагування на місці. Менше лагів під час гортання, прапорці більше не вимикаються самі. Власні стилі інтерфейсу у файлах .mtui і тілкайо, яких можна гладити й годувати.",
+      "en": "Profiles are whole again for everyone: names, avatars and the edit button are back. Less stutter while scrolling, and flags no longer switch themselves off. Interface styles of your own in .mtui files, and tilcayos to pet and feed."
+     }
+    },
+    {
+     "version": "2.1.0",
+     "beta": false,
+     "base": {
+      "name": "TikTok 47.2.41",
+      "sha256": "4bcad2a15ac82da68d373629a9520f855781c3ec46f0e2937e605040285ba75c",
+      "size": 346017026,
+      "sources": [
+       {
+        "name": "margy.narez.xyz",
+        "url": "https://margy.narez.xyz/original/tiktok-47-2-41.apk",
+        "direct": true
+       }
+      ]
+     },
+     "patch": {
+      "url": "https://git.narez.xyz/narezany/MargyT/releases/download/v2.1.0/margyt-2.1.0.mpatch",
+      "sha256": "ecccc1b94b3c4d431feee539781c13c58079709d9bcb6cb62ee29e7d10a29c26",
+      "size": 73183572
+     },
+     "result": {
+      "sha256": "207d5a2cbfec364dccb79542cda722e05242804539a57189ec4efff330c6ff13",
+      "size": 394966132
+     },
+     "notes": {
+      "ru": "Настройки с картинками и на страницах. Новый профиль включается у всех, даже если TikTok держит аккаунт на старом. Жидкое стекло и Fluent, AMOLED, своя иконка, пометки профилей и закрыты четыре утечки памяти.",
+      "uk": "Налаштування з картинками і на сторінках. Новий профіль вмикається в усіх, навіть якщо TikTok тримає акаунт на старому. Рідке скло і Fluent, AMOLED, своя іконка, позначки профілів і закрито чотири витоки пам'яті.",
+      "en": "Settings with pictures, in pages. The new profile turns on for everyone, even where TikTok keeps the account on the old one. Liquid glass and Fluent, AMOLED, your own icon, profile marks and four memory leaks closed."
+     }
+    },
+    {
+     "version": "2.0.5",
+     "beta": false,
+     "base": {
+      "name": "TikTok 47.2.41",
+      "sha256": "4bcad2a15ac82da68d373629a9520f855781c3ec46f0e2937e605040285ba75c",
+      "size": 346017026,
+      "sources": [
+       {
+        "name": "margy.narez.xyz",
+        "url": "https://margy.narez.xyz/original/tiktok-47-2-41.apk",
+        "direct": true
+       }
+      ]
+     },
+     "patch": {
+      "url": "https://git.narez.xyz/narezany/MargyT/releases/download/v2.0.5/margyt-2.0.5.mpatch",
+      "sha256": "b200084e75ca80633f37c416eca44f916a8416724c4fccd832c584685329b48d",
+      "size": 71795912
+     },
+     "result": {
+      "sha256": "f0d4e8e462daaad2ceb51f7d867dd1260f96cda84cc8c8544b5140ec9e6f6f51",
+      "size": 395031582
+     },
+     "notes": {
+      "ru": "Меньше подлагов: мод больше не обходит экран перед каждым кадром. Убран «скрытый режим» с чёрным окном в недавних. Отчёт о лагах называет плагин, который тормозит.",
+      "uk": "Менше підлагів: мод більше не обходить екран перед кожним кадром. Прибрано «прихований режим» із чорним вікном у недавніх. Звіт про лаги називає плагін, який гальмує.",
+      "en": "Less stutter: the mod no longer goes over the screen before every frame. No more blacked-out window in recents. A lag report names the plugin that is holding the app up."
+     }
+    }
+   ]
+  },
+  {
+   "id": "margyt-lite",
+   "name": "MargyT Lite",
+   "icon": "margyt-lite",
+   "package": "com.zhiliaoapp.musically.go",
+   "about": {
+    "ru": "Лёгкий мод на TikTok Lite: подмена региона, тема и акцент, значки.",
+    "uk": "Легкий мод на TikTok Lite: підміна регіону, тема й акцент, значки.",
+    "en": "A light mod of TikTok Lite: a region of your choice, theme and accent, badges."
+   },
+   "releases": [
+    {
+     "version": "0.1",
+     "beta": false,
+     "base": {
+      "name": "TikTok Lite 47.1.4",
+      "sha256": "634c596e9f2c54b4e77600d4d1bdd96f1d0adad8bb661476a9df7cd21d3c6057",
+      "size": 90464759,
+      "sources": [
+       {
+        "name": "margy.narez.xyz",
+        "url": "https://margy.narez.xyz/original/tiktok-lite-47-1-4.apk",
+        "direct": true
+       }
+      ]
+     },
+     "patch": {
+      "url": "https://git.narez.xyz/narezany/MargyT/releases/download/lite-v0.1/margyt-lite-0.1.mpatch",
+      "sha256": "73dfad5b880930720d0486ba4620d1e6c3ab3ae6a4c2802fe641519496a80646",
+      "size": 32509991
+     },
+     "result": {
+      "sha256": "e49672e4873c94e61124550dc022f9b3143bca92fdcbfb9efae4c9dbc4e94c94",
+      "size": 121579916
+     },
+     "notes": {
+      "ru": "Первая бета. Подмена региона, тема по цветам телефона, акцент, значки.",
+      "uk": "Перша бета. Підміна регіону, тема за кольорами телефона, акцент, значки.",
+      "en": "The first beta. A region of your choice, a theme in the phone's colours, an accent, badges."
+     }
+    }
+   ]
+  },
+  {
+   "id": "margyc",
+   "name": "MargyC",
+   "icon": "margyc",
+   "package": "cat.narezany.claude",
+   "own_package": true,
+   "about": {
+    "ru": "Мод на приложение Claude: русский интерфейс, свои темы и обои, Clawd у поля ввода, мем-модели и свои моды. Ставится отдельным приложением рядом с оригиналом, вход по почте.",
+    "uk": "Мод на застосунок Claude: свої теми й шпалери, Clawd біля поля введення, мем-моделі та свої моди. Ставиться окремим застосунком поруч з оригіналом, вхід за поштою.",
+    "en": "A mod of the Claude app: your own themes and wallpapers, Clawd by the message box, meme models and mods of your own. Installs as a separate app beside the original; sign in by e-mail."
+   },
+   "releases": [],
+   "apks": [
+    {
+     "version": "1.3.1",
+     "beta": false,
+     "apk": {
+      "url": "https://github.com/narezy/MargyC/raw/69d62f2e9631ee8f9b9c14daf1d56e864dd35c7b/MargyC.apk",
+      "sha256": "9639ce98e2dcb7d4473f3117c678a4da4bb08b71e31f56f35180166933b356b0",
+      "size": 30800540
+     },
+     "notes": {
+      "ru": "Исправлен вылет после входа в аккаунт. Обои в чате, выбор иконки, виджет и мини-игра с Clawd, поиск в чате, статистика, режим стримера.",
+      "uk": "Виправлено виліт після входу в акаунт. Шпалери в чаті, вибір іконки, віджет і мінігра з Clawd, пошук у чаті, статистика, режим стримера.",
+      "en": "No more crash after signing in. Chat wallpapers, a choice of icon, a Clawd widget and mini-game, search in a chat, statistics, streamer mode."
+     }
+    }
+   ]
+  }
+ ]
+}
