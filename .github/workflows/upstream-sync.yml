@@ -32,10 +32,11 @@ jobs:
         run: |
           newest=$(grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' tags.txt | sort -V | tail -1)
           echo "newest $newest"
-          for tag in v2.0.4 v2.0.5 "$newest"; do
+          # every tag whole: a path that one release did not have yet would
+          # make `git archive` refuse the lot
+          for tag in v2.0.5 "$newest"; do
             mkdir -p "out/$tag"
-            git -C upstream archive "$tag" inject margyt docs VERSION VERSION-LITE \
-              version.json patcher/catalog.json examples | tar -x -C "out/$tag"
+            git -C upstream archive --format=tar "$tag" | tar -x -C "out/$tag"
           done
           cp tags.txt out/
           tar -czf margyt-upstream.tar.gz -C out .
