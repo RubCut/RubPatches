@@ -1,4 +1,4 @@
-import pathlib, shutil, subprocess, tempfile, unittest
+import pathlib, shutil, subprocess, sys, tempfile, unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 

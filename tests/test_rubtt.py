@@ -485,8 +485,11 @@ class AccentSourceTest(unittest.TestCase):
         self.assertIn("final int previousScroll = page == null ? 0 : page.getScrollY()", java)
         self.assertIn("addOnPreDrawListener(scrollRestoreListener)", java)
         self.assertIn("page.scrollTo(0, requestedScrollY)", java)
+        # a row centres what it holds, and an icon column keeps its own size instead of
+        # being stretched to the width of the label under it
         self.assertIn("row.setGravity(Gravity.CENTER_VERTICAL)", java)
-        self.assertIn("new LinearLayout.LayoutParams(dp(32), dp(32))", java)
+        self.assertIn("new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, "
+                      "ViewGroup.LayoutParams.WRAP_CONTENT)", java)
 
     def test_theme_role_list_is_collapsed_and_sections_use_grouped_surfaces(self):
         source = os.path.join(ROOT, "inject", "java", "cat", "narezany", "rubtt",
@@ -1251,8 +1254,10 @@ class ProfileVerificationSourceTest(unittest.TestCase):
 
     def test_switches_follow_the_card_so_on_is_never_white_on_white(self):
         switch = self._read("M3Switch.java")
-        self.assertIn("luma > 0.55f", switch)
-        self.assertIn("trackOn = 0xFF111111", switch)
+        self.assertIn("luma(surface) > 0.55f", switch)
+        # an accent too close to the card gives way to black or white
+        self.assertIn("Math.abs(luma(accent) - luma(surface)) >= 0.2f", switch)
+        self.assertIn("lightSurface ? 0xFF111111 : 0xFFFFFFFF", switch)
         self.assertNotIn("TRACK_ON", switch)
 
 

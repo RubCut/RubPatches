@@ -1,5 +1,5 @@
 """Stand-ins for the parts of Android the runtime tests are compiled against."""
-import pathlib
+import pathlib, shutil, subprocess, tempfile, unittest
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 STUBS={
 'android/content/Context.java':'package android.content;public class Context {public android.content.res.Resources getResources(){return new android.content.res.Resources();}}',
@@ -68,7 +68,34 @@ def with_mod(sources):
         # the words as they were written: the tests read the Russian
         sources.setdefault('cat/narezany/rubtt/Local.java',
                            'package cat.narezany.rubtt;final class Local{static String of(String russian){return russian;}}')
+    if 'android.os.Process.' in everything:
+        sources.setdefault('android/os/Process.java',
+                           'package android.os;public class Process{public static int myUid(){return 10000;}}')
     if 'Names.' in everything:
         sources.setdefault('cat/narezany/rubtt/Names.java', doubles['cat/narezany/rubtt/Names.java'])
         sources.setdefault('android/util/SparseArray.java', doubles['android/util/SparseArray.java'])
+    if 'Design.' in everything:
+        surface = ''
+        if 'new Design.Surface' in everything:
+            surface = ('static final class Surface extends android.graphics.drawable.Drawable{'
+                       'Surface(Object host,Object before){}public void draw(android.graphics.Canvas c){}'
+                       'public void setAlpha(int a){}public void setColorFilter(android.graphics.ColorFilter f){}'
+                       'public int getOpacity(){return -3;}}')
+        sources.setdefault('cat/narezany/rubtt/Design.java',
+            'package cat.narezany.rubtt;final class Design{static boolean active,fluentActive;static boolean glass(){return active;}'
+            'static boolean fluent(){return fluentActive;}static boolean frosted(){return active||fluentActive;}'
+            'static boolean controlsGlass(){return active;}static boolean controlsFluent(){return fluentActive;}'
+            'static boolean controlsFrosted(){return active||fluentActive;}static String key(){return active?"glass":fluentActive?"fluent":"md3";}'
+            # the numbers of the three built-in styles, as UiStyle has them
+            'static UiStyle style(){UiStyle s=new UiStyle();if(active){s.card=26;s.inner=6;s.gap=0;s.press=1.025f;s.base=1;s.controls=1;s.windowBlur=26;}'
+            'if(fluentActive){s.card=8;s.inner=6;s.sheet=8;s.small=4;s.bar=8;s.gap=4;s.press=.995f;s.duration=180;s.bounce=0;s.blur=1.15f;'
+            's.refraction=0;s.dispersion=0;s.windowBlur=4;s.neutral=true;s.cardLift=.075f;s.base=2;s.controls=2;}return s;}'
+            'static boolean draw(Object... args){return false;}static void dialog(Object dialog,int colour){}'+surface+'}')
+        sources.setdefault('cat/narezany/rubtt/UiStyle.java',
+            'package cat.narezany.rubtt;final class UiStyle{static final int MD3=0,GLASS=1,FLUENT=2;'
+            'float card=16,inner=4,sheet=28,small=24,bar=-1,gap=2,blur=1.45f,tint=.24f,refraction=1,dispersion=.065f,grain=.003f,windowBlur=0,'
+            'bounce=1.6f,press=.985f,cardLift=.045f;int duration=300,base=0,controls=0;boolean neutral;String key="md3",name="Material 3";}')
+    if 'GlassOptics.' in everything:
+        sources.setdefault('cat/narezany/rubtt/GlassOptics.java',
+            'package cat.narezany.rubtt;final class GlassOptics{static float viewTouchX,viewTouchY;}')
     return sources

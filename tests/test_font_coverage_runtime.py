@@ -1,9 +1,8 @@
 """Execute font ownership, weights, restoration and bounded traversal."""
-import shutil, unittest
+import unittest
 import test_settings_safety_runtime as safety
 from rubtt import dexpatch
 class FontCoverageTest(unittest.TestCase):
- @unittest.skipUnless(shutil.which("javac") and shutil.which("java"),"JDK required")
  def test_real_font_application(self):
   body=''.join(safety.method('Fonts.java',m) for m in ('    private static boolean drawsGlyphs','    public static void applyTree','    private static void applyTree','    public static void apply(TextView','    private static Typeface keep','    public static void setTypeface(TextView view, Typeface face)','    public static void setTypeface(TextView view, Typeface face, int style)'))
   sources={

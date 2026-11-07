@@ -1387,4 +1387,252 @@ final class Text {
         if (UK) return ukrainian;
         return english;
     }
+    static final String DESIGN = pick("Стиль интерфейса", "Стиль інтерфейсу", "Interface style");
+    static final String DESIGN_NOTE = pick("Как выглядят меню и экраны TikTok", "Як виглядають меню й екрани TikTok", "How TikTok’s menus and screens look");
+    static final String COMMENT_COPY_NOTE = pick("В меню комментария появится «Выбрать фрагмент», а «Копировать» будет без ника.", "У меню коментаря з'явиться «Вибрати фрагмент», а «Копіювати» буде без ніка.", "Adds “Select part” to the comment menu, and “Copy” leaves the name out.");
+    static final String LOADING_INDICATOR = pick("Индикатор загрузки", "Індикатор завантаження", "Loading indicator");
+    static final String LOADING_STYLE_NOTE = pick("Значок загрузки в стиле интерфейса.", "Значок завантаження в стилі інтерфейсу.", "The loading sign in the interface’s style.");
+    static final String DONATE_BANNER = pick(
+            "Значок за поддержку", "Значок за підтримку", "A badge for supporting");
+    static final String DONATE_BANNER_TEXT = pick(
+            "От 250 ₽ или 300 ⭐: значок, градиент на ник, закрытый чат и Minecraft-сервер.",
+            "Від 250 ₽ або 300 ⭐: значок, градієнт на нік, закритий чат і Minecraft-сервер.",
+            "From 250 ₽ or 300 ⭐: a badge, a gradient name, the private chat and a Minecraft server.");
+    static final String DONATE_BANNER_BUTTON = pick(
+            "Поддержать", "Підтримати", "Support");
+    static final String DONATE_BANNER_WRITE = pick(
+            "Сообщения каналу", "Повідомлення каналу", "Message the channel");
+    static final String DONATE_STEP_PAY = pick(
+            "1. Переведите от 250 ₽ или 300 ⭐", "1. Переказати від 250 ₽ або 300 ⭐", "1. Send 250 ₽ or 300 ⭐ or more");
+    static final String DONATE_STEP_ID = pick(
+            "2. Скопируйте свой ID", "2. Скопіюйте свій ID", "2. Copy your ID");
+    static final String DONATE_ID_NOTE = pick(
+            "Нажмите на ID, он скопируется. По нему выдаётся значок.",
+            "Натисніть на ID, він скопіюється. За ним видається значок.",
+            "Tap the ID to copy it. The badge is given to this account.");
+    static final String DONATE_STEP_WRITE = pick(
+            "3. Напишите в канал", "3. Напишіть у канал", "3. Write to the channel");
+    static final String DONATE_WRITE_NOTE = pick(
+            "Пришлите чек и ID", "Надішліть чек і ID", "Send the receipt and the ID");
+    static final String DONATE_AFTER = pick(
+            "Значок выдаётся вручную, обычно в течение дня. Градиент на ник и "
+                    + "ссылка в закрытый чат придут вместе с ним.",
+            "Значок видається вручну, зазвичай протягом дня. Градієнт на нік і "
+                    + "посилання в закритий чат прийдуть разом із ним.",
+            "The badge is given by hand, usually within a day. The gradient on "
+                    + "your name and the link to the closed chat come with it.");
+    static final String COMMENT_PHOTOS = pick("Несколько фото в комментарии", "Кілька фото в коментарі", "Several photos in a comment");
+    static final String HASHTAGS_UNLIMITED = pick("Хештеги в описании без лимита", "Хештеги в описі без ліміту", "No hashtag limit in captions");
+    static final String DESIGN_COMMENTS = pick("Material 3: комментарии", "Material 3: коментарі", "Material 3: comments");
+    static final String FUN_AVARIYKA = pick("Мега супер дупер аварийки", "Мега супер дупер аварійки", "Mega super duper emergency popups");
+    static final String PAGE_AVARIYKA_NOTE = pick("Окна «срочно обновись в нашем телеграме», как в старых модах", "Вікна «терміново оновись у нашому телеграмі», як у старих модах", "\u201CUpdate now in our Telegram\u201D windows, like old mods had");
+    static final String AVARIYKA_NOTE = pick("Иногда выскакивает фейковое «аварийное обновление», как в старых модах. Никуда не ведёт.", "Іноді вискакує фейкове «аварійне оновлення», як у старих модах. Нікуди не веде.", "Now and then a fake “emergency update” pops up, like in old mods. It leads nowhere.");
+    static final String FUN_RUBBLE = pick("Рассыпать интерфейс", "Розсипати інтерфейс", "Shatter the interface");
+    static final String RUBBLE_NOTE = pick("Кнопки и надписи падают и катаются, если наклонять телефон. Всё вернётся на место, если выключить или перезапустить TikTok.", "Кнопки й написи падають і котяться, якщо нахиляти телефон. Усе повернеться, якщо вимкнути або перезапустити TikTok.", "Buttons and labels fall and roll as you tilt the phone. Everything goes back when you turn it off or restart TikTok.");
+    static final String UI_FILE_INSTALL = pick("Установить стиль .mtui", "Встановити стиль .mtui", "Install a .mtui style");
+    static final String UI_FILE_INSTALL_NOTE = pick("Свой стиль интерфейса из файла", "Власний стиль інтерфейсу з файлу", "An interface style from a file");
+    static final String UI_FILE_SAVE = pick("Сохранить стиль в файл", "Зберегти стиль у файл", "Save the style as a file");
+    static final String UI_FILE_SAVE_NOTE = pick("Все числа текущего стиля: с этого удобно начать свой", "Усі числа поточного стилю: з цього зручно почати свій", "Every number of this style: a starting point for your own");
+    static final String UI_FILE_DOCS = pick("Как сделать свой стиль", "Як зробити свій стиль", "How to make a style");
+    static final String UI_FILE_COPY = pick("копия", "копія", "copy");
+    static final String UI_FILE_REVIEW = pick("Стиль интерфейса", "Стиль інтерфейсу", "Interface style");
+    static final String UI_FILE_BY = pick("Автор:", "Автор:", "By");
+    static final String UI_FILE_BASED = pick("Основа:", "Основа:", "Based on");
+    static final String UI_FILE_APPLY = pick("Установить и включить", "Встановити й увімкнути", "Install and use");
+    static final String UI_FILE_APPLIED = pick("Стиль установлен", "Стиль встановлено", "Style installed");
+    static final String UI_FILE_REMOVE = pick("Удалить стиль", "Видалити стиль", "Remove the style");
+    static final String UI_FILE_REMOVE_ASK = pick("Удалить этот стиль с телефона?", "Видалити цей стиль із телефона?", "Remove this style from the phone?");
+    static final String UI_FILE_SAVED = pick("Стиль сохранён", "Стиль збережено", "Style saved");
+    static final String UI_FILE_SAVE_FAILED = pick("Не получилось сохранить стиль", "Не вдалося зберегти стиль", "Could not save the style");
+    static final String UI_FILE_REFUSED = pick("Это не стиль", "Це не стиль", "Not a style");
+    static final String UI_FILE_UNREADABLE = pick("Файл не открылся", "Файл не відкрився", "The file could not be opened");
+    static final String UI_FILE_NOT_SAVED = pick("Не получилось сохранить файл на телефоне.", "Не вдалося зберегти файл на телефоні.", "Could not keep the file on the phone.");
+    static final String UI_FILE_EMPTY = pick("Файл пустой.", "Файл порожній.", "The file is empty.");
+    static final String UI_FILE_BIG = pick("Файл больше 32 КБ, для стиля это слишком.", "Файл більший за 32 КБ, для стилю це забагато.", "The file is over 32 KB, too big for a style.");
+    static final String UI_FILE_NOT_JSON = pick("Внутри не JSON.", "Усередині не JSON.", "There is no JSON inside.");
+    static final String UI_FILE_NOT_UI = pick("Нет поля \"mtui\": это не стиль RubTT.", "Немає поля \"mtui\": це не стиль RubTT.", "No \"mtui\" field: this is not a RubTT style.");
+    static final String UI_FILE_NEWER = pick("Стиль сделан для более новой версии RubTT. Обновите мод.", "Стиль зроблено для новішої версії RubTT. Оновіть мод.", "The style is for a newer RubTT. Update the mod.");
+    static final String UI_FILE_NO_NAME = pick("У стиля нет названия (поле \"name\").", "У стилю немає назви (поле \"name\").", "The style has no name (the \"name\" field).");
+    static final String UI_FILE_NO_BASE = pick("Поле \"base\" должно быть md3, glass или fluent.", "Поле \"base\" має бути md3, glass або fluent.", "\"base\" must be md3, glass or fluent.");
+    static final String UI_FILE_BAD_VALUE = pick("Неверное значение:", "Неправильне значення:", "A wrong value:");
+    static final String FUN_TILCAYO_RUN = pick("Бегающие тилкайо", "Бігаючі тілкайо", "Running tilcayos");
+    static final String TILCAYO_RUN_NOTE = pick("Внизу экрана бегают толстые тилкайо. Нажми на кота, чтобы погладить, зажми, чтобы почесать, нажми два раза, чтобы покормить, много раз, чтобы пощекотать, или схвати и подкинь.", "Унизу екрана бігають товсті тілкайо. Натисни на кота, щоб погладити, затисни, щоб почухати, натисни двічі, щоб погодувати, багато разів, щоб полоскотати, або схопи й підкинь.", "Fat tilcayos run along the bottom of the screen. Tap one to pet it, hold to scratch, tap twice to feed, tap a lot to tickle, or grab and toss it.");
+    static final String TILCAYO_PURR = pick("мур", "мур", "purr");
+    static final String TILCAYO_NOM = pick("ням!", "ням!", "nom!");
+    static final String TILCAYO_HEHE = pick("хи-хи", "хі-хі", "hehe");
+    static final String TILCAYO_WHEE = pick("уиии!", "уііі!", "wheee!");
+    static final String REMIND_TITLE = pick(
+            "Нравится RubTT?", "Подобається RubTT?", "Enjoying RubTT?");
+    static final String REMIND_TEXT = pick(
+            "Поддержи разработку — значок рядом с ником, градиент на ник "
+                    + "и закрытый чат.",
+            "Підтримай розробку — значок поруч із ніком, градієнт на нік "
+                    + "і закритий чат.",
+            "Support the making of it: a badge beside your name, a gradient on "
+                    + "the name and the private chat.");
+    static final String REMIND_MORE = pick("Подробнее", "Докладніше", "Tell me more");
+    static final String REMIND_NEVER = pick(
+            "Больше не напоминать", "Більше не нагадувати", "Never remind me");
+    static final String CHANNEL = pick("Канал", "Канал", "Channel");
+    static final String FORUM = pick("Форум", "Форум", "Forum");
+    static final String UPDATE_IN_STORE = pick("Обновления выходят в Margy Store, данные остаются.", "Оновлення виходять у Margy Store, дані лишаються.", "Updates come out in Margy Store, and your data stays.");
+    static final String UPDATE_GET_STORE = pick(
+            "Margy Store у тебя ещё нет, его можно скачать отсюда.", "Margy Store у тебе ще немає, його можна завантажити звідси.", "You don't have Margy Store yet; get it here.");
+    static final String UPDATE_OPEN_STORE = pick("Открыть Margy Store", "Відкрити Margy Store", "Open Margy Store");
+    static final String UPDATE_DOWNLOAD_STORE = pick("Скачать Margy Store", "Завантажити Margy Store", "Get Margy Store");
+    static final String CHANNEL_TITLE = pick("Канал", "Канал", "Channel");
+    static final String CHANNEL_NEWS_A = pick("Новости/", "Новини/", "News/");
+    static final String CHANNEL_NEWS_B = pick("обновления", "оновлення", "updates");
+    static final String CHANNEL_SUBSCRIBE = pick("Подписаться", "Підписатися", "Subscribe");
+    static final String THANKS = pick("Благодарности", "Подяки", "Thanks");
+    static final String THANKS_NOTE = pick(
+            "Люди, без которых мода бы не было.",
+            "Люди, без яких мода б не було.",
+            "The people the mod would not exist without.");
+    static final String THANKS_OWNER = pick(
+            "Владелец мода", "Власник мода", "The mod's owner");
+    static final String THANKS_AI = pick(
+            "Помог с разработкой",
+            "Допоміг із розробкою",
+            "Helped with development");
+    static final String THANKS_CLAUDE = pick(
+            "Написал большую часть того, что в моде есть",
+            "Написав більшу частину того, що в моді є",
+            "Wrote most of what is in the mod");
+    static final String THANKS_TTCUZ = pick(
+            "Автор ttcuz, часть функций пришла оттуда",
+            "Автор ttcuz, частина функцій прийшла звідти",
+            "Wrote ttcuz, where a share of the features came from");
+    static final String DONATE = pick("Поддержать", "Підтримати", "Support the project");
+    static final String DONATE_NOTE = pick("Спасибо, что поддерживаешь мод.", "Дякуємо, що підтримуєш мод.", "Thank you for supporting the mod.");
+    static final String CARD = pick("Карта", "Картка", "Card");
+    static final String TAP_TO_COPY = pick(
+            "Нажми, чтобы скопировать", "Натисни, щоб скопіювати", "Tap to copy");
+    static final String YOOMONEY = pick("ЮMoney", "ЮMoney", "YooMoney");
+    static final String YOOMONEY_NOTE = pick(
+            "Перевод напрямую", "Переказ напряму", "Straight to the transfer page");
+    static final String VERDICT_GOOD = pick("✅ Рекомендуемый", "✅ Рекомендований", "✅ Recommended");
+    static final String VERDICT_BAD = pick("⛔ Не рекомендуемый", "⛔ Не рекомендований", "⛔ Not recommended");
+    static final String VERDICT_PROVE = pick("Сначала подтверди аккаунт в настройках значков", "Спершу підтвердь акаунт у налаштуваннях значків", "Prove the account in the badge settings first");
+    static final String VERDICT_MARK = pick("Пометить аккаунт", "Позначити акаунт", "Mark this account");
+    static final String VERDICT_REASON = pick("Причина", "Причина", "Reason");
+    static final String VERDICT_DROP = pick("Снять пометку", "Зняти позначку", "Remove the mark");
+    static final String VERDICT_SAVED = pick("Пометка сохранена", "Позначку збережено", "Mark saved");
+    static final String VERDICT_FAILED = pick("Не получилось сохранить пометку", "Не вдалося зберегти позначку", "Could not save the mark");
+    static final String ICON_LEGACY = pick("Legacy", "Legacy", "Legacy");
+    static final String DOWNLOAD_WINDOW = pick("Своё окно скачивания", "Власне вікно завантаження", "The mod's download window");
+    static final String DOWNLOAD_WINDOW_NOTE = pick("С выбором качества. Если выключить, TikTok скачивает сам.",
+            "З вибором якості. Якщо вимкнути, TikTok завантажує сам.",
+            "With a choice of quality. Off, TikTok downloads by itself.");
+    static final String RAIL_TAP = pick("Кнопки на картинке тоже нажимаются: так их можно скрыть и вернуть.",
+            "Кнопки на картинці теж натискаються: так їх можна сховати й повернути.",
+            "The buttons on the picture can be tapped too, to hide them and bring them back.");
+    static final String CUSTOM_ICON = pick("Своя иконка", "Своя іконка", "Your own icon");
+    static final String CUSTOM_ICON_NOTE = pick("Ярлык с твоей картинкой на рабочем столе. Значок в списке приложений Android менять не даёт.",
+            "Ярлик із твоєю картинкою на робочому столі. Значок у списку застосунків Android змінювати не дає.",
+            "A shortcut with your picture on the home screen. Android does not let the app list icon change.");
+    static final String CUSTOM_ICON_FILL = pick("Заполнить", "Заповнити", "Fill");
+    static final String CUSTOM_ICON_WHOLE = pick("Целиком", "Повністю", "Whole");
+    static final String CUSTOM_ICON_NAME = pick("Название", "Назва", "Name");
+    static final String CUSTOM_ICON_PIN = pick("На рабочий стол", "На робочий стіл", "Add to home screen");
+    static final String CUSTOM_ICON_FAILED = pick("Не получилось открыть картинку", "Не вдалося відкрити картинку", "Could not open the picture");
+    static final String CUSTOM_ICON_UNSUPPORTED = pick("Этот рабочий стол не умеет добавлять ярлыки", "Цей робочий стіл не вміє додавати ярлики", "This home screen cannot add shortcuts");
+    static final String ADMIN = pick("Админка", "Адмінка", "Admin");
+    static final String ADMIN_CODE = pick("Код из Telegram", "Код із Telegram", "Code from Telegram");
+    static final String ADMIN_CODE_NOTE = pick("Код ушёл в Telegram. Без него это устройство не станет админским.",
+            "Код надіслано в Telegram. Без нього цей пристрій не стане адмінським.",
+            "The code went to Telegram. Without it this phone cannot be an admin one.");
+    static final String ADMIN_CONFIRM = pick("Подтвердить", "Підтвердити", "Confirm");
+    static final String ADMIN_WRONG = pick("Код не подошёл", "Код не підійшов", "Wrong code");
+    static final String ADMIN_EXPIRED = pick("Код устарел, открой админку заново", "Код застарів, відкрий адмінку знову", "The code expired, open the admin again");
+    static final String ADMIN_FAILED = pick("Не получилось", "Не вийшло", "That did not work");
+    static final String ADMIN_BADGES = pick("Значки", "Значки", "Badges");
+    static final String ADMIN_MARK = pick("Пометка", "Позначка", "Mark");
+    static final String ADMIN_NO_MARK = pick("Нет", "Немає", "None");
+    static final String ADMIN_GRADIENT = pick("Снять градиент", "Зняти градієнт", "Remove the gradient");
+    static final String ADMIN_COPY_ID = pick("Скопировать ID", "Скопіювати ID", "Copy the ID");
+    static final String ADMIN_COPIED = pick("ID скопирован", "ID скопійовано", "ID copied");
+    static final String ADMIN_NOT_PROVED = pick("не подтверждён", "не підтверджений", "not verified");
+    static final String ADMIN_DEVICES = pick("Устройства админки", "Пристрої адмінки", "Admin devices");
+    static final String ADMIN_THIS = pick("Это устройство", "Цей пристрій", "This phone");
+    static final String ADMIN_WAITING = pick("Ждёт код", "Чекає код", "Waiting for its code");
+    static final String ADMIN_FORGET = pick("Отключить", "Вимкнути", "Remove");
+    static final String BOOSTY = pick("Boosty", "Boosty", "Boosty");
+    static final String BOOSTY_NOTE = pick(
+            "Подходит для любой страны", "Підходить для будь-якої країни", "Works from any country");
+    static final String FUNPAY = pick("FunPay", "FunPay", "FunPay");
+    static final String FUNPAY_NOTE = pick("Покупка через FunPay", "Покупка через FunPay", "Buy it on FunPay");
+    static final String STARS = pick("Звёзды Telegram", "Зірки Telegram", "Telegram Stars");
+    static final String STARS_NOTE = pick("300 ⭐ подарками на аккаунт @narezany", "300 ⭐ подарунками на акаунт @narezany", "300 ⭐ as gifts to @narezany");
+    static final String BANNER_ALWAYS = pick("Всегда показывать плашку", "Завжди показувати плашку", "Always show the banner");
+    static final String BANNER_ALWAYS_NOTE = pick("Даже если значок уже есть.", "Навіть якщо значок уже є.", "Even if you already have the badge.");
+    static final String PAGE_STYLE = pick("Стиль и значок", "Стиль і значок", "Style and icon");
+    static final String PAGE_STYLE_NOTE = pick("Material 3, Liquid Glass или Fluent и значок на рабочем столе", "Material 3, Liquid Glass або Fluent і значок на робочому столі", "Material 3, Liquid Glass or Fluent, and the home screen icon");
+    static final String PAGE_ACCENT_NOTE = pick("Цвет кнопок, вкладок и переключателей", "Колір кнопок, вкладок і перемикачів", "The colour of buttons, tabs and switches");
+    static final String MD3_TIKTOK = pick("TikTok в стиле Material 3", "TikTok у стилі Material 3", "TikTok in Material 3 style");
+    static final String PAGE_MD3_NOTE = pick("Панель, лента, профиль, входящие и комментарии", "Панель, стрічка, профіль, вхідні й коментарі", "Tab bar, feed, profile, inbox and comments");
+    static final String PAGE_THEME_NOTE = pick("Цвета фона и текста, цвета телефона и AMOLED", "Кольори фону й тексту, кольори телефона та AMOLED", "Background and text colours, the phone's palette and AMOLED");
+    static final String PAGE_FONT_NOTE = pick("Шрифт для всего TikTok", "Шрифт для всього TikTok", "A typeface for all of TikTok");
+    static final String PAGE_BADGES_NOTE = pick("Твои значки, их порядок и подтверждение аккаунта", "Твої значки, їх порядок і підтвердження акаунта", "Your badges, their order and proving the account");
+    static final String PAGE_GRADIENT_NOTE = pick("Цветной ник, который видят все с RubTT", "Кольоровий нік, який бачать усі з RubTT", "A coloured name everyone with RubTT sees");
+    static final String PROFILE_VIEW = pick("Вид профиля", "Вигляд профілю", "Profile layout");
+    static final String PAGE_LOOK_NOTE = pick("Новый или старый профиль TikTok", "Новий або старий профіль TikTok", "TikTok's new or old profile");
+    static final String NEW_PROFILE_NOTE = pick("Новый профиль TikTok с именем слева.", "Новий профіль TikTok з ім'ям ліворуч.", "TikTok's new profile with the name on the left.");
+    static final String PAGE_ACCOUNT_NOTE = pick("Айди твоего аккаунта", "Айді твого акаунта", "Your account’s ids");
+    static final String PAGE_FEED_NOTE = pick("Реклама, эфиры, фото, упрощённая лента, фильтр по дате и хештеги", "Реклама, ефіри, фото, спрощена стрічка, фільтр за датою і хештеги", "Ads, lives, photos, the simplified feed, the date filter and hashtags");
+    static final String PAGE_VIDEO_NOTE = pick("Кнопки справа, дата, скорость, яркость и частота кадров", "Кнопки праворуч, дата, швидкість, яскравість і частота кадрів", "The buttons on the right, the date, speed, brightness and frame rate");
+    static final String PAGE_COMMENTS_NOTE = pick("Копирование комментариев", "Копіювання коментарів", "Copying comments");
+    static final String PAGE_BURN_NOTE = pick("Приглушает кнопки поверх видео", "Приглушує кнопки поверх відео", "Dims what sits over the video");
+    static final String PAGE_REGION_NOTE = pick("Страна, для которой TikTok подбирает ленту", "Країна, для якої TikTok підбирає стрічку", "The country TikTok picks the feed for");
+    static final String PAGE_DOWNLOADS_NOTE = pick("Без водяного знака, качество, кадры", "Без водяного знака, якість, кадри", "No watermark, quality, frames");
+    static final String PAGE_BACKUP_NOTE = pick("Сохранить и вернуть настройки мода", "Зберегти й повернути налаштування мода", "Save and restore the mod's settings");
+    static final String PAGE_DIAGNOSTICS_NOTE = pick("Отчёты о сбоях и подвисаниях", "Звіти про збої та підвисання", "Crash and lag reports");
+    static final String PAGE_DIARY_NOTE = pick("Журнал мода, если что-то сломалось", "Журнал мода, якщо щось зламалося", "The mod’s log, for when something breaks");
+    static final String PAGE_UPDATE_NOTE = pick("Версия, обновления и канал", "Версія, оновлення та канал", "Version, updates and the channel");
+    static final String PAGE_LINKS_NOTE = pick("Сайт, Telegram и исходники", "Сайт, Telegram і вихідний код", "Site, Telegram and the source");
+    static final String PAGE_THANKS_NOTE = pick("Кто помогал и как поддержать", "Хто допомагав і як підтримати", "Who helped, and how to support");
+    static final String PAGE_STREAKS_NOTE = pick("Чтобы серии не сгорали", "Щоб серії не згоряли", "So streaks do not run out");
+    static final String PAGE_NOTIFICATIONS_NOTE = pick("Какие уведомления TikTok показывать", "Які сповіщення TikTok показувати", "Which TikTok notifications to show");
+    static final String PAGE_DEP_NOTE = pick("Казино понарошку и значок за победу", "Казино понарошку і значок за перемогу", "A pretend casino with a badge to win");
+    static final String PAGE_RUBBLE_NOTE = pick("Интерфейс TikTok падает и катается по экрану", "Інтерфейс TikTok падає й котиться екраном", "TikTok's buttons fall and roll about");
+    static final String PAGE_SCREAMERS_NOTE = pick("Внезапный кот поверх ленты", "Раптовий кіт поверх стрічки", "A sudden cat over the feed");
+    static final String PAGE_TILCAYO_NOTE = pick("Тилкайо бегают и прыгают внизу экрана", "Тілкайо бігають і стрибають унизу екрана", "Tilcayos run and jump along the bottom");
+    static final String PAGE_CAT_NOTE = pick("Толстый тилкайо", "Товстий тілкайо", "The fat tilcayo");
+    static final String AMOLED = pick("AMOLED", "AMOLED", "AMOLED");
+    static final String AMOLED_NOTE = pick("Чистый чёрный вместо тёмно-серого.", "Чистий чорний замість темно-сірого.", "Pure black instead of dark grey.");
+    static final String AMOLED_LIGHT = pick("Работает только с тёмной темой TikTok.", "Працює лише з темною темою TikTok.", "Works with TikTok's dark theme only.");
+    static final String SIMPLE_FEED = pick("Упрощённая лента", "Спрощена стрічка", "Simplified feed");
+    static final String SIMPLE_FEED_ABOUT = pick("Что это и откуда идея", "Що це і звідки ідея", "What it is and whose idea");
+    static final String SIMPLE_FEED_NOTE = pick("Меньше всего поверх видео: без вкладок сверху, аватара и пластинки. Идея из мода TikTok You.", "Менше всього поверх відео: без вкладок зверху, аватара й платівки. Ідея з моду TikTok You.", "Less over the video: no top tabs, avatar or spinning record. The idea comes from the TikTok You mod.");
+    static final String DATE_FILTER = pick("Фильтр по дате", "Фільтр за датою", "Filter by date");
+    static final String DATE_FILTER_OFF = pick("Выключен", "Вимкнено", "Off");
+    static final String DATE_FILTER_NOTE = pick("Видео старше выбранного не показываются. Свои видео и эфиры остаются.", "Відео, старші за вибране, не показуються. Свої відео й ефіри лишаються.", "Older videos are hidden. Your own videos and lives stay.");
+    static String dateFilterRecent(int n, int unit) {
+        return pick("Не старше: ", "Не старші за: ", "No older than ") + n + " " + dateUnit(unit, n);
+    }
+    static String daysAgo(int n) {
+        return pick(counted(n, "день", "дня", "дней"), counted(n, "день", "дні", "днів"),
+                n + (n == 1 ? " day" : " days"));
+    }
+    static String hoursAgo(int n) {
+        return pick(counted(n, "час", "часа", "часов"), counted(n, "годину", "години", "годин"),
+                n + (n == 1 ? " hour" : " hours"));
+    }
+    static String minutesAgo(int n) {
+        return pick(counted(n, "минута", "минуты", "минут"), counted(n, "хвилина", "хвилини", "хвилин"),
+                n + (n == 1 ? " minute" : " minutes"));
+    }
+    static String photosCount(int count) {
+        return pick("Фото: " + count, "Фото: " + count, "Photos: " + count);
+    }
+    static String pickedPhotos(int count) {
+        return pick("Скачать выбранные (" + count + ")", "Завантажити вибрані (" + count + ")", "Download selected (" + count + ")");
+    }
+    static String verdictWhy(boolean good, String reason) {
+        String said = good
+                ? pick("Администрация RubTT отметила этот аккаунт как хороший.", "Адміністрація RubTT позначила цей акаунт як хороший.", "The RubTT team marked this account as a good one.")
+                : pick("Администрация RubTT отметила этот аккаунт как плохой.", "Адміністрація RubTT позначила цей акаунт як поганий.", "The RubTT team marked this account as a bad one.");
+        if (reason == null || reason.length() == 0) return said;
+        return said + " " + pick("Причина: «", "Причина: «", "Reason: \u201C") + reason + pick("»", "»", "\u201D");
+    }
 }

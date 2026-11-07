@@ -48,6 +48,7 @@ class FeatureHarness {
   check(Feed.getItems(null)==null,"null safe");System.out.println("heart and ad runtime checks passed");
  }
 }"""
+STUBS['cat/narezany/rubtt/FeedDates.java']='package cat.narezany.rubtt;class FeedDates{static boolean active(){return false;}static boolean leavesOut(long t){return false;}}'
 STUBS['cat/narezany/rubtt/Tags.java']='package cat.narezany.rubtt;class Tags{static java.util.List<String> all(){return java.util.Collections.emptyList();}static boolean blocks(com.ss.android.ugc.aweme.feed.model.Aweme post){return false;}}'
 STUBS['cat/narezany/rubtt/NativeRead.java']='package cat.narezany.rubtt;class NativeRead{static Object get(Object o,String s){try{return o.getClass().getMethod(s).invoke(o);}catch(Exception e){return null;}}static long number(Object o){return o instanceof Number?((Number)o).longValue():0;}}'
 STUBS['cat/narezany/rubtt/FeedBlacklist.java']='package cat.narezany.rubtt;class FeedBlacklist{static java.util.Map items(){return java.util.Collections.emptyMap();}static java.util.Map cards(){return java.util.Collections.emptyMap();}static boolean hides(Object o){return false;}}'
