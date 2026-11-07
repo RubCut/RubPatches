@@ -1,11 +1,13 @@
-# Pulls MargyT's own source in, so a rebase can be done by hand offline.
+# Brings MargyT's own source into this repository, so a rebase can be done
+# without reaching its forge.
 #
-# RubTT is a fork: `inject/java/cat/narezany/rubtt` is MargyT's
+# RubTT is a fork of MargyT: `inject/java/cat/narezany/rubtt` is MargyT's
 # `inject/java/cat/narezany/margyt` with the package renamed, and `rubtt/` is
-# `margyt/`. The forge MargyT lives on is not always reachable from a working
-# machine, so this job clones it here and leaves the trees as a build artifact
-# -- the fork point and the newest tag side by side, which is everything a
-# three-way merge wants.
+# `margyt/`. MargyT lives on a small forge of its own, which is not reachable
+# from every machine, so this job fetches it here and leaves the newest tag and
+# the fork point as a branch -- `upstream/margyt`, an orphan branch holding
+# nothing but MargyT's own tree, one directory per tag. It is not merged into
+# anything and nothing builds from it; it is a doorway, not a copy.
 #
 # Run it from the Actions tab when MargyT ships something worth taking.
 name: Bring upstream MargyT in
@@ -17,34 +19,37 @@ on:
       - ".github/workflows/upstream-sync.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   fetch:
     runs-on: ubuntu-latest
     steps:
-      - name: Clone MargyT and list its tags
+      - name: Clone MargyT and its tags
         run: |
           git clone --quiet https://git.narez.xyz/narezany/MargyT upstream
           git -C upstream tag --list 'v2*' | sort -V | tee tags.txt
-
-      - name: Cut the trees a merge needs
-        run: |
           newest=$(grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' tags.txt | sort -V | tail -1)
-          echo "newest $newest"
-          # every tag whole: a path that one release did not have yet would
-          # make `git archive` refuse the lot
-          for tag in v2.0.5 "$newest"; do
-            mkdir -p "out/$tag"
-            git -C upstream archive --format=tar "$tag" | tar -x -C "out/$tag"
-          done
-          cp tags.txt out/
-          tar -czf margyt-upstream.tar.gz -C out .
-          ls -l margyt-upstream.tar.gz
+          echo "NEWEST=$newest" >> "$GITHUB_ENV"
 
-      - name: Leave it behind
-        uses: actions/upload-artifact@v4
-        with:
-          name: margyt-upstream
-          path: margyt-upstream.tar.gz
-          if-no-files-found: error
+      - name: Cut the trees a three-way merge wants
+        run: |
+          # a whole tag, not a list of paths: one release did not have every
+          # path the next one does, and `git archive` refuses the lot
+          for tag in v2.0.5 "$NEWEST"; do
+            mkdir -p "tree/$tag"
+            git -C upstream archive --format=tar "$tag" | tar -x -C "tree/$tag"
+          done
+          cp tags.txt tree/
+
+      - name: Leave them on a branch of their own
+        run: |
+          cd tree
+          git init --quiet -b upstream/margyt .
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit --quiet -m "MargyT $NEWEST, and 2.0.5 as the fork point"
+          git push --force \
+            "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" \
+            HEAD:refs/heads/upstream/margyt
