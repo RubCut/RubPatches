@@ -26,7 +26,7 @@ number happened to look pink.
 
 `inject/java/cat/narezany/rubtt/Palette.java` is the same arithmetic in Java,
 for the colours that are only known while the app is running. The two have to
-agree; `tests/test_margyt.py` pins the cases that say so.
+agree; `tests/test_palette_parity.py` pins the cases that say so.
 """
 
 from __future__ import annotations

@@ -88,8 +88,8 @@ def device(cookie):
     """The mark a browser is showing, or nothing."""
     for piece in (cookie or "").split(";"):
         piece = piece.strip()
-        if piece.startswith("margyt_seen="):
-            value = piece[len("margyt_seen="):]
+        if piece.startswith("rubtt_seen="):
+            value = piece[len("rubtt_seen="):]
             if 32 <= len(value) <= 128 and value.isalnum():
                 return value
     return ""

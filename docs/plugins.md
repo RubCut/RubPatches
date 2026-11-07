@@ -26,7 +26,7 @@ This is written the same way in the settings screen, so nobody finds out later.
 An ordinary zip renamed to `.mtp`:
 
 ```
-margyt.hello.mtp
+rubtt.hello.mtp
 ├── manifest.json   required
 ├── classes.dex     required
 └── icon.png        optional
@@ -40,7 +40,7 @@ Without one the list draws a dot in the accent colour.
 
 ```json
 {
-  "id": "margyt.hello",
+  "id": "rubtt.hello",
   "name": "Hello",
   "name_ru": "Привет",
   "version": "1.0",
@@ -123,7 +123,7 @@ There is no hooking of TikTok's own methods at runtime. Without root there is
 no Xposed, and the app's own code is obfuscated and rewritten between releases;
 the hooks above are the ones the mod can promise to still mean the same thing
 next month. If you need one that is not here, the honest route is a patch to
-`margyt/dexpatch.py` that adds a call site, and a hook next to these — open an
+`rubtt/dexpatch.py` that adds a call site, and a hook next to these — open an
 issue rather than reaching in with reflection that will break.
 
 ## Building one
@@ -133,7 +133,7 @@ python3 -m rubtt.plugin examples/hello
 ```
 
 That compiles `java/` against `android.jar` and the plugin api, dexes it, and
-writes `margyt.hello.mtp` next to the manifest. It needs a JDK and Python 3 and
+writes `rubtt.hello.mtp` next to the manifest. It needs a JDK and Python 3 and
 nothing else: the toolchain is the same pinned one `build.sh` downloads into
 `tools/`, so whichever you run first fetches it.
 

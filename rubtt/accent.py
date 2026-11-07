@@ -14,7 +14,7 @@ appears, so the new one goes exactly where the old one was.
 
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 from .apkzip import Apk
 from .arsc import Arsc
@@ -29,7 +29,7 @@ def bake(apk: Apk, arsc: Arsc, old: int, new: int, pairs: Dict[int, int] = None)
     """Move TikTok's red family onto the accent, in the table and in compiled XML.
 
     Not one value: the family, at every opacity it is used at, mapped by the
-    step that takes the brand pink to the chosen colour. margyt/palette.py says
+    step that takes the brand pink to the chosen colour. rubtt/palette.py says
     what is taken over and what is left alone.
 
     Asked for the colour the apk already has, this counts instead of writing --

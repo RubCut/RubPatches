@@ -43,8 +43,8 @@ REQUIRED = ("id", "name", "version", "author", "entry")
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
-        prog="margyt.plugin",
-        description="Pack a folder into an .mtp margyt plugin.",
+        prog="rubtt.plugin",
+        description="Pack a folder into an .mtp RubTT plugin.",
     )
     parser.add_argument("folder", help="the plugin's folder: manifest.json, java/, icon.png")
     parser.add_argument("-o", "--out", help="where the .mtp goes")

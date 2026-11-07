@@ -155,7 +155,7 @@ final class NavBar {
 
     /** Whether this is a bar the capsule is on, and so one whose background is not to be put back. */
     static boolean wears(View view) {
-        Capsule capsule = BARS.get(view);
+        Capsule capsule = capsuleOf(view);
         return capsule != null && capsule.worn;
     }
 
@@ -196,7 +196,18 @@ final class NavBar {
 
     // ----------------------------------------------------------- finding the bar
 
-    private static final WeakHashMap<View, Capsule> BARS = new WeakHashMap<View, Capsule>();
+    /**
+     * The bars the capsule is on. The capsule itself is on the bar, as a tag:
+     * it is a drawable, and a drawable keeps the view it is drawn on, so as a
+     * value here it kept every bar and its screen alive for good.
+     */
+    private static final WeakHashMap<View, Boolean> BARS = new WeakHashMap<View, Boolean>();
+    private static final int CAPSULE = 0x4D41634E;  // "MAcN"
+
+    private static Capsule capsuleOf(View bar) {
+        Object held = bar == null ? null : bar.getTag(CAPSULE);
+        return held instanceof Capsule ? (Capsule) held : null;
+    }
     private static WeakReference<ViewTreeObserver> watched = new WeakReference<ViewTreeObserver>(null);
     private static WeakReference<View> screen = new WeakReference<View>(null);
     private static long looked;
@@ -206,12 +217,12 @@ final class NavBar {
     private static final ViewTreeObserver.OnPreDrawListener EVERY_FRAME = () -> {
         try {
             boolean on = isEnabled(), any = false;
-            for (java.util.Map.Entry<View, Capsule> entry : BARS.entrySet()) {
-                View bar = entry.getKey();
-                if (bar == null || !bar.isAttachedToWindow()) continue;
+            for (View bar : BARS.keySet().toArray(new View[0])) {
+                Capsule capsule = capsuleOf(bar);
+                if (capsule == null || !bar.isAttachedToWindow()) continue;
                 any = true;
-                if (on) entry.getValue().settle((ViewGroup) bar);
-                else entry.getValue().leave((ViewGroup) bar);
+                if (on) capsule.settle((ViewGroup) bar);
+                else capsule.leave((ViewGroup) bar);
             }
             // TikTok builds the bar again now and then without the screen changing
             View root = screen.get();
@@ -250,8 +261,9 @@ final class NavBar {
         try {
             ViewGroup bar = find(root, root, 0);
             if (bar != null) {
-                if (!BARS.containsKey(bar)) {
-                    BARS.put(bar, new Capsule(bar.getResources().getDisplayMetrics().density));
+                if (capsuleOf(bar) == null) {
+                    bar.setTag(CAPSULE, new Capsule(bar.getResources().getDisplayMetrics().density));
+                    BARS.put(bar, Boolean.TRUE);
                     Diary.detail("nav bar: " + bar.getChildCount() + " tabs");
                 }
                 screen = new WeakReference<View>(root);
@@ -453,6 +465,7 @@ final class NavBar {
     // ----------------------------------------------------------- the capsule
 
     private static final class Capsule extends Drawable {
+        private WeakReference<View> glassHost=new WeakReference<View>(null);
         private final float unit;
         private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -464,7 +477,6 @@ final class NavBar {
         private Tab[] tabs = new Tab[0];
         private boolean worn;
         private int ground = Color.BLACK, accent;
-        private Drawable sampledFrom;
         private long sampledAt;
         /** Until when the bar is back in sight after a touch where it was. */
         private long peekUntil;
@@ -534,6 +546,7 @@ final class NavBar {
         };
 
         void settle(ViewGroup bar) {
+            glassHost=new WeakReference<View>(bar);
             long now = SystemClock.uptimeMillis();
             boolean changed = gather(bar);
             boolean moving = false;
@@ -703,7 +716,6 @@ final class NavBar {
             restoreBacking();
             restoreUnder();
             lower();
-            sampledFrom = null;
             bar.invalidate();
         }
 
@@ -847,97 +859,137 @@ final class NavBar {
          * captions and the rail stay where TikTok put them, and the grown
          * picture draws past them because every ancestor up to the first
          * full-height one clips nothing. TikTok lays the picture out again
-         * for every new video, so the growth is put back each frame it is
-         * missing, and taken away when the capsule leaves.
+         * for every new video, so the place it grows to is worked out again
+         * once a second and whenever the picture that has it changes, the
+         * growth is held where it is between those looks, and it is taken
+         * away when the capsule leaves.
          */
         private void openUp(ViewGroup bar) {
             try {
                 long now = SystemClock.uptimeMillis();
-                if (raised == null || !raised.isAttachedToWindow()
-                        || now - raisedLooked >= 1000L) {
+                // The picture is found again when there is none, when it has been
+                // taken out of the screen, and once a second besides -- but only
+                // the finding is done that often. What is already grown stays
+                // grown between those looks: letting go of it every second put
+                // the frame back under the capsule, once a second, for ever.
+                if (raised == null || !raised.isAttachedToWindow() || now - raisedLooked >= 1000L) {
                     raisedLooked = now;
-                    lower();
-                    android.view.TextureView tape = largest(bar.getRootView());
-                    android.util.Log.d("RubTTDbg", "openUp: tape=" + (tape != null ? "found" : "null"));
                     int[] at = new int[2];
                     bar.getLocationOnScreen(at);
                     int bottom = at[1] + bar.getHeight();
-                    if (tape != null) {
-                        int[] loc = new int[2];
-                        tape.getLocationOnScreen(loc);
-                        if (loc[1] + tape.getHeight() < bottom - 4 && loc[1] < bottom) {
-                            Object parent = tape.getParent();
-                            if (parent instanceof View) {
-                                int[] pl = new int[2];
-                                ((View) parent).getLocationOnScreen(pl);
-                                int target = bottom - pl[1];
-                                if (target > tape.getBottom()) {
-                                    raised = tape;
-                                    raisedWas = tape.getBottom();
-                                    raisedTo = target;
-                                    android.util.Log.d("RubTTDbg", "openUp: raising from " + raisedWas + " to " + raisedTo);
-                                    Object home = parent;
-                                    while (home instanceof View) {
-                                        View holder = (View) home;
-                                        int[] hl = new int[2];
-                                        holder.getLocationOnScreen(hl);
-                                        if (hl[1] + holder.getHeight() >= bottom - 4) break;
-                                        if (holder instanceof ViewGroup) {
-                                            ViewGroup group = (ViewGroup) holder;
-                                            if (opened.indexOf(group) < 0) {
-                                                opened.add(group);
-                                                openedWas.add(Boolean.valueOf(group.getClipChildren()));
-                                                openedPadWas.add(Boolean.valueOf(group.getClipToPadding()));
-                                            }
-                                        }
-                                        home = holder.getParent();
-                                    }
-                                }
-                            }
+                    android.view.TextureView tape = largest(bar.getRootView());
+                    if (tape != null && tape == raised) {
+                        // the same picture all along: TikTok lays it out again
+                        // for every new video, and whatever it has given the
+                        // picture since the last look is its own height again
+                        if (raised.getBottom() != raisedTo) raisedWas = raised.getBottom();
+                        int grown = grownTo(tape, bottom);
+                        if (grown > 0) raisedTo = grown;
+                        else lower();  // it reaches the bar by itself now
+                    } else {
+                        lower();
+                        if (tape != null) {
+                            int grown = grownTo(tape, bottom);
+                            if (grown > 0) grow(tape, grown, bottom);
                         }
                     }
                 }
+                // what was laid out again since the last look is grown back,
+                // and the clipping that keeps the growth off the screen opened
                 if (raised != null) {
                     if (raised.getBottom() != raisedTo) {
                         raised.setBottom(raisedTo);
                         raised.invalidate();
                     }
-                    int fixed = 0;
                     for (int i = 0; i < opened.size(); i++) {
                         ViewGroup group = opened.get(i);
                         if (group.getClipChildren()) {
                             group.setClipChildren(false);
                             group.invalidate();
-                            fixed++;
                         }
                         if (group.getClipToPadding()) {
                             group.setClipToPadding(false);
                             group.invalidate();
-                            fixed++;
                         }
                     }
-                    android.util.Log.d("RubTTDbg", "openUp: bottom=" + raised.getBottom() + " clipOpened=" + fixed);
                 }
             } catch (Throwable ignored) {
             }
         }
 
-        /** The picture and the clipping of its ancestors are put back where they were. */
-        private void lower() {
-            try {
-                if (raised != null) {
-                    raised.setBottom(raisedWas);
-                    raised.invalidate();
+        /**
+         * Where this picture's bottom belongs for the capsule to lie on the
+         * frame rather than under it, or nought when it needs no growing.
+         *
+         * The picture is measured as TikTok made it, not as we left it: an
+         * already grown one carries our own height until the app lays it out
+         * again, and comparing that would answer that it is tall enough.
+         */
+        private int grownTo(android.view.TextureView tape, int bottom) {
+            if (tape == null) return 0;
+            int[] loc = new int[2];
+            tape.getLocationOnScreen(loc);
+            int natural = tape == raised ? raisedWas : tape.getBottom();
+            if (loc[1] + natural - tape.getTop() >= bottom - 4 || loc[1] >= bottom) return 0;
+            Object parent = tape.getParent();
+            if (!(parent instanceof View)) return 0;
+            int[] pl = new int[2];
+            ((View) parent).getLocationOnScreen(pl);
+            int target = bottom - pl[1];
+            return target > natural ? target : 0;
+        }
+
+        /** Grow the picture to the place it belongs in, opening every ancestor it then draws through. */
+        private void grow(android.view.TextureView tape, int target, int bottom) {
+            raised = tape;
+            raisedWas = tape.getBottom();
+            raisedTo = target;
+            Object home = tape.getParent();
+            while (home instanceof View) {
+                View holder = (View) home;
+                int[] hl = new int[2];
+                holder.getLocationOnScreen(hl);
+                if (hl[1] + holder.getHeight() >= bottom - 4) break;
+                if (holder instanceof ViewGroup) {
+                    ViewGroup group = (ViewGroup) holder;
+                    if (opened.indexOf(group) < 0) {
+                        opened.add(group);
+                        openedWas.add(Boolean.valueOf(group.getClipChildren()));
+                        openedPadWas.add(Boolean.valueOf(group.getClipToPadding()));
+                    }
                 }
+                home = holder.getParent();
+            }
+        }
+
+        /**
+         * The picture and the clipping of its ancestors are put back where
+         * they were. The clipping goes back first: an ancestor that has
+         * already been taken out of the screen goes with it, and a view
+         * asked to draw from inside a dead tree is a chance taken for no
+         * reason at all.
+         */
+        private void lower() {
+            android.view.TextureView picture = raised;
+            int was = raisedWas;
+            raised = null;
+            try {
                 for (int i = 0; i < opened.size(); i++) {
                     ViewGroup group = opened.get(i);
-                    group.setClipChildren(openedWas.get(i).booleanValue());
-                    group.setClipToPadding(openedPadWas.get(i).booleanValue());
-                    group.invalidate();
+                    try {
+                        group.setClipChildren(openedWas.get(i).booleanValue());
+                        group.setClipToPadding(openedPadWas.get(i).booleanValue());
+                        group.invalidate();
+                    } catch (Throwable detached) {
+                        // a screen taken apart under us: its clipping went with it
+                    }
+                }
+                if (picture != null) {
+                    picture.setBottom(was);
+                    picture.invalidate();
                 }
             } catch (Throwable ignored) {
             }
-            raised = null;
             opened.clear();
             openedWas.clear();
             openedPadWas.clear();
@@ -1154,6 +1206,7 @@ final class NavBar {
 
         @Override
         public void draw(Canvas canvas) {
+            if(GlassBackdrop.capturing)return;
             if (tabs.length == 0 || body.isEmpty() || away >= 1f) return;
             int veil = away > 0f ? canvas.saveLayerAlpha(body.left - unit, body.top - 8f * unit, body.right + unit,
                     body.bottom + unit, Math.round(255f * (1f - away))) : -1;
@@ -1163,23 +1216,29 @@ final class NavBar {
             int lit = mix(accent | 0xFF000000, ink, 0.40f);
             int quiet = mix(shell, ink, 0.80f);
 
-            float round = body.height() / 2f;
+            // a pill unless the style gives the bar corners of its own --
+            // and nothing at all when the capsule's backing is off
+            float round = Design.style().bar<0?body.height()/2f:Design.style().bar*unit;
             if (!isTransparent()) {
                 fill.setColor(shell);
-                canvas.drawRoundRect(body, round, round, fill);
+                if(!Design.draw(canvas,this,glassHost.get(),body,round,round,shell,0))canvas.drawRoundRect(body, round, round, fill);
                 line.setStrokeWidth(unit);
                 line.setColor(edge);
                 box.set(body);
                 box.inset(unit / 2f, unit / 2f);
-                canvas.drawRoundRect(box, round, round, line);
+                if(!Design.frosted())canvas.drawRoundRect(box, round, round, line);
             }
 
             float middle = body.centerY(), icon = 24f * unit, gap = 6f * unit;
+            // brought back by a touch, the bar comes back whole: at the strongest
+            // dimming the tabs themselves are see-through and it used to come back empty
+            boolean peeking = SystemClock.uptimeMillis() < peekUntil;
             for (Tab tab : tabs) {
                 int saved = -1;
-                if (tab.shown < 0.99f) {
+                float seen = peeking ? 1f : tab.shown;
+                if (seen < 0.99f) {
                     saved = canvas.saveLayerAlpha(tab.left, body.top, tab.right, body.bottom,
-                            Math.round(tab.shown * 255f));
+                            Math.round(seen * 255f));
                 }
                 float centre = (tab.left + tab.right) / 2f;
                 if (tab.kind == CREATE) {
@@ -1190,7 +1249,11 @@ final class NavBar {
                         box.set(centre - half, body.top + 4f * unit, centre + half, body.bottom - 4f * unit);
                         fill.setColor(pill);
                         fill.setAlpha(Math.round(255f * Math.min(1f, tab.open * 1.5f)));
-                        canvas.drawRoundRect(box, box.height() / 2f, box.height() / 2f, fill);
+                        if(Design.frosted()){
+                            fill.setColor((pill&0xffffff)|0x66000000);
+                            float inside=Design.style().bar<0?box.height()/2f:Design.style().bar*.5f*unit;
+                            canvas.drawRoundRect(box,inside,inside,fill);
+                        }else canvas.drawRoundRect(box, box.height() / 2f, box.height() / 2f, fill);
                     }
                     // a name too long for its tab is set a little smaller before it is cut short
                     float badge = badge(tab);

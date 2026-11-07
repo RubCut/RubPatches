@@ -103,9 +103,9 @@ class GuardTest(unittest.TestCase):
         self.assertGreater(guard.wait("1.1.1.1", mark), 0)
 
     def test_the_mark_is_read_out_of_the_cookie_and_nothing_else_is(self):
-        self.assertEqual(guard.device("margyt=1.2; margyt_seen=" + "a" * 64), "a" * 64)
-        self.assertEqual(guard.device("margyt_seen=short"), "")
-        self.assertEqual(guard.device("margyt_seen=" + "a" * 40 + "';--"), "")
+        self.assertEqual(guard.device("rubtt=1.2; rubtt_seen=" + "a" * 64), "a" * 64)
+        self.assertEqual(guard.device("rubtt_seen=short"), "")
+        self.assertEqual(guard.device("rubtt_seen=" + "a" * 40 + "';--"), "")
         self.assertEqual(guard.device(""), "")
 
     def test_a_form_from_another_site_is_not_the_panels(self):

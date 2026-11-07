@@ -32,7 +32,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
 import badges as service
+import chatter
 import patcher
+import mc
 import tiktok
 
 TOKEN_FILE = os.path.join(HERE, "bot.txt")
@@ -58,6 +60,7 @@ def token():
 
 def prepare():
     service.prepare()
+    chatter.prepare()
     db = service.connect()
     db.commit()
     db.close()
@@ -338,7 +341,7 @@ def call(what, **fields):
 def upload(what, field, name, blob, **fields):
     """A method call carrying a file, as multipart -- the only way to hand
     Telegram bytes rather than an address it has to fetch itself."""
-    line = "----margyt%d" % time.time_ns()
+    line = "----rubtt%d" % time.time_ns()
     body = bytearray()
     for key, value in fields.items():
         body += ("--%s\r\nContent-Disposition: form-data; name=\"%s\"\r\n\r\n%s\r\n"
@@ -440,9 +443,15 @@ def known_face(url):
 HELP = (
     "<b>RubTT</b>\n\n"
     "<b>профиль</b> &lt;ник в тиктоке или айди&gt; — ник, аватарка и значки\n"
-    "<b>иконка</b> — пришли картинку документом и свой айди, попадёт владельцу\n\n"
+    "<b>иконка</b> — пришли картинку документом и свой айди, попадёт владельцу\n"
+    "<b>/mc</b> &lt;ник&gt; — привязать ник в Minecraft для сервера MargyCraft\n"
+    "<b>/chatter</b> — болталка для групп: запоминает слова чата и иногда встревает, включают админы\n\n"
     "В любом чате можно написать <code>@%s ник</code> — покажет то же самое."
 )
+
+
+#: private chats the bot has asked for a Minecraft name, and when
+ASKING = {}
 
 
 def handle(update):
@@ -477,9 +486,37 @@ def handle(update):
         code = text.split("p_", 1)[1].strip()
         name = from_who.get("first_name") or from_who.get("username") or ""
         if from_who.get("id") and patcher.claim(code, from_who["id"], name):
-            return say(chat, "Готово. Возвращайся в <b>RubP</b>.")
+            return say(chat, "Готово. Возвращайся в <b>Margy Patcher</b>.")
         return say(chat, "Этот вход уже не действует. Нажми «Войти через Telegram» "
                          "в патчере ещё раз.")
+
+    # MargyCraft: a player ties the name they play under to this Telegram account, once, from
+    # a phone if that is what they have. Only in a private chat, and a bare message is a name
+    # only straight after being asked for one.
+    if message["chat"].get("type") == "private" and from_who.get("id"):
+        word = low.split()[0].split("@")[0] if low else ""
+        rest = text.split(None, 1)[1].strip() if len(text.split(None, 1)) > 1 else ""
+        who, first = from_who["id"], from_who.get("first_name") or from_who.get("username") or ""
+        if word in ("/mc", "/minecraft"):
+            if rest:
+                ASKING.pop(chat, None)
+                return say(chat, mc.bind(who, first, rest))
+            ASKING[chat] = time.time()
+            return say(chat, mc.mine(who) + "\n\nЧтобы привязать ник, пришли его следующим сообщением.")
+        if word == "/mcdel":
+            return say(chat, mc.unbind(who, rest))
+        asked = ASKING.get(chat)
+        if asked and time.time() - asked < 180 and text and not text.startswith("/"):
+            ASKING.pop(chat, None)
+            return say(chat, mc.bind(who, first, text))
+
+    # Somebody opened the link a MargyCraft player was given: pressing Start tells us
+    # who they are, and the answer is the code to type in the game.
+    if low.startswith("/start m_"):
+        token = text.split("m_", 1)[1].strip()
+        if from_who.get("id"):
+            return say(chat, mc.claim(token, from_who["id"], from_who.get("first_name") or from_who.get("username") or ""))
+        return
 
     # The owner says which group is the supporters' one, from inside it.
     if low.split("@")[0] == "/supporters":
@@ -495,8 +532,12 @@ def handle(update):
         patcher.set_group(chat)
         return say(chat, "Запомнил: это группа поддержавших.")
 
+    group = message["chat"].get("type") in ("group", "supergroup")
+    if group and low and low.split()[0].split("@")[0] == "/chatter":
+        return chatter_command(message, chat, from_who, text)
+
     if low in ("/start", "/help", "помощь"):
-        me = call("getMe").get("result", {}).get("username", "margyt_bot")
+        me = call("getMe").get("result", {}).get("username", "rubtt_bot")
         return say(chat, HELP % me)
 
     # One name to ask about, and it is the TikTok one. A telegram name is a
@@ -515,6 +556,77 @@ def handle(update):
     if low.startswith("иконка"):
         return say(chat, "Пришли картинку <b>документом</b>, а в подписи — "
                          "свой айди в тиктоке.")
+
+    # Anything else said in a group goes to the chatterbox, which does nothing
+    # there until an admin switches it on.
+    if (message["chat"].get("type") in ("group", "supergroup") and text and not text.startswith("/")
+            and not from_who.get("is_bot")):
+        me = myself()
+        replied = (message.get("reply_to_message") or {}).get("from") or {}
+        spoken_to = replied.get("id") == me.get("id") or ("@" + me.get("username", "-")).lower() in low
+        remark = chatter.hear(chat, text, spoken_to)
+        if remark:
+            return say(chat, html.escape(remark), message["message_id"] if spoken_to else None)
+
+
+_me = {}
+
+
+def myself():
+    """The bot's own id and name, asked of Telegram once."""
+    if not _me:
+        _me.update(call("getMe").get("result", {}))
+    return _me
+
+
+def admin(chat, message, from_who):
+    """Whether whoever wrote [message] runs [chat]: its admins, an admin writing as the chat, or the owner."""
+    if from_who.get("id") == OWNER:
+        return True
+    if (message.get("sender_chat") or {}).get("id") == chat:
+        return True
+    member = call("getChatMember", chat_id=chat, user_id=from_who.get("id")).get("result", {})
+    return member.get("status") in ("creator", "administrator")
+
+
+CHATTER_HELP = ("Болталка: запоминаю, что пишут в этом чате, и иногда встреваю фразой из этих же слов. "
+                "Это не нейросеть, просто цепочки слов.\n\n"
+                "<code>/chatter on</code> включить\n<code>/chatter off</code> выключить, память остаётся\n"
+                "<code>/chatter forget</code> стереть всё, что запомнил\n"
+                "<code>/chatter 15</code> как часто встревать, от 1 до 50 процентов\n\n"
+                "Ответь на моё сообщение или упомяни меня, и я отвечу всегда.")
+
+
+def chatter_command(message, chat, from_who, text):
+    parts = text.split()
+    what = parts[1].lower() if len(parts) > 1 else ""
+    on, chance, links = chatter.state(chat)
+    if not what:
+        return say(chat, "Болталка <b>%s</b>, знаю %d связок слов, встреваю примерно в %d%% сообщений.\n\n%s"
+                   % ("включена" if on else "выключена", links, chance, CHATTER_HELP), message["message_id"])
+    if not admin(chat, message, from_who):
+        return say(chat, "Включать и настраивать болталку могут только админы чата.", message["message_id"])
+    if what in ("on", "вкл"):
+        chatter.switch(chat, True)
+        note = ""
+        # with privacy mode on and no admin rights a bot sees only commands and replies to it
+        if not myself().get("can_read_all_group_messages"):
+            member = call("getChatMember", chat_id=chat, user_id=myself().get("id")).get("result", {})
+            if member.get("status") != "administrator":
+                note = "\n\nЧтобы я видел все сообщения, а не только команды, сделайте меня админом чата."
+        return say(chat, "Болталка включена. Теперь запоминаю, что тут пишут, и иногда встреваю."
+                   " Выключить: <code>/chatter off</code>." + note, message["message_id"])
+    if what in ("off", "выкл"):
+        chatter.switch(chat, False)
+        return say(chat, "Болталка выключена: не запоминаю и молчу. Память осталась, стереть её: "
+                         "<code>/chatter forget</code>.", message["message_id"])
+    if what in ("forget", "забудь"):
+        chatter.forget(chat)
+        return say(chat, "Стёр всё, что запомнил в этом чате.", message["message_id"])
+    if what.isdigit():
+        return say(chat, "Буду встревать примерно в %d%% сообщений." % chatter.set_chance(chat, int(what)),
+                   message["message_id"])
+    return say(chat, CHATTER_HELP, message["message_id"])
 
 
 def offered(message, chat, from_who, caption):

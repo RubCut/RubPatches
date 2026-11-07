@@ -32,7 +32,6 @@ STUBS['cat/narezany/rubtt/Version.java']='package cat.narezany.rubtt;class Versi
 STUBS['cat/narezany/rubtt/FeedBlacklist.java']='package cat.narezany.rubtt;class FeedBlacklist{static void reload(){}}'
 STUBS['cat/narezany/rubtt/PlayerTools.java']='package cat.narezany.rubtt;class PlayerTools{static void accountChanged(){} static void cancelSmooth(){}}'
 STUBS['cat/narezany/rubtt/VideoActions.java']='package cat.narezany.rubtt;class VideoActions{static void accountChanged(){} static void bindNative(Object c){} static void selected(Object c,Object p){}}'
-STUBS['cat/narezany/rubtt/PinnedFriends.java']='package cat.narezany.rubtt;class PinnedFriends{static void reload(){}}'
 STUBS['cat/narezany/rubtt/ProfileLayout.java']='package cat.narezany.rubtt;class ProfileLayout{static void reload(){}}'
 STUBS['cat/narezany/rubtt/MessageTimes.java']='package cat.narezany.rubtt;class MessageTimes{static void reload(){}}'
 STUBS['cat/narezany/rubtt/ModNotifications.java']='package cat.narezany.rubtt;class ModNotifications{static void reload(){}}'
@@ -46,7 +45,7 @@ public class AppearanceHarness {
   Context ctx=new Context();ctx.files=new java.io.File(args[0]);Margy.ctx=ctx;
   SharedPreferences legacy=ctx.getSharedPreferences("mod",0);
   legacy.edit().putString("account_id","111").putInt("accent",123).putBoolean("profile_gradient_on",true).putString("font","file").putString("profile_sync_token","secret").apply();
-  java.io.File old=new java.io.File(ctx.files,"margyt/font");old.getParentFile().mkdirs();java.nio.file.Files.write(old.toPath(),new byte[]{1,2});
+  java.io.File old=new java.io.File(ctx.files,"rubtt/font");old.getParentFile().mkdirs();java.nio.file.Files.write(old.toPath(),new byte[]{1,2});
   Service a=new Service(new User("111","Lolipuzik1","lolipuzik1")),b=new Service(new User("222","Bob2","bob2"));
   Account.getCurUser(a);SharedPreferences one=AccountAppearance.prefs(ctx);
   check(one.getInt("accent",0)==123 && one.getBoolean("profile_gradient_on",false),"the one set starts from the old settings");
@@ -67,17 +66,17 @@ public class AppearanceHarness {
   // settings that were kept an account: the one set is a copy of the last account's
   Context kept=new Context();kept.files=new java.io.File(args[0],"kept");
   kept.getSharedPreferences("mod",0).edit().putString("account_id","222").putInt("accent",1).apply();
-  kept.getSharedPreferences("margyt_appearance_111",0).edit().putBoolean("_initialized",true).putInt("accent",5).apply();
-  kept.getSharedPreferences("margyt_appearance_222",0).edit().putBoolean("_initialized",true).putInt("accent",777).putString("font","mine").apply();
-  java.io.File theirs=new java.io.File(kept.files,"margyt/accounts/222/font");theirs.getParentFile().mkdirs();java.nio.file.Files.write(theirs.toPath(),new byte[]{7});
+  kept.getSharedPreferences("rubtt_appearance_111",0).edit().putBoolean("_initialized",true).putInt("accent",5).apply();
+  kept.getSharedPreferences("rubtt_appearance_222",0).edit().putBoolean("_initialized",true).putInt("accent",777).putString("font","mine").apply();
+  java.io.File theirs=new java.io.File(kept.files,"rubtt/accounts/222/font");theirs.getParentFile().mkdirs();java.nio.file.Files.write(theirs.toPath(),new byte[]{7});
   Diary.said.clear();SharedPreferences shared=AccountAppearance.prefs(kept);
   check(shared.getInt("accent",0)==777 && "mine".equals(shared.getString("font","")),"the last account's settings become everybody's");
-  check(new java.io.File(kept.files,"margyt/accounts/shared/font").isFile() && theirs.isFile(),"its files are copied, and left where they were");
-  check(kept.getSharedPreferences("margyt_appearance_222",0).getInt("accent",0)==777,"and its own set is left as it was");
+  check(new java.io.File(kept.files,"rubtt/accounts/shared/font").isFile() && theirs.isFile(),"its files are copied, and left where they were");
+  check(kept.getSharedPreferences("rubtt_appearance_222",0).getInt("accent",0)==777,"and its own set is left as it was");
   check(Diary.said.size()==1,"said once: "+Diary.said);
   AccountAppearance.prefs(kept);check(Diary.said.size()==1,"and not brought over twice");
   Context out=new Context();out.files=new java.io.File(args[0],"out");
-  out.getSharedPreferences("margyt_appearance_guest",0).edit().putBoolean("_initialized",true).putInt("accent",31).apply();
+  out.getSharedPreferences("rubtt_appearance_guest",0).edit().putBoolean("_initialized",true).putInt("accent",31).apply();
   check(AccountAppearance.prefs(out).getInt("accent",0)==31,"nobody signed in: what the signed-out set had");
   check(!AccountAppearance.appearanceKey("account_id") && !AccountAppearance.appearanceKey("profile_preview_name"),"identity stays outside appearance");
   android.os.Handler.queued=true;Plugins.uid=null;
